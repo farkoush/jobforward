@@ -1,0 +1,16 @@
+[project]
+name = "jobforward"
+requires-python = ">=3.12"
+
+# Zero runtime dependencies — Python standard library only (research R-5, constitution P8).
+# The optional LLM scoring adapter is behind a narrow port and stays out of the core path.
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Run with: PYTHONUTF8=1 python -m pytest tests/
+# Run CLI with: PYTHONUTF8=1 python -m jobforward
