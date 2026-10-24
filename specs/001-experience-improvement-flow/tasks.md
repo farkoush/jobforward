@@ -65,11 +65,11 @@ each story can be implemented and tested independently.
   `edited` → `analyzed` after re-analysis; failed analysis keeps prior label)
   in `src/jobforward/models/status.py`, including a transition function that
   rejects illegal transitions
-- [ ] T006 Implement `src/jobforward/storage/repository.py`: atomic
+- [X] T006 Implement `src/jobforward/storage/repository.py`: atomic
   load/save of the single-user document `data/resume.json`
   (temp file + `os.replace`), `document_version` and `rubric_version` fields,
   and serialization of every entity from T004
-- [ ] T007 [P] Implement `src/jobforward/storage/events.py`: append-only
+- [X] T007 [P] Implement `src/jobforward/storage/events.py`: append-only
   `data/events.log.jsonl` writer with ISO-8601 `ts` and the event types from
   data-model.md (`path_start`, `analysis_completed`, `proposal_accepted`,
   `proposal_rejected`, `question_rejected`, `bullet_deleted`, `entry_deleted`,
