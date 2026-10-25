@@ -1,15 +1,15 @@
-﻿"""Atomic load/save of the single-user document ``data/resume.json``.
+"""Atomic load/save of the single-user document ``data/resume.json``.
 
-Per data-model.md and research R-4: the document is written atomically via a
-temp file + ``os.replace`` so a crash never leaves a partial file. Serializes
-every entity defined in :mod:`src.jobforward.models.entities`.
+Per data-model.md: the document is written atomically via a temp file +
+``os.replace`` so a crash never leaves a partial file. Serializes every
+entity defined in :mod:`src.jobforward.models.entities`.
+Document version 2, rubric-2.0.0 (three dimensions).
 """
 
 from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import tempfile
 from pathlib import Path
 from typing import Any, Optional
@@ -17,18 +17,25 @@ from typing import Any, Optional
 from ..models.entities import (
     ExperienceEntry,
     ExperienceEntryType,
+    EntrySource,
+    DraftReason,
     Bullet,
     BulletStatus,
     Ratings,
     QuestionRecord,
+    QuestionDimension,
+    GateDecision,
     ProposalRecord,
-    BulletHistory,
     ProposalDecision,
+    BulletHistory,
+    MatchAction,
+    MatchActionType,
+    MatchPriority,
+    SkillType,
 )
-from ..models.status import now_iso8601
 
-DOCUMENT_VERSION = 1
-DEFAULT_RUBRIC_VERSION = "rubric-1.0.0"
+DOCUMENT_VERSION = 2
+DEFAULT_RUBRIC_VERSION = "rubric-2.0.0"
 
 
 class Repository:
@@ -43,16 +50,9 @@ class Repository:
     def _serialize_ratings(self, ratings: Optional[Ratings]) -> Optional[dict]:
         if ratings is None:
             return None
-        return {
-            "role_action_clarity": ratings.role_action_clarity,
-            "outcome": ratings.outcome,
-            "skill_evidence": ratings.skill_evidence,
-            "structure_scannability": ratings.structure_scannability,
-        }
+        return ratings.as_dict()
 
-    def _serialize_history(
-        self, history: list[BulletHistory]
-    ) -> list[dict[str, Any]]:
+    def _serialize_history(self, history: list[BulletHistory]) -> list[dict[str, Any]]:
         return [
             {
                 "text": h.text,
@@ -68,12 +68,14 @@ class Repository:
     ) -> list[dict[str, Any]]:
         return [
             {
+                "dimension": q.dimension.value if q.dimension else None,
                 "text": q.text,
                 "round": q.round,
+                "gate_answer": q.gate_answer.value if q.gate_answer else None,
                 "answer": q.answer,
-                "rejected": q.rejected,
+                "skipped": q.skipped,
                 "answered_at": q.answered_at,
-                "rejected_at": q.rejected_at,
+                "skipped_at": q.skipped_at,
             }
             for q in questions
         ]
@@ -104,18 +106,31 @@ class Repository:
             "merge_warned": bullet.merge_warned,
         }
 
+    def _serialize_match_action(
+        self, match_action: Optional[MatchAction]
+    ) -> Optional[dict[str, Any]]:
+        if match_action is None:
+            return None
+        return {
+            "entry_id": match_action.entry_id,
+            "action": match_action.action.value,
+            "reason": match_action.reason,
+            "requirement_id": match_action.requirement_id,
+            "rubric_version": match_action.rubric_version,
+            "analyzed_at": match_action.analyzed_at,
+        }
+
     def _serialize_entry(self, entry: ExperienceEntry) -> dict[str, Any]:
         return {
             "id": entry.id,
             "type": entry.type.value,
             "title": entry.title,
-            "organization": entry.organization,
-            "start": entry.start,
-            "end": entry.end,
             "bullets": [self._serialize_bullet(b) for b in entry.bullets],
-            "draft": entry.draft,
-            "overall_score": entry.overall_score,
+            "draft_reason": entry.draft_reason.value if entry.draft_reason else None,
+            "source": entry.source.value,
+            "entry_score": entry.entry_score,
             "rubric_version": entry.rubric_version,
+            "match_action": self._serialize_match_action(entry.match_action),
             "deleted": entry.deleted,
         }
 
@@ -134,10 +149,9 @@ class Repository:
         if data is None:
             return None
         return Ratings(
+            context=data["context"],
             role_action_clarity=data["role_action_clarity"],
-            outcome=data["outcome"],
-            skill_evidence=data["skill_evidence"],
-            structure_scannability=data["structure_scannability"],
+            result=data["result"],
         )
 
     @staticmethod
@@ -156,12 +170,14 @@ class Repository:
     def _deserialize_questions(data: list[dict[str, Any]]) -> list[QuestionRecord]:
         return [
             QuestionRecord(
+                dimension=QuestionDimension(q["dimension"]) if q.get("dimension") else None,
                 text=q["text"],
                 round=q["round"],
+                gate_answer=GateDecision(q["gate_answer"]) if q.get("gate_answer") else None,
                 answer=q.get("answer"),
-                rejected=q.get("rejected", False),
+                skipped=q.get("skipped", False),
                 answered_at=q.get("answered_at"),
-                rejected_at=q.get("rejected_at"),
+                skipped_at=q.get("skipped_at"),
             )
             for q in data
         ]
@@ -193,23 +209,35 @@ class Repository:
         )
 
     @staticmethod
+    def _deserialize_match_action(data: Optional[dict[str, Any]]) -> Optional[MatchAction]:
+        if data is None:
+            return None
+        return MatchAction(
+            entry_id=data["entry_id"],
+            action=MatchActionType(data["action"]),
+            reason=data["reason"],
+            requirement_id=data["requirement_id"],
+            rubric_version=data["rubric_version"],
+            analyzed_at=data["analyzed_at"],
+        )
+
+    @staticmethod
     def _deserialize_entry(data: dict[str, Any]) -> ExperienceEntry:
         return ExperienceEntry(
             id=data["id"],
             type=ExperienceEntryType(data["type"]),
             title=data["title"],
-            organization=data.get("organization"),
-            start=data.get("start"),
-            end=data.get("end"),
             bullets=[Repository._deserialize_bullet(b) for b in data.get("bullets", [])],
-            draft=data.get("draft", False),
-            overall_score=data.get("overall_score"),
+            draft_reason=DraftReason(data["draft_reason"]) if data.get("draft_reason") else None,
+            source=EntrySource(data.get("source", "manual")),
+            entry_score=data.get("entry_score"),
             rubric_version=data.get("rubric_version"),
+            match_action=Repository._deserialize_match_action(data.get("match_action")),
             deleted=data.get("deleted", False),
         )
 
     # ------------------------------------------------------------------ #
-    # Load / save (atomic)
+    # Load / save (atomic) + id allocation
     # ------------------------------------------------------------------ #
     def load(self) -> list[ExperienceEntry]:
         """Load the document from disk. Returns an empty list if the file
@@ -237,3 +265,9 @@ class Repository:
             except OSError:
                 pass
             raise
+
+    @staticmethod
+    def next_entry_id(entries: list[ExperienceEntry]) -> int:
+        """max(persisted ids) + 1 so restarts never duplicate ids
+        (data-model.md id invariant)."""
+        return max((e.id for e in entries), default=0) + 1

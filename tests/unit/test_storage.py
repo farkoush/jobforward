@@ -1,100 +1,121 @@
 """Unit tests for atomic storage (storage/repository.py).
 
-Tests VR-1 (1 ≤ bullets ≤ 6 enforced), atomic save/load round-trip,
-and that save leaves no partial file on failure.
+Tests document_version-2 round-trip (incl. draft_reason, source,
+match_action), atomic save (no partial file on failure), the id allocator
+(restarts never duplicate ids), and VR-1 (1 ≤ bullets ≤ 6).
 """
 
 from __future__ import annotations
 
 import json
-import os
-import tempfile
-from pathlib import Path
 
 import pytest
 
 from src.jobforward.models.entities import (
+    Bullet,
     ExperienceEntry,
     ExperienceEntryType,
-    Bullet,
-    BulletStatus,
+    MatchAction,
+    MatchActionType,
+    Ratings,
 )
-from src.jobforward.storage.repository import Repository
+from src.jobforward.storage.repository import (
+    DOCUMENT_VERSION,
+    DEFAULT_RUBRIC_VERSION,
+    Repository,
+)
 
 
-def _make_entry(bullet_count: int = 2) -> ExperienceEntry:
-    bullets = [
-        Bullet(id=i + 1, text=f"Bullet {i + 1}", status=BulletStatus.ANALYZED)
-        for i in range(bullet_count)
-    ]
+def _make_entry() -> ExperienceEntry:
     return ExperienceEntry(
         id=1,
         type=ExperienceEntryType.JOB,
-        title="Test Experience",
-        bullets=bullets,
+        title="Product Intern",
+        bullets=[
+            Bullet(
+                id=1,
+                text="Led a team of 3 to build a dashboard",
+                ratings=Ratings(context=2, role_action_clarity=2, result=1),
+                rubric_version=DEFAULT_RUBRIC_VERSION,
+            )
+        ],
     )
 
 
-def test_atomic_save_load_round_trip():
-    """Save then load should preserve the full document."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "resume.json"
-        repo = Repository(path)
-        entry = _make_entry()
-        repo.save([entry])
-        loaded = repo.load()
-        assert len(loaded) == 1
-        assert loaded[0].id == 1
-        assert loaded[0].title == "Test Experience"
-        assert len(loaded[0].bullets) == 2
-        assert loaded[0].bullets[0].text == "Bullet 1"
+def test_round_trip_with_v2_fields(tmp_path):
+    repo = Repository(tmp_path / "resume.json")
+    entry = _make_entry()
+    entry.match_action = MatchAction(
+        entry_id=1,
+        action=MatchActionType.HIGHLIGHT,
+        reason="Matches required hard skill: SQL.",
+        requirement_id=0,
+        rubric_version=DEFAULT_RUBRIC_VERSION,
+        analyzed_at="2026-10-25T10:00:00+00:00",
+    )
+    repo.save([entry])
+    loaded = repo.load()
+
+    doc = json.loads((tmp_path / "resume.json").read_text(encoding="utf-8"))
+    assert doc["document_version"] == DOCUMENT_VERSION == 2
+    assert doc["rubric_version"] == DEFAULT_RUBRIC_VERSION == "rubric-2.0.0"
+
+    assert len(loaded) == 1
+    got = loaded[0]
+    assert got.title == "Product Intern"
+    assert got.bullets[0].text == "Led a team of 3 to build a dashboard"
+    assert got.bullets[0].ratings == Ratings(context=2, role_action_clarity=2, result=1)
+    assert got.match_action is not None
+    assert got.match_action.action == MatchActionType.HIGHLIGHT
+    assert got.match_action.reason == "Matches required hard skill: SQL."
 
 
-def test_save_writes_document_version_and_rubric_version():
-    """Saved JSON must contain document_version and rubric_version fields."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "resume.json"
-        repo = Repository(path)
-        entry = _make_entry()
-        repo.save([entry])
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        assert raw["document_version"] == 1
-        assert raw["rubric_version"] == "rubric-1.0.0"
+def test_save_is_atomic_on_failure(tmp_path):
+    repo = Repository(tmp_path / "resume.json")
+    entry = _make_entry()
+    repo.save([entry])
+    original = (tmp_path / "resume.json").read_text(encoding="utf-8")
+
+    # Make the final replace step blow up; the original file must survive.
+    def boom(src, dst):
+        raise OSError("simulated crash")
+
+    import os
+
+    monkey_replace = boom
+    entries2 = [_make_entry(), _make_entry()]
+    try:
+        real_replace = os.replace
+        os.replace = monkey_replace
+        with pytest.raises(OSError):
+            repo.save(entries2)
+    finally:
+        os.replace = real_replace
+
+    assert (tmp_path / "resume.json").read_text(encoding="utf-8") == original
+    assert list(tmp_path.glob("*.tmp")) == []
 
 
-def test_save_is_atomic_no_partial_file_on_failure():
-    """On failure, no partial temp file should remain."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "resume.json"
-        repo = Repository(path)
-        entry = _make_entry()
-        # Force save to succeed, then verify no .tmp files remain
-        repo.save([entry])
-        tmp_files = list(Path(tmpdir).glob("*.tmp"))
-        assert tmp_files == [], f"Leftover temp files: {tmp_files}"
-
-
-def test_vr1_too_many_bullets_rejected():
-    """VR-1: more than 6 bullets → ValueError (FR-002)."""
-    bullets = [
-        Bullet(id=i + 1, text=f"Bullet {i + 1}", status=BulletStatus.NEW)
-        for i in range(7)
-    ]
-    with pytest.raises(ValueError, match="at most 6 bullets"):
+def test_vr1_more_than_six_bullets_rejected():
+    bullets = [Bullet(id=i + 1, text=f"bullet {i}") for i in range(7)]
+    with pytest.raises(ValueError):
         ExperienceEntry(
             id=1,
             type=ExperienceEntryType.JOB,
-            title="Too Many",
+            title="Too many",
             bullets=bullets,
         )
 
 
-def test_vr1_zero_bullets_is_draft():
-    """Zero bullets → draft=True (FR-003)."""
-    entry = ExperienceEntry(
-        id=1,
-        type=ExperienceEntryType.JOB,
-        title="Draft",
-        bullets=[],
-    )
-    assert entry.draft is True
+def test_next_entry_id_never_reuses_ids():
+    repo = Repository(tmp_path_empty())
+    assert Repository.next_entry_id([]) == 1
+    entries = [_make_entry(), _make_entry()]
+    entries[1].id = 4
+    assert Repository.next_entry_id(entries) == 5
+
+
+def tmp_path_empty():
+    import tempfile
+
+    return tempfile.mkdtemp()

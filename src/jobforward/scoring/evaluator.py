@@ -1,27 +1,27 @@
 """BulletEvaluator port — the interface between adapters and scoring.
 
-Per research R-2 and contracts/evaluator-output.schema.json: an adapter
-receives verbatim bullet texts (plus optional user answers and rubric version)
-and returns structured 0/1/2 ratings per dimension. All arithmetic happens
-downstream in scoring/metrics.py — never in the adapter.
+Per research R-2 and contracts/evaluator-output (rubric-2.0.0): an adapter
+receives verbatim bullet texts (plus optional user answers and rubric
+version) and returns structured 0/1/2 ratings on the THREE dimensions —
+context, role_action_clarity, result. All arithmetic happens downstream in
+scoring/metrics.py — never in the adapter.
 
 Includes the shared validity check used by all adapters (FR-014).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Optional
 
-# The four scoring dimensions, in canonical order (data-model.md).
-DIMENSIONS = (
-    "role_action_clarity",
-    "outcome",
-    "skill_evidence",
-    "structure_scannability",
-)
+# The three scoring dimensions, in canonical order (data-model.md).
+DIMENSIONS = ("context", "role_action_clarity", "result")
 
 VALID_RATINGS = frozenset({0, 1, 2})
+
+# Tokens that would indicate the adapter computed an aggregate score
+# (constitution Principle 4: arithmetic never lives in an adapter).
+_FORBIDDEN_NOTE_TOKENS = ("/", "%", "Overall", "Experience", "Score", "score")
 
 
 @dataclass
@@ -35,26 +35,24 @@ class BulletRatingRequest:
 
     texts: list[str]
     answers: Optional[list[str]] = None
-    rubric_version: str = "rubric-1.0.0"
+    rubric_version: str = "rubric-2.0.0"
 
 
 @dataclass
 class BulletRating:
-    """One bullet's four dimension scores, each int in {0, 1, 2}."""
+    """One bullet's three dimension scores, each int in {0, 1, 2}."""
 
     bullet_index: int
+    context: int
     role_action_clarity: int
-    outcome: int
-    skill_evidence: int
-    structure_scannability: int
+    result: int
 
     def __post_init__(self) -> None:
         for name in DIMENSIONS:
             value = getattr(self, name)
             if value not in VALID_RATINGS:
                 raise ValueError(
-                    f"BulletRating.{name} must be in {{0, 1, 2}}, "
-                    f"got {value!r}"
+                    f"BulletRating.{name} must be in {{0, 1, 2}}, got {value!r}"
                 )
 
 
@@ -62,10 +60,10 @@ class BulletRating:
 class BulletRatingResponse:
     """Response returned by an evaluator adapter.
 
-    ``rubric_version`` echoes the request's rubric version.
-    ``ratings`` holds one BulletRating per requested bullet, in the same
-    order. ``notes`` is optional human-readable text (Persian) and must
-    not contain aggregated scores or text modifications.
+    ``rubric_version`` echoes the request's rubric version. ``ratings`` holds
+    one BulletRating per requested bullet, in the same order. ``notes`` is
+    optional human-readable text (English B1) and must not contain aggregated
+    scores or text modifications.
     """
 
     rubric_version: str
@@ -87,13 +85,12 @@ def validate_response(
 ) -> None:
     """Shared validity check for all evaluator adapters.
 
-    Checks:
-      - Schema match (all four dimension keys present, ints in {0,1,2})
-      - One rating per bullet in the request
-      - Ratings in the same order as requested bullets
+    Checks: schema match (all three dimension keys present, ints in {0,1,2});
+    one rating per bullet in the request; ratings in the same order as the
+    requested bullets; notes without aggregated scores.
 
-    Raises EvaluatorOutputError on any failure. Adapters catch this,
-    retry once internally, then surface the failure.
+    Raises EvaluatorOutputError on any failure. Adapters catch this, retry
+    once internally, then surface the failure.
     """
     if len(response.ratings) != expected_bullet_count:
         raise EvaluatorOutputError(
@@ -115,12 +112,7 @@ def validate_response(
                 )
 
     if response.notes is not None:
-        # Notes must not contain aggregated scores or numbers that look
-        # like computed results (constitution Principle 4).
-        if any(
-            token in response.notes
-            for token in ("/", "%", "Overall", "Experience", "نمره", "Overall Score")
-        ):
+        if any(token in response.notes for token in _FORBIDDEN_NOTE_TOKENS):
             raise EvaluatorOutputError(
                 "Adapter notes must not contain aggregated scores"
             )
@@ -130,22 +122,16 @@ def validate_response(
 class BulletEvaluator:
     """The BulletEvaluator port.
 
-    ``evaluate(request)`` returns a BulletRatingResponse. Subclasses (adapters)
-    implement the actual rating source — local heuristic or LLM — but all
-    share the same request/response schema and validity check.
+    ``evaluate(request)`` returns a BulletRatingResponse. Adapters implement
+    the actual rating source — local heuristic or LLM — but all share the
+    same request/response schema and validity check.
     """
 
-    rubric_version: str = "rubric-1.0.0"
+    rubric_version: str = "rubric-2.0.0"
 
     def evaluate(self, request: BulletRatingRequest) -> BulletRatingResponse:
-        """Evaluate one or more bullets and return structured ratings.
-
-        Subclasses must implement this. The base implementation raises
-        ``NotImplementedError``.
-        """
-        raise NotImplementedError(
-            "Subclasses must implement evaluate()"
-        )
+        """Evaluate one or more bullets and return structured ratings."""
+        raise NotImplementedError("Adapters must implement evaluate()")
 
     def evaluate_with_retry(
         self,

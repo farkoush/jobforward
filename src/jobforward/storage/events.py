@@ -1,14 +1,13 @@
 """Append-only JSONL event logger for `data/events.log.jsonl`.
 
-Per data-model.md and research R-4: every important event is logged with an
-ISO-8601 UTC timestamp so PRD metrics stay computable without rewriting code
+Per data-model.md: every important event is logged with an ISO-8601 UTC
+timestamp so PRD metrics stay computable without rewriting code
 (constitution Principle 7).
 """
 
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -21,10 +20,14 @@ EVENT_ANALYSIS_COMPLETED = "analysis_completed"
 EVENT_PROPOSAL_ACCEPTED = "proposal_accepted"
 EVENT_PROPOSAL_REJECTED = "proposal_rejected"
 EVENT_QUESTION_REJECTED = "question_rejected"
+EVENT_QUESTION_SKIPPED = "question_skipped"
+EVENT_ENTRY_SAVED_AS_DRAFT = "entry_saved_as_draft"
 EVENT_BULLET_DELETED = "bullet_deleted"
 EVENT_ENTRY_DELETED = "entry_deleted"
 EVENT_SCORE_BEFORE = "score_before"
 EVENT_SCORE_AFTER = "score_after"
+EVENT_POSTING_ANALYZED = "posting_analyzed"
+EVENT_MATCH_ACTION_ASSIGNED = "match_action_assigned"
 EVENT_EVALUATOR_INVALID_OUTPUT = "evaluator_invalid_output"
 EVENT_EVALUATOR_RETRY = "evaluator_retry"
 
@@ -34,10 +37,14 @@ ALL_EVENT_TYPES = frozenset({
     EVENT_PROPOSAL_ACCEPTED,
     EVENT_PROPOSAL_REJECTED,
     EVENT_QUESTION_REJECTED,
+    EVENT_QUESTION_SKIPPED,
+    EVENT_ENTRY_SAVED_AS_DRAFT,
     EVENT_BULLET_DELETED,
     EVENT_ENTRY_DELETED,
     EVENT_SCORE_BEFORE,
     EVENT_SCORE_AFTER,
+    EVENT_POSTING_ANALYZED,
+    EVENT_MATCH_ACTION_ASSIGNED,
     EVENT_EVALUATOR_INVALID_OUTPUT,
     EVENT_EVALUATOR_RETRY,
 })
@@ -86,56 +93,48 @@ class EventLogger:
             f.write(json.dumps(entry, ensure_ascii=False))
             f.write("\n")
 
-    # Convenience methods for common event types
+    # Convenience methods for every event type
     def path_start(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_PATH_START, context)
 
-    def analysis_completed(
-        self, context: Optional[dict[str, Any]] = None
-    ) -> None:
+    def analysis_completed(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_ANALYSIS_COMPLETED, context)
 
-    def proposal_accepted(
-        self, context: Optional[dict[str, Any]] = None
-    ) -> None:
+    def proposal_accepted(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_PROPOSAL_ACCEPTED, context)
 
-    def proposal_rejected(
-        self, context: Optional[dict[str, Any]] = None
-    ) -> None:
+    def proposal_rejected(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_PROPOSAL_REJECTED, context)
 
-    def question_rejected(
-        self, context: Optional[dict[str, Any]] = None
-    ) -> None:
+    def question_rejected(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_QUESTION_REJECTED, context)
 
-    def bullet_deleted(
-        self, context: Optional[dict[str, Any]] = None
-    ) -> None:
+    def question_skipped(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_QUESTION_SKIPPED, context)
+
+    def entry_saved_as_draft(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_ENTRY_SAVED_AS_DRAFT, context)
+
+    def bullet_deleted(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_BULLET_DELETED, context)
 
-    def entry_deleted(
-        self, context: Optional[dict[str, Any]] = None
-    ) -> None:
+    def entry_deleted(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_ENTRY_DELETED, context)
 
-    def score_before(
-        self, context: Optional[dict[str, Any]] = None
-    ) -> None:
+    def score_before(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_SCORE_BEFORE, context)
 
-    def score_after(
-        self, context: Optional[dict[str, Any]] = None
-    ) -> None:
+    def score_after(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_SCORE_AFTER, context)
 
-    def evaluator_invalid_output(
-        self, context: Optional[dict[str, Any]] = None
-    ) -> None:
+    def posting_analyzed(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_POSTING_ANALYZED, context)
+
+    def match_action_assigned(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_MATCH_ACTION_ASSIGNED, context)
+
+    def evaluator_invalid_output(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_EVALUATOR_INVALID_OUTPUT, context)
 
-    def evaluator_retry(
-        self, context: Optional[dict[str, Any]] = None
-    ) -> None:
+    def evaluator_retry(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_EVALUATOR_RETRY, context)
