@@ -1,96 +1,129 @@
-# Quickstart: Run & Validate the Level 1 Prototype (Design-Time Validation Guide)
+# Quickstart: Experience Improvement Flow (Level 1 Prototype)
 
-Validation guide for `specs/001-experience-improvement-flow`. Implementation
-detail (module bodies, migrations, full test suites) belongs to `tasks.md` and
-the implementation phase — this file documents WHAT must be runnable under
-which commands and WHAT the expected outcome is, referencing
-`data-model.md` and `contracts/interface-contracts.md`.
+Validation and run guide for `specs/001-experience-improvement-flow/`.
+All tool text is English at B1 level; all user input is English (pasted
+posting text may be Persian or English). Rubric version: `rubric-2.0.0`
+(three dimensions: Context, Role and Action Clarity, Result).
 
 ## Prerequisites
 
-- Python 3.12 on PATH (`python --version`)
-- Windows PowerShell / any UTF-8 terminal
-- No installed dependencies (stdlib only) — nothing to install
+- Python 3.12+
+- Repository root: `E:\_ai_projects\jobforward`
+- Data directory `data/` is created at first run (git-ignored; delete it to
+  reset to a fresh state)
 
-## Setup
+## Run
 
-```powershell
+```bash
 # from the repository root
-$env:PYTHONUTF8 = "1"        # Persian output needs UTF-8 in Windows terminals
-python -m pytest tests/ --import-mode=importlib   # TDD order per constitution P9
+pip install -e .          # once (src layout)
+PYTHONUTF8=1 python -m jobforward
+# or without installing:
+PYTHONUTF8=1 PYTHONPATH=src python -m jobforward
 ```
-
-Expected: tests exist and, before implementation, FAIL first
-(constitution Principle 9); after implementation, all pass.
-
-## Mandatory test-first suite (written BEFORE implementation)
-
-| Test file | Proves (spec requirement) |
-|---|---|
-| tests/unit/test_metrics.py | FR-007 formula + the permanent 81.25 reference ((2,2),(2,1),(2,0),(2,2)) |
-| tests/unit/test_no_extra_claims.py | FR-010 zero-fabrication validator (bug, zero tolerance) |
-| tests/unit/test_incremental.py | FR-012 only-new/edited re-analysis; unchanged keep score+label; Q4 status semantics |
-| tests/unit/test_questions.py | FR-009 1–2 questions, every question rejectable, rejection/no-answer → no rewrite |
-| tests/contract/test_evaluator_output.py | FR-008 rating schema; FR-014 invalid → reject → retry once → report, data intact |
-| tests/contract/test_cli_session.py | FR-017 Persian-only prompts; verbatim bullet echo; prompt-id contract |
-| tests/integration/test_full_path.py | complete path + FR-015 events in `data/events.log.jsonl` (start, completion, accept/reject, score before/after, deletions) |
-| tests/unit/test_stability.py | SC-003 five consecutive runs on a fixed experience: max−min ≤ 5 |
-
-## Run the tool (interactive Persian text-flow)
 
 ```powershell
-$env:PYTHONUTF8 = "1"
-python -m jobforward
+$env:PYTHONUTF8="1"; python -m jobforward   # PowerShell
 ```
 
-### Scenario A: happy path (proves SC-001, SC-002, SC-007)
+## Tests
 
-1. Add an entry (job/project/course/side work) + 2 bullets →
-   EXPECT: per-dimension scores per bullet, experience score, overall score;
-   every score carries the rubric version (FR-005, FR-008).
-2. Answer a question for one bullet ("Did this project change something …?"),
-   then approve the rewrite →
-   EXPECT: bullet replaced with status "edited", previous bullet retained in
-   history (FR-011); BEFORE/AFTER score shown side by side (FR-012); re-scoring
-   touches only the changed bullet (FR-012).
-3. Exit and inspect `data/events.log.jsonl` →
-   EXPECT: `path_start`, `analysis_completed`, `proposal_accepted`,
-   `score_before`, `score_after` lines with ISO-8601 timestamps (FR-015; 100%
-   of important events — SC-008).
+```bash
+PYTHONUTF8=1 python -m pytest -v
+```
 
-### Scenario B: rejections protect the user (proves SC-004, SC-005)
+The permanent reference fixture test (Scenario A, step 3) must exist and pass
+before its implementation lands (constitution Principle 9).
 
-1. Reject each offered question → EXPECT no rewrite and byte-identical bullet.
-2. Reject a proposed rewrite → EXPECT nothing changes (text + scores identical).
-3. Validate that no step shows a number, impact, or claim absent from the
-   bullet + your own answers (FR-010 zero tolerance = 100% pass).
+---
 
-### Scenario C: repetition & independence (proves SC-003, FR-006)
+## Scenario A — Record an entry and see a transparent score (US1)
 
-1. Re-run the tool 5 times without changing the experience →
-   EXPECT: identical overall score each run (max−min = 0 with the default local
-   adapter; ≤ 5 allowed by SC-003) and no bullet re-analyzed (unchanged keep
-   score+label).
-2. With no job posting context at any time, all scores are identical whether a
-   posting text happens to be on screen or not (FR-006).
+1. Start the CLI; choose "add experience"; enter type `job`, a title, and
+   these two bullets (exactly):
+   - Bullet 1: text that the local adapter rates role_action_clarity 2.
+   - Bullet 2: text rated role_action_clarity 2, result 1, context 1.
+2. Observe the score display: per-bullet `context`, `role_action_clarity`,
+   `result` (each 0/1/2), the entry score, the overall score, and
+   `rubric-2.0.0` printed next to every score.
+3. **Reference check**: with the fixture ratings — role_action_clarity (2,2),
+   result (2,1), context (2,1) — the entry score is 250/3 ≈ **83.33**
+   (dimension scores 100, 75, 75). Assert the exact fraction in
+   `tests/unit/test_metrics.py`; a naive `== 83.33` float compare is a bug.
+4. Record a second entry; verify the overall score is the simple average of
+   both entries (only entries with ≥ 1 bullet and not drafts count).
+5. Record an entry with zero bullets: it is kept as a draft, excluded from
+   the overall score, and the tool suggests writing a description bullet.
 
-### Scenario D: guards & recoverability (proves FR-002, FR-003, FR-013, FR-014, FR-020)
+## Scenario B — Gate, questions, rewrite, explicit approval (US2)
 
-1. Enter 7 bullets → EXPECT explicit Persian rejection asking to reduce; entry
-   untouched until ≤6.
-2. Add an entry with 0 bullets → EXPECT draft treatment, excluded from the
-   overall average, suggestion to write a description (FR-003).
-3. Two overlapping bullets → EXPECT merge warning with zero effect on any score;
-   answering "no merge" leaves everything unchanged (FR-013).
-4. (adapter-dependent) Force an invalid evaluator response → EXPECT one retry,
-   then a clear Persian error; the saved document is unchanged and usable
-   (FR-014 event `evaluator_invalid_output` / `evaluator_retry` logged).
-5. Delete a bullet then all its entry's bullets → EXPECT deletion confirmation
-   step, exclusion from scores, entry returns to draft (FR-020, index and draft
-   invariant — see data-model.md).
+1. On a scored bullet whose result dimension is 0 or 1, accept the rewrite
+   gate "Do you want me to rewrite this bullet…?" (default Yes).
+2. Verify exactly one question per dimension scoring 0 or 1, asked in
+   Context → Action → Result order (0–3 total), each offering Answer / Skip.
+   The Result question ends with "If you have real numbers, include them."
+3. Answer the Result question, skip the others: the tool offers **save the
+   whole entry as a draft** or **approve a rewrite from the answers so far**.
+   Choose draft → the entry becomes a draft and disappears from the overall
+   average.
+4. Repeat with all questions answered: verify the proposed rewrite contains
+   ONLY words from the original bullet and your answers (no invented numbers,
+   impacts, or claims); approve it → the bullet is replaced with status
+   "edited", the previous text is kept in history, and the entry is
+   re-scored with the bullet re-analyzed.
+5. Repeat and reject the gate (or skip all questions): verify no rewrite, and
+   the bullet text and scores are byte-identical before and after.
 
-## Where to look next
+## Scenario C — Incremental re-analysis and before/after (US3)
 
-- State machine + entities: `data-model.md`
-- Prompt/JSON contracts: `contracts/interface-contracts.md`
-- Decisions & rationale: `research.md`
+1. Take an entry with 3 scored bullets; edit one bullet directly (a direct
+   user edit is explicit consent); rerun the improvement path.
+2. Verify only the edited bullet is re-analyzed; the other two keep their
+   previous score and status label.
+3. Open the results view: approved rewrites show BEFORE and AFTER scores
+   side by side under the same rubric version.
+4. Run the whole path 5 consecutive times with no change: ≥ 90% of
+   bullet-by-dimension scores are exactly identical (the deterministic local
+   adapter gives 100%), and no unchanged bullet is re-analyzed.
+
+## Scenario D — Merge warning (US4)
+
+1. Record an entry with two overlapping bullets; verify the merge warning
+   appears with numbered Merge / No-merge choices.
+2. Verify no bullet score, entry score, or overall score changed because of
+   the warning.
+3. Answer "no merge": verify no bullet text or history changed.
+
+## Scenario E — Job description matcher (US5)
+
+1. Choose "match posting"; paste a job description containing at least one
+   hard skill marked must-have (red line), one soft skill marked nice-to-have.
+2. Verify the posting analysis classifies every extracted requirement by
+   skill_type (hard/soft) and priority (required/preferred/bonus), with the
+   red-line requirement classified `required`.
+3. Verify every experience entry receives exactly one action — Highlight /
+   No change / Not relevant to this job — with a one-line reason citing the
+   skill (type + priority) it is based on; "Remove" and "Shorten" never
+   appear.
+4. Verify every clarity score (bullet, entry, overall) is unchanged after the
+   matcher run.
+
+## Scenario F — Deletion and copy-text (polish)
+
+1. Delete a bullet: verify the explicit confirmation prompt; after deletion
+   the bullet is excluded from all scores and a `bullet_deleted` event is
+   logged with a timestamp.
+2. Delete the last bullet of an entry: the entry reverts to draft treatment.
+3. Use copy-text: the exact entry text is printed for clipboard use; nothing
+   is mutated; no resume file export exists.
+
+## Log verification (SC-008)
+
+After running the scenarios, inspect `data/events.log.jsonl`: every line is a
+JSON object with an ISO-8601 `ts` and a `type` from the event enum
+(`path_start`, `analysis_completed`, `proposal_accepted`, `proposal_rejected`,
+`question_rejected`, `question_skipped`, `entry_saved_as_draft`,
+`bullet_deleted`, `entry_deleted`, `score_before`, `score_after`,
+`posting_analyzed`, `match_action_assigned`, `evaluator_invalid_output`,
+`evaluator_retry`). A missing event type for an executed flow means the
+feature is treated as incomplete.
