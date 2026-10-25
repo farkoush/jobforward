@@ -1,7 +1,7 @@
-"""Single source of truth for all user-facing Persian strings (constitution Principle 10).
+﻿"""Single source of truth for all user-facing English strings.
 
-No other module may contain user-facing Persian strings. The CLI imports prompts
-from here and never hardcodes Persian. Every prompt id is printed alongside its
+No other module may contain user-facing English strings. The CLI imports prompts
+from here and never hardcodes English. Every prompt id is printed alongside its
 interaction so logs and tests stay comparable (research R-5).
 
 Prompt-id categories (contracts/interface-contracts.md):
@@ -12,46 +12,46 @@ Prompt-id categories (contracts/interface-contracts.md):
   MERGE_WARN   - overlap warning + numbered merge/no-merge (FR-013)
   CONFIRM_DELETE_* - deletion confirmation (Clarification Q3)
   SCORE_*      - per-dimension per-bullet, experience, overall display (FR-005/FR-008)
-  ERR_*        - explicit Persian error prompts; data survives every error (FR-014)
+  ERR_*        - explicit error prompts; data survives every error (FR-014)
 """
 
 # --- Entry collection (ADD_*) ---
-ADD_TYPE = "نوع تجربه را انتخاب کنید: ۱) شغلی ۲) پروژه‌ای ۳) دوره ۴) کارهای جانبی"
-ADD_TITLE = "عنوان تجربه را وارد کنید:"
-ADD_ORG = "نام سازمان (اختیاری، می‌توانید خالی بگذارید):"
-ADD_START = "تاریخ شروع (نوشتهٔ دقیق شما، اختیاری):"
-ADD_END = "تاریخ پایان (نوشتهٔ دقیق شما، اختیاری):"
-ADD_BULLET_PROMPT = "یک نقشه برای این تجربه بنویسید (حداکثر ۶ مورد):"
-ADD_BULLET_DONE = "اتمام وارد کردن نقشه‌ها و ادامه به نمرات."
+ADD_TYPE = "Select experience type: 1) Job 2) Project 3) Course 4) Side work"
+ADD_TITLE = "Enter experience title:"
+ADD_ORG = "Organization name (optional, leave blank if none):"
+ADD_START = "Start date (exact text you wrote, optional):"
+ADD_END = "End date (exact text you wrote, optional):"
+ADD_BULLET_PROMPT = "Write a bullet for this experience (maximum 6 items):"
+ADD_BULLET_DONE = "Finish entering bullets and continue to scores."
 
 # --- Result field hint (Q_RESULT_HINT, FR-004) ---
-Q_RESULT_HINT = "اگر عدد واقعی داری، همان را اضافه کن"
+Q_RESULT_HINT = "If you have a real number, add it here"
 
 # --- Questions (ASK_*, FR-009, Clarification Q1) ---
-ASK_RESULT_IMPACT = "آیا این پروژه/کار تغییر ایجاد کرد؟ (۱) پاسخ و ادامه ۲) رد سوال ۳) رد و استمرار"
-ASK_SKILL_RELEVANCE = "چه مهارتی در این مورد نشان داده می‌شود؟ (۱) پاسخ و ادامه ۲) رد سوال ۳) رد و استمرار"
+ASK_RESULT_IMPACT = "Did this project/work create an impact? (1) Answer and continue 2) Reject question 3) Reject and continue"
+ASK_SKILL_RELEVANCE = "What skill is demonstrated here? (1) Answer and continue 2) Reject question 3) Reject and continue"
 
 # --- Proposal (PROPOSAL_*, FR-011) ---
-PROPOSAL_SHOW = "تغییر پیشنهادی برای نقشه‌ی بالا:\n{proposal}\n(۱) تایید و جایگزینی ۲) رد و عدم تغییر"
-PROPOSAL_ACCEPTED = "تغییر تایید شد؛ متن قبلی در تاریخچه حفظ شد."
-PROPOSAL_REJECTED = "تغییر رد شد؛ متن و نمرات بدون تغییر باقی مانده‌اند."
+PROPOSAL_SHOW = "Proposed change for the bullet above:\n{proposal}\n(1) Approve and replace 2) Reject and keep unchanged"
+PROPOSAL_ACCEPTED = "Change approved; previous text kept in history."
+PROPOSAL_REJECTED = "Change rejected; text and scores remain unchanged."
 
 # --- Merge warning (MERGE_WARN, FR-013) ---
-MERGE_WARN = "دو یا بیشتر نقشه با هم هم‌پوشانی دارند. نمرات تحت تاثیر قرار نمی‌گیرند. (۱) ادغام ۲) عدم ادغام و ادامه"
+MERGE_WARN = "Two or more bullets overlap. Scores are not affected. (1) Merge 2) Do not merge and continue"
 
 # --- Delete confirmation (CONFIRM_DELETE_*, Clarification Q3) ---
-CONFIRM_DELETE_BULLET = "آیا از حذف این نقشه اطمینان دارید؟ (۱) بله، حذف شود ۲) خیر"
-CONFIRM_DELETE_ENTRY = "تمام نقشه‌های این تجربه حذف شدند. تجربه به حالت پیش‌نویس بازمی‌گردد."
+CONFIRM_DELETE_BULLET = "Are you sure you want to delete this bullet? (1) Yes, delete it 2) No"
+CONFIRM_DELETE_ENTRY = "All bullets in this experience were deleted. Experience returns to draft state."
 
 # --- Scores (SCORE_*, FR-005/FR-008) ---
-SCORE_BULLET_HEADER = "نمرات نقشه «{text}» (نوسخه {rubric}):"
-SCORE_DIMENSION = "  {dimension}: {value}/۲"
-SCORE_EXPERIENCE = "نمره تجربه: {value}/۱۰۰"
-SCORE_OVERALL = "نمره کلی: {value}/۱۰۰"
-SCORE_BEFORE_AFTER = "قبلاً: {before}  →  بعداً: {after}"
+SCORE_BULLET_HEADER = "Scores for bullet «{text}» (rubric version {rubric}):"
+SCORE_DIMENSION = "  {dimension}: {value}/2"
+SCORE_EXPERIENCE = "Experience score: {value}/100"
+SCORE_OVERALL = "Overall score: {value}/100"
+SCORE_BEFORE_AFTER = "Before: {before}  ->  After: {after}"
 
 # --- Errors (ERR_*, FR-014) ---
-ERR_TOO_MANY_BULLETS = "حداکثر ۶ نقشه مجاز است. لطفاً لیست را کوتاه‌تر کنید."
-ERR_INVALID_EVALUATOR = "پاسخ ارزیاب نامعتبر است؛ یک بار دوباره تلاش می‌شود، سپس خطا گزارش می‌گردد. داده‌های شما تغییر نمی‌کنند."
-ERR_EVALUATOR_FAILURE = "ارزیاب بعد از یک تلاش ناموفق ماند؛ خطا به کاربر گزارش شد و سند ذخیره شده تغییر نمی‌کند."
-ERR_ENV = "خطای محیط (مثلاً PYTHONUTF8 غیرفعال است)."
+ERR_TOO_MANY_BULLETS = "Maximum 6 bullets allowed. Please shorten the list."
+ERR_INVALID_EVALUATOR = "Evaluator response is invalid; will retry once, then report error. Your data will not change."
+ERR_EVALUATOR_FAILURE = "Evaluator failed after one attempt; error reported to user. Saved document remains unchanged."
+ERR_ENV = "Environment error (for example, PYTHONUTF8 is disabled)."

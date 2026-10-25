@@ -86,3 +86,14 @@ def is_terminal(status: BulletStatus) -> bool:
 
     return status == BulletStatus.ANALYZED
 
+
+
+def now_iso8601() -> str:
+    """Return current UTC time as ISO-8601 string (FR-015).
+
+    Defined here so storage/repository.py can import it without circular
+    imports (entities imports nothing from status).
+    """
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat()

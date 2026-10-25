@@ -141,10 +141,10 @@ class ExperienceEntry:
             raise ValueError("ExperienceEntry.title must be a non-empty string")
         self.title = self.title.strip()
 
-        # bullets: length 1-6 enforced by VR-1 (FR-001/FR-002)
-        if not 1 <= len(self.bullets) <= 6:
+        # bullets: 0 allowed (draft FR-003), 1-6 normal, >6 rejected VR-1 FR-002
+        if len(self.bullets) > 6:
             raise ValueError(
-                f"ExperienceEntry must have 1-6 bullets, got {len(self.bullets)}"
+                f"ExperienceEntry must have at most 6 bullets, got {len(self.bullets)}"
             )
 
         # draft: true iff zero bullets (FR-003 / FR-020)

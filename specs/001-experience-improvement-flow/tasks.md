@@ -74,7 +74,7 @@ each story can be implemented and tested independently.
   data-model.md (`path_start`, `analysis_completed`, `proposal_accepted`,
   `proposal_rejected`, `question_rejected`, `bullet_deleted`, `entry_deleted`,
   `score_before`, `score_after`, `evaluator_invalid_output`, `evaluator_retry`)
-- [ ] T008 Implement `src/jobforward/scoring/evaluator.py`: the
+- [X] T008 Implement `src/jobforward/scoring/evaluator.py`: the
   `BulletEvaluator` port (request: verbatim bullet texts + optional user
   answers + rubric version; response: validated structured output per
   contracts/evaluator-output.schema.json). Include the shared validity check:
@@ -98,43 +98,43 @@ experience score; run without any posting context.
 
 ### Tests for User Story 1 (write FIRST — must FAIL before implementation)
 
-- [ ] T009 [P] [US1] Write `tests/unit/test_metrics.py`: dimension =
+- [X] T009 [P] [US1] Write `tests/unit/test_metrics.py`: dimension =
   sum÷(2×n)×100, experience = equal-weighted mean of the 4 dimensions,
   overall = simple mean of entries with bullets; the permanent reference
   fixture (2,2),(2,1),(2,0),(2,2) → exactly 81.25 (FR-007); drafts/deleted
   excluded (FR-003)
-- [ ] T010 [P] [US1] Write `tests/contract/test_evaluator_output.py`:
+- [X] T010 [P] [US1] Write `tests/contract/test_evaluator_output.py`:
   schema-compliant output accepted for input bullets; output with a rating
   of 3 / missing key / extra aggregate number → invalid; invalid → rejected,
   one retry, then reported; no partial scoring; FR-006 enforced (no posting
   input anywhere in the rating path)
-- [ ] T011 [P] [US1] Write `tests/contract/test_cli_session.py`: all
+- [X] T011 [P] [US1] Write `tests/contract/test_cli_session.py`: all
   `ADD_*` prompts match `messages.py` (Persian), entry fields echoed verbatim,
   template result field shows ONLY `Q_RESULT_HINT`, empty optional fields
   stay visibly empty; prompts recorded via prompt ids
-- [ ] T012 [P] [US1] Write `tests/unit/test_storage.py`: atomic save/load
+- [X] T012 [P] [US1] Write `tests/unit/test_storage.py`: atomic save/load
   round-trip of a document containing one entry/bullet; save must leave no
   partial file on failure; VR-1 (1≤bullets≤6) enforced
 
 ### Implementation for User Story 1
 
-- [ ] T013 [P] [US1] Implement the deterministic scoring engine
+- [X] T013 [P] [US1] Implement the deterministic scoring engine
   `src/jobforward/scoring/metrics.py` (pure functions from T009)
-- [ ] T014 [US1] Implement the default offline evaluator
+- [X] T014 [US1] Implement the default offline evaluator
   `src/jobforward/scoring/adapters/local.py`: deterministic rule-based ratings
   (template-field presence, quantified vs vague outcome skill keywords,
   single-verb action, bullet ordering/scannability) restricted to 0/1/2 per
   dimension, no aggregate math (depends on T008)
-- [ ] T015 [US1] Implement entry recording + validation in
+- [X] T015 [US1] Implement entry recording + validation in
   `src/jobforward/flow/path_service.py`: `add_entry` enforces VR-1 (>6 bullets
   rejected, FR-002), zero bullets → draft + suggestion (FR-003), sections
   saved verbatim via repository
-- [ ] T016 [US1] Implement the interactive CLI
+- [X] T016 [US1] Implement the interactive CLI
   `src/jobforward/cli.py`: state machine IDLE→ENTRY_FILLED→SCORE_SHOWN per
   contracts/cli-session.md, rendering the Persian prompts and the
   `SCORE_*` display (per-dimension per-bullet, experience score, overall score,
   rubric version next to every score, FR-005/FR-008)
-- [ ] T017 [US1] Emit log events in the CLI path: `path_start` on session
+- [X] T017 [US1] Emit log events in the CLI path: `path_start` on session
   start, `analysis_completed` after successful scoring (FR-015), via T007
 
 **Checkpoint**: User Story 1 is fully functional and testable independently
@@ -372,3 +372,94 @@ story checkpoint against quickstart.md.
 - Every mutation needs an explicit user action — always provide a
   reject/skip/cancel option
 - Validate each story checkpoint with quickstart.md scenarios
+
+---
+
+## Phase 8: Convergence
+
+*Appended by $speckit-converge (2026-10-25). Evidence-based assessment of the
+current code against spec.md, plan.md, tasks.md, and the constitution.
+Existing tasks T001–T036 remain authoritative; the items below record the
+remaining and corrective work found in the code as it stands.*
+
+- [ ] T037 Translate every prompt in `src/jobforward/messages.py` to Persian
+  per FR-017 / Constitution P10 (`contradicts`): all `ADD_*`, `ASK_*`,
+  `PROPOSAL_*`, `MERGE_WARN`, `CONFIRM_DELETE_*`, `SCORE_*`, `ERR_*` strings
+  and `Q_RESULT_HINT` = «اگر عدد واقعی داری، همان را اضافه کن» exactly;
+  numbered choices use Persian digits (۱/۲); `tests/contract/test_cli_session.py`
+  (4 currently failing tests) must pass afterwards.
+- [ ] T038 Remove all hardcoded user-facing strings from
+  `src/jobforward/cli.py` (inline Persian literals for empty title, bullet
+  prompts, draft notice, continue prompt, exit/error messages) and delete the
+  romanized placeholder `"maryad shodan."` with its TODO per Constitution P10
+  / T003 single-source rule (`contradicts`); all go through `messages.py`.
+- [ ] T039 Fix the score computation in `cli.py::_score_and_show` to the fixed
+  FR-007 formula (`contradicts`): per dimension sum the bullet ratings ÷
+  (2 × number of bullets) × 100, experience = equal-weighted mean of the 4
+  dimension scores — NOT a per-bullet pseudo-experience average; the local
+  adapter path must reproduce the 81.25 reference example end-to-end.
+- [ ] T040 Compute the overall score across ALL entries in the persisted
+  document that have bullets (drafts and deleted excluded) per FR-007 /
+  FR-003 / FR-020 (`partial`); hide the overall line when no eligible entry
+  exists instead of showing a misleading zero (spec edge case).
+- [ ] T041 Persist analysis results: write each bullet's `ratings`,
+  `rubric_version`, and the entry's `overall_score` back through the
+  repository after successful scoring per FR-005 / FR-008 / FR-012
+  (`missing`) — required groundwork for incremental re-analysis.
+- [ ] T042 Implement the optional context→action→result writing aid in the
+  entry-recording flow with `Q_RESULT_HINT` as the ONLY message next to the
+  result field, never filling any empty field, final bullet free text per
+  FR-004 (`missing`).
+- [ ] T043 Implement US2 end-to-end per FR-009 / FR-010 / FR-011 (`missing`,
+  T018–T023): `flow/questions.py` (1–2 rejectable questions, one round per
+  bullet per run, selection from outcome<2 OR skill_evidence<2),
+  `flow/rewrite.py` (segment assembly from bullet+answers only,
+  no-extra-claims validation before display), CLI states
+  AWAITING_QUESTION_ANSWER / REWRITE_AWAITING_APPROVAL, approve → replace +
+  status "edited" + history append, reject/skip → byte-identical bullet;
+  emit `proposal_accepted` / `proposal_rejected` / `question_rejected`.
+- [ ] T044 Implement US3 per FR-012 (`missing`, T024/T027/T028):
+  `flow/incremental.py` (re-analyze only new/edited bullets; unchanged keep
+  score+label), direct user bullet edit (flips to "edited"), side-by-side
+  BEFORE/AFTER display for approved rewrites, emit `score_before` /
+  `score_after` events.
+- [ ] T045 Write the mandated tests that do not exist yet per Constitution
+  P9 / SC-003 / SC-008 (`missing`, T018–T020, T024–T026, T029, T032):
+  `tests/unit/test_questions.py`, `tests/unit/test_no_extra_claims.py`,
+  `tests/unit/test_incremental.py`, `tests/unit/test_stability.py` (5 runs,
+  max−min ≤ 5, local adapter), `tests/unit/test_merge.py`,
+  `tests/unit/test_deletion.py`, `tests/integration/test_full_path.py`
+  (full path + every required JSONL event with ISO timestamps and numeric
+  score_before/score_after) — `tests/integration/` is currently empty.
+- [ ] T046 Implement US4 merge warning per FR-013 (`missing`, T029/T030):
+  `src/jobforward/scoring/overlap.py` with the threshold recorded in the
+  rubric version, `MERGE_WARN` rendering with numbered merge/no-merge choice,
+  zero score effect, no merge without explicit confirmation.
+- [ ] T047 Implement bullet and entry deletion behind an explicit
+  `CONFIRM_DELETE_*` confirmation per FR-020 / Clarification Q3 (`missing`,
+  T032): deleted items excluded from all scores and merge analysis, entry
+  dropping to 0 bullets reverts to draft, survivor histories untouched, emit
+  `bullet_deleted` / `entry_deleted`.
+- [ ] T048 Add the copy-text action per FR-019 (`missing`, T033): non-mutating
+  `COPY_*` prompt printing the exact entry text for clipboard use.
+- [ ] T049 Implement the opt-in LLM adapter
+  `src/jobforward/scoring/adapters/llm.py` per plan.md Complexity Tracking /
+  T031 (`missing`): sends only verbatim bullet text + user answers, validates
+  against the evaluator schema, one retry then `ERR_*`, emits
+  `evaluator_invalid_output` / `evaluator_retry`, default run stays local.
+- [ ] T050 Honor the evaluator failure contract per FR-014 +
+  contracts/interface-contracts.md (`partial`): catch
+  `EvaluatorOutputError` in the CLI, show `ERR_EVALUATOR_FAILURE` (Persian),
+  exit code 2 with user data intact — currently it falls into the generic
+  exception handler and exits 1.
+- [ ] T051 Show the draft suggestion for a zero-bullet entry per FR-003
+  (`partial`): today the CLI reports the draft state but never suggests
+  writing a description bullet.
+- [ ] T052 Make entry ids continuous across sessions per data-model.md id
+  invariant (`partial`): `cli.py` starts `entry_id_counter` at 1 every run and
+  never reads the persisted maximum — restarts produce duplicate entry ids.
+- [ ] T053 Remove the stray empty `fix_entities.py` at the repository root
+  (`unrequested` — leftover scratch file, not part of any task).
+- [ ] T054 Add `README.md` per T034 (`missing`): run instructions
+  (`PYTHONUTF8=1`, `python -m jobforward`), data location (`data/`), the
+  local-only promise (FR-018), pointer to quickstart.md.

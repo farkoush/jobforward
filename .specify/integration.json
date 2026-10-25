@@ -2,14 +2,14 @@
   "version": "1.2.0",
   "integration_state_schema": 1,
   "installed_integrations": [
-    "opencode"
+    "zcode"
   ],
   "integration_settings": {
-    "opencode": {
+    "zcode": {
       "script": "ps",
-      "invoke_separator": "."
+      "invoke_separator": "-"
     }
   },
-  "integration": "opencode",
-  "default_integration": "opencode"
+  "integration": "zcode",
+  "default_integration": "zcode"
 }
