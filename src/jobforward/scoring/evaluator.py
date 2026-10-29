@@ -12,7 +12,10 @@ Includes the shared validity check used by all adapters (FR-014).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:  # pragma: no cover - type-only import
+    from ..models.entities import BulletParts
 
 # The three scoring dimensions, in canonical order (data-model.md).
 DIMENSIONS = ("context", "role_action_clarity", "result")
@@ -29,13 +32,16 @@ class BulletRatingRequest:
     """Request sent to an evaluator adapter.
 
     ``texts`` holds the verbatim bullet texts. ``answers`` (optional) holds
-    user-provided answers used when assembling a rewrite. ``rubric_version``
-    records which rubric produced the ratings.
+    user-provided answers used when assembling a rewrite. ``parts``
+    (optional, rubric-3.0.0) holds the extracted five-part framework parts
+    per bullet; when absent, adapters fall back to raw-text heuristics.
+    ``rubric_version`` records which rubric produced the ratings.
     """
 
     texts: list[str]
     answers: Optional[list[str]] = None
-    rubric_version: str = "rubric-2.0.0"
+    rubric_version: str = "rubric-3.0.0"
+    parts: Optional[list["BulletParts"]] = None
 
 
 @dataclass
@@ -127,7 +133,7 @@ class BulletEvaluator:
     same request/response schema and validity check.
     """
 
-    rubric_version: str = "rubric-2.0.0"
+    rubric_version: str = "rubric-3.0.0"
 
     def evaluate(self, request: BulletRatingRequest) -> BulletRatingResponse:
         """Evaluate one or more bullets and return structured ratings."""

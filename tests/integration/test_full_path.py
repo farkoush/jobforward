@@ -44,11 +44,19 @@ def test_full_path_end_to_end(tmp_path):
             "Led a team of 3 analysts to build a sales dashboard for the Q3 launch",
             "Improved onboarding, raising activation by 15%",
             "",                                    # finish bullets
-            "1",                                   # gate b1: accept (complete → confirm)
-            "1",                                   # b1 confirm: keep
+            # b1: parts → context 0 (no need stated), metric absent →
+            # questions: Need, Metric. Feature/action/result are fine.
+            "1",                                   # gate b1: accept
+            "1",                                   # Need question: answer
+            "New hires struggled to explore product analytics",
+            "2",                                   # Metric question: skip
+            "2",                                   # partial answers: approve rewrite
+            "1",                                   # proposal: approve
+            # b2: parts → context 0 (no need stated), metric present →
+            # question: Need only.
             "1",                                   # gate b2: accept
-            "1",                                   # context question: answer
-            "For the mobile app launch team",      # the answer
+            "1",                                   # Need question: answer
+            "New users dropped off during onboarding",
             "1",                                   # proposal: approve
             "5",                                   # menu: continue
             "3",                                   # idle: exit
@@ -61,17 +69,18 @@ def test_full_path_end_to_end(tmp_path):
     # The flow rendered the contract prompts (compare fixed prefixes — the
     # templates carry format placeholders).
     assert m.ASK_REWRITE_GATE in rendered
-    assert m.ASK_CONTEXT in rendered
+    assert m.ASK_NEED in rendered
+    assert m.ASK_METRIC in rendered
     assert m.PROPOSAL_SHOW.split("{proposal}")[0] in rendered
     assert m.SCORE_BEFORE_AFTER.split("{before}")[0] in rendered
-    assert "rubric-2.0.0" in rendered
+    assert "rubric-3.0.0" in rendered
 
     # The approved rewrite replaced the bullet with status edited→analyzed
     # and the previous text kept in history.
     entries = cli.repository.load()
     (entry,) = entries
     edited = entry.bullets[1]
-    assert "For the mobile app launch team" in edited.text
+    assert "New users dropped off during onboarding" in edited.text
     assert edited.status.value == "analyzed"
     assert edited.history, "previous bullet must be retained in history"
     assert edited.history[0].text == "Improved onboarding, raising activation by 15%"
@@ -93,7 +102,7 @@ def test_full_path_end_to_end(tmp_path):
     for event in events:
         if event["type"] in ("score_before", "score_after"):
             assert isinstance(event["context"]["entry_score"], float)
-            assert event["context"]["rubric_version"] == "rubric-2.0.0"
+            assert event["context"]["rubric_version"] == "rubric-3.0.0"
 
     # score_before ≠ score_after is allowed but both must exist and the
     # 'after' reflects the re-scored entry.

@@ -4,31 +4,35 @@
 
 **Input**: Feature specification from `specs/001-experience-improvement-flow/spec.md`
 (text-only terminal flow; English B1 tool text and English-only user input;
-three-dimension rubric version 2 with deterministic scoring; one complete
-improvement path for a single experience entry plus a job description matcher;
-constitution v2.0.0).
+three-dimension rubric version 3 with deterministic scoring; the FINALIZED
+five-part rewriting framework — user_need / product_feature / action / result
+/ metric — with automatic part extraction, 0–5 guided questions, and a
+part-based Context definition; one complete improvement path for a single
+experience entry; constitution v3.0.0).
 
 ## Summary
 
 Build a Python interactive CLI prototype that walks an entry-level product-
 manager job seeker through one complete improvement path for one experience
 entry — record the entry (type, title, 1–6 free-text English bullets), score
-each bullet on three dimensions (Context, Role and Action Clarity, Result)
-from structured 0/1/2 ratings, run a per-bullet rewrite gate (default Yes)
-with 0–3 skippable questions for dimensions scoring 0 or 1, assemble rewrites
-only from the bullet text plus the user's answers, replace bullets only on
-explicit approval (status "edited", history retained, previous bullet
-preserved), re-analyze only new/edited bullets, show before/after scores side
-by side, and warn on overlapping bullets. A second feature fully analyzes a
-pasted job description (hard/soft skills; Required/Preferred/Bonus priorities;
-red-line grouped under Required) and assigns exactly one entry-level action —
-Highlight / No change / Not relevant to this job — with a one-line reason per
-entry. All score arithmetic is deterministic code under rubric_version 2.0.0
-(reference fixture: two bullets, dimension means 100/75/75 → entry score
-250/3 ≈ 83.33); stability gate: ≥ 90% of bullet-by-dimension scores identical
-across 5 consecutive runs. All data stays in local files (single-user JSON
-document + append-only event log); every user-facing string is English at B1
-level and bullet text is stored verbatim.
+each bullet on three dimensions (Context, Specific Action, Result) from
+structured 0/1/2 ratings, display the five-part framework for the selected
+bullet (candidate's exact words; missing/vague markers), run a per-bullet
+rewrite gate (default Yes) with 0–5 skippable questions in the fixed order
+Need → Feature → Action → Result → Metric, assemble rewrites only from the
+bullet text plus the user's answers, offer draft-or-confirm on partial
+answers, replace bullets only on explicit approval (status "edited", history
+retained, previous bullet preserved), re-analyze only new/edited bullets,
+show before/after scores side by side, and finish with a copyable final text
+(code block, one bullet per line). All score arithmetic is deterministic
+code under rubric_version 3.0.0 (reference fixture: two bullets, dimension
+means 100/75/75 → entry score 250/3 ≈ 83.33); stability gate: ≥ 90% of
+bullet-by-dimension scores identical across 5 consecutive runs. All data
+stays in local files (single-user JSON document + append-only event log);
+every user-facing string is English at B1 level and bullet text is stored
+verbatim. (The 001 job-description matcher of the original plan is
+SUPERSEDED by feature 002-jd-matcher; the matcher/ package remains in place
+but the product behavior is 002's posting-only analysis.)
 
 ## Technical Context
 
@@ -60,23 +64,24 @@ level and bullet text is stored verbatim.
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
-Constitution version in force: **2.0.0** (amended 2026-10-25).
+Constitution version in force: **3.0.0** (amended 2026-10-26).
 
 | # | Principle | Design-time gate | Status | Verification |
 |---|---|---|---|---|
-| 1 | User data integrity — no fabricated claims | Rewrite assembler takes only bullet text + user answers; "no extra claim" contract test exists; rule applies to pattern-guided rewrites too | PASS | design: `flow/rewrite.py` + tests |
-| 2 | User as decision-maker | Every mutation (rewrite approval, direct edit, delete, merge) behind explicit user action; gate rejection / skipped questions → no rewrite; partial answers → draft-or-approve option | PASS | design: `flow/questions.py`, `flow/path_service.py` |
-| 3 | Score independent of job posting | No posting artifact reaches the scoring path; matcher output stored separately from scores; scores unchanged when a posting changes | PASS | design: `matcher/` isolated from `scoring/metrics.py` |
-| 4 | Transparent, repeatable, traceable scoring | Three fixed dimensions (context, role_action_clarity, result), 0/1/2 ratings from adapter; arithmetic only in `metrics.py`; rubric_version = "rubric-2.0.0" stored next to every score; invalid evaluator output rejected, retried once, then reported; stability gate ≥ 90% identical bullet-dimension scores over 5 runs (deterministic local adapter → 100%) | PASS | design: `scoring/metrics.py`, evaluator contract |
-| 5 | Incremental analysis | Bullet statuses (new/edited/analyzed) with exact semantics from spec Clarifications; unchanged bullets keep score + label | PASS | design: `flow/incremental.py` |
-| 6 | Own data, resume-only + JD matcher boundary | No fabricated experience; drafts excluded from average; matcher analyzes only user-pasted posting text, emits exactly one validated action per entry (Highlight / No change / Not relevant), never Remove/Shorten, never modifies text | PASS | design: `matcher/analyzer.py`, `matcher/actions.py` |
-| 7 | Measurability | Append-only timestamped event log covering start, completion, suggestion accept/reject, score before/after, deletions, posting analysis | PASS | design: `storage/events.py` |
-| 8 | Prototype simplicity | Text-only English CLI, local files, no login/upload; PDF upload + email sign-in deferred; two justified additions in Complexity Tracking (optional LLM scoring adapter, matcher with rule-based default) | PASS (with notes) | Complexity Tracking |
-| 9 | Test-driven | Tests for formula (250/3 ≈ 83.33), no-extra-claims, incremental analysis, gate/question rejection exist BEFORE implementation; 83.33 reference test is permanent | PASS | design: test plan in quickstart.md |
-| 10 | Language | All strings in `messages.py` (English B1); user input validated as English; bullet text stored and displayed verbatim | PASS | design: `messages.py` |
+| 1 | User data integrity — no fabricated claims | All five framework parts contain ONLY the candidate's own words (extraction never invents text); rewrite assembler takes only bullet text + user answers; "no extra claim" contract test exists; zero tolerance for added nouns/verbs/tools/numbers | PASS | design: `flow/parts.py` + `flow/rewrite.py` + tests |
+| 2 | User as decision-maker | Every mutation (rewrite approval, direct edit, delete) behind explicit user action; gate rejection / skipped questions → no rewrite; partial answers → draft-or-confirm option (spec §7); skip allowed on every question | PASS | design: `flow/questions.py`, `flow/path_service.py` |
+| 3 | Score independent of job posting | The 001 matcher is superseded by 002; no posting artifact reaches the scoring path; scores unchanged by matcher activity | PASS | design: `scoring/` isolated; matcher untouched |
+| 4 | Transparent, repeatable, traceable scoring | Three fixed dimensions (context, role_action_clarity, result), 0/1/2 ratings from adapter; arithmetic only in `metrics.py`; rubric_version = "rubric-3.0.0" stored next to every new score (prior scores keep their version); invalid evaluator output rejected, retried once, then reported; stability gate ≥ 90% over 5 runs (deterministic local adapter → 100%). NOTE: constitution P4 text still cites rubric_version = 2 — an amendment re-pinning rubric 3 is required and is owned by the product owner (report-only) | PASS (amendment pending) | design: `scoring/metrics.py`, `checklists/specific-action.md` |
+| 5 | Incremental analysis | Bullet statuses (new/edited/analyzed); unchanged bullets keep score + label; only new/edited re-analyzed | PASS | design: `flow/incremental.py` |
+| 6 | Own data / matcher boundary (v3.0.0) | The improvement flow touches no job posting; the matcher behavior is 002's posting-only analysis (001 per-entry actions retired) | PASS | constitution v3.0.0 P6; 002 spec |
+| 7 | Measurability | Append-only timestamped event log covering start, completion, suggestion accept/reject, score before/after, deletions | PASS | design: `storage/events.py` |
+| 8 | Prototype simplicity | Text-only English CLI, local files, no login/upload; deterministic five-part part-extraction heuristics added as a justified complexity item | PASS (with notes) | Complexity Tracking |
+| 9 | Test-driven | Tests for formula (250/3 ≈ 83.33), no-extra-claims, incremental analysis, gate/question rejection exist BEFORE implementation; 83.33 reference test is permanent; Phase 9 Specific-Action tests preceded the adapter change | PASS | test plan + Phase 10 ordering |
+| 10 | Language (v3.0.0) | All strings in `messages.py` (English B1); user input validated as English; bullet text stored and displayed verbatim | PASS | design: `messages.py` |
 
-**Post-Phase-1 re-check**: PASS — no gate violated; two justified complexity
-items below.
+**Post-Phase-1 re-check**: PASS — no unjustified gate violation; three
+justified complexity items below; one constitution amendment pending
+(P4 rubric version re-pin — product-owner action, does not block design).
 
 ## Project Structure
 
@@ -120,8 +125,13 @@ src/jobforward/
 │       └── llm.py          # optional opt-in analyzer; same validation/retry rules
 ├── flow/
 │   ├── path_service.py     # orchestrates record / draft / delete / copy paths
-│   ├── questions.py        # per-bullet rewrite gate + 0-3 skippable questions
+│   ├── parts.py            # NEW: deterministic five-part extraction
+│   │                       #   (user_need / product_feature / action / result /
+│   │                       #   metric) from bullet text; candidate's words only
+│   ├── questions.py        # per-bullet rewrite gate + 0-5 skippable questions
+│   │                       #   in fixed order Need→Feature→Action→Result→Metric
 │   ├── rewrite.py          # assembles rewrites from bullet + user answers ONLY
+│   │                       #   (keyword-preservation wording rules)
 │   └── incremental.py      # decides which bullets are new/edited and re-analyze
 ├── storage/
 │   ├── repository.py       # atomic load/save of the local document
@@ -141,9 +151,47 @@ principle so the compliance review is trivial. The `matcher/` package is the
 one structural addition versus the pre-clarification design and maps to
 Principle 6's JD-matcher boundary.
 
+## Five-Part Framework Design (Phase 10 addendum, 2026-10-29)
+
+Design decisions for the finalized spec (spec.md §§1–10) that the existing
+architecture must absorb:
+
+1. **Part extraction (`flow/parts.py`)** — deterministic, stdlib-only
+   heuristics split the bullet's own words into `user_need`,
+   `product_feature`, `action`, `result`, `metric` (metric = number-bearing
+   phrase; result = outcome clause after result connectors; action = action-
+   verb clause; need = problem statement; feature = named product surface —
+   marker lists versioned with the rubric). Extraction never paraphrases:
+   parts are verbatim substrings of the bullet, and an undetectable part is
+   empty (`part_present = False`), never guessed (Principle 1).
+2. **Context scoring from parts** — `_rate_context` consumes the extracted
+   need/feature: need absent → 0 (even with a feature); generic need or
+   feature absent → 1; specific need + specific feature → 2. Bullets stored
+   before Phase 10 (no part fields) keep the raw-text heuristic fallback so
+   old data still displays and re-scores.
+3. **Question engine (`flow/questions.py`)** — extends 0–3 to 0–5 questions,
+   fixed order Need → Feature → Action → Result → Metric; conditions:
+   Need/Action/Result asked when their dimension score is 0 or 1,
+   Feature/Metric when the field is empty; every question skippable; the
+   tool names the achievement and part before each question; a complete
+   bullet (2/2/2) gets confirmation only.
+4. **Partial answers** — after the question round, unanswered parts offer
+   draft-save vs confirm-rewrite-with-answers-so-far (rewrite_status
+   "draft"); skipping everything → no rewrite (Principle 2).
+5. **Display & output** — framework display per spec §5 (header,
+   `Original:`, `[part]` brackets, missing/vague notes, Filled correctly /
+   Still needs to be filled lists); final output per §8 (code block, `- `
+   lines, copy notice). All new strings go to `messages.py` (English B1).
+6. **Storage compatibility** — new bullet fields are optional with safe
+   defaults; documents saved before Phase 10 load unchanged; stored
+   `rubric-2.0.0` scores keep their version verbatim; the stored dimension
+   key stays `role_action_clarity` (the spec's `dimension_scores {context,
+   action, result}` maps onto it).
+
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |---|---|---|
 | Optional LLM scoring adapter (`scoring/adapters/llm.py`, opt-in) | The PRD describes language-model ratings with structured, validatable output; PRD acceptance includes invalid-output and retry behavior that only exist with a model in the loop | A local-only heuristic adapter alone cannot exercise the invalid-output/retry/report path, and deleting the port would break the reference-example, stability, and no-claims test strategy that depends on separating ratings (adapter) from arithmetic (deterministic code). Default run remains fully local (Principle 8 compliant) |
-| `matcher/` package with its own adapter port | Spec US5 / FR-021–FR-022 (docs/prd.md §4.1) require full posting analysis and per-entry actions; requirement extraction is language-model-shaped work but the default run must stay offline | A single LLM-only matcher would break the default-local rule (Principle 8) and the determinism needed to test classification; a purely manual matcher would contradict the product purpose. The port keeps the default run deterministic (rule-based keyword analyzer) with the same validate/retry/report contract as the scoring evaluator |
+| `matcher/` package with its own adapter port | Spec US5 / FR-021–FR-022 (docs/prd.md §4.1) required per-entry matcher actions — SUPERSEDED by feature 002-jd-matcher (posting-only analysis); the package stays for storage compatibility and is not reworked | A single LLM-only matcher would break the default-local rule (Principle 8); the port's validate/retry contract remains the reference pattern for 002's `matcher2/` |
+| Deterministic five-part extraction heuristics (`flow/parts.py`) | The finalized spec requires the five parts "extracted automatically" with only the candidate's own words, deterministically (reliability gate, Principle 1) | An LLM extraction step would break determinism/stability and risk fabricated part text; asking the user to fill five fields contradicts spec §1 ("the candidate never fills in the framework directly"). Marker-based extraction is testable and versioned with the rubric |

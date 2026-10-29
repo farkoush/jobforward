@@ -102,6 +102,9 @@ def test_evaluator_signature_has_three_dimensions():
 
 
 def test_request_has_no_posting_field():
-    """FR-006: the rating request physically cannot carry a job posting."""
+    """FR-006: the rating request physically cannot carry a job posting.
+
+    rubric-3.0.0 adds ``parts`` (the bullet's own five-part extraction —
+    still bullet-derived data, never posting data)."""
     fields = {f.name for f in dataclasses.fields(BulletRatingRequest)}
-    assert fields == {"texts", "answers", "rubric_version"}
+    assert fields == {"texts", "answers", "rubric_version", "parts"}

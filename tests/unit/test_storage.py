@@ -58,7 +58,7 @@ def test_round_trip_with_v2_fields(tmp_path):
 
     doc = json.loads((tmp_path / "resume.json").read_text(encoding="utf-8"))
     assert doc["document_version"] == DOCUMENT_VERSION == 2
-    assert doc["rubric_version"] == DEFAULT_RUBRIC_VERSION == "rubric-2.0.0"
+    assert doc["rubric_version"] == DEFAULT_RUBRIC_VERSION == "rubric-3.0.0"
 
     assert len(loaded) == 1
     got = loaded[0]
@@ -119,3 +119,19 @@ def tmp_path_empty():
     import tempfile
 
     return tempfile.mkdtemp()
+
+
+def test_rubric_v2_data_stays_loadable_after_v3(tmp_path):
+    """Backward compatibility (T049): bullets scored under rubric-2.0.0
+    keep their stored version verbatim through a save/load round trip —
+    the v3 default never overwrites persisted v2 history."""
+    repo = Repository(tmp_path / "resume.json")
+    entry = _make_entry()
+    entry.bullets[0].rubric_version = "rubric-2.0.0"
+    repo.save([entry])
+    loaded = repo.load()
+    assert loaded[0].bullets[0].rubric_version == "rubric-2.0.0"
+
+    doc = json.loads((tmp_path / "resume.json").read_text(encoding="utf-8"))
+    assert doc["rubric_version"] == DEFAULT_RUBRIC_VERSION == "rubric-3.0.0"
+    assert doc["entries"][0]["bullets"][0]["rubric_version"] == "rubric-2.0.0"

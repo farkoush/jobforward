@@ -35,7 +35,10 @@ from ..models.entities import (
 )
 
 DOCUMENT_VERSION = 2
-DEFAULT_RUBRIC_VERSION = "rubric-2.0.0"
+# rubric-3.0.0: the Specific Action checklist (Phase 9,
+# specs/001-experience-improvement-flow/checklists/specific-action.md).
+# Stored ratings keep the rubric version they were scored under.
+DEFAULT_RUBRIC_VERSION = "rubric-3.0.0"
 
 
 class Repository:
@@ -104,6 +107,12 @@ class Repository:
             "questions": self._serialize_questions(bullet.questions),
             "proposals": self._serialize_proposals(bullet.proposals),
             "merge_warned": bullet.merge_warned,
+            "user_need": bullet.user_need,
+            "product_feature": bullet.product_feature,
+            "action": bullet.action,
+            "result": bullet.result,
+            "metric": bullet.metric,
+            "part_present": bullet.part_present,
         }
 
     def _serialize_match_action(
@@ -206,6 +215,12 @@ class Repository:
             questions=Repository._deserialize_questions(data.get("questions", [])),
             proposals=Repository._deserialize_proposals(data.get("proposals", [])),
             merge_warned=data.get("merge_warned", False),
+            user_need=data.get("user_need"),
+            product_feature=data.get("product_feature"),
+            action=data.get("action"),
+            result=data.get("result"),
+            metric=data.get("metric"),
+            part_present=data.get("part_present"),
         )
 
     @staticmethod

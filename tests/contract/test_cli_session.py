@@ -88,7 +88,7 @@ def test_scores_carry_rubric_version(tmp_path):
     cli, io = _make_cli(_add_entry_inputs(), tmp_path)
     cli.run()
     rendered = "\n".join(io.outputs)
-    assert "rubric-2.0.0" in rendered
+    assert "rubric-3.0.0" in rendered
 
 
 def test_non_english_bullet_rejected_data_survives(tmp_path):
@@ -148,7 +148,7 @@ def test_draft_session_shows_no_overall(tmp_path):
     cli, io = _make_cli(["1", "2", "Project x", "", "3"], tmp_path)
     cli.run()
     rendered = "\n".join(io.outputs)
-    assert messages.SCORE_OVERALL.format(value=0, rubric="rubric-2.0.0") not in rendered
+    assert messages.SCORE_OVERALL.format(value=0, rubric="rubric-3.0.0") not in rendered
     assert "Overall score: 0" not in rendered
 
 

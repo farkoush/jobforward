@@ -2,7 +2,7 @@
 
 Validation and run guide for `specs/001-experience-improvement-flow/`.
 All tool text is English at B1 level; all user input is English (pasted
-posting text may be Persian or English). Rubric version: `rubric-2.0.0`
+posting text may be Persian or English). Rubric version: `rubric-3.0.0`
 (three dimensions: Context, Role and Action Clarity, Result).
 
 ## Prerequisites
@@ -55,24 +55,32 @@ before its implementation lands (constitution Principle 9).
 5. Record an entry with zero bullets: it is kept as a draft, excluded from
    the overall score, and the tool suggests writing a description bullet.
 
-## Scenario B — Gate, questions, rewrite, explicit approval (US2)
+## Scenario B — Framework, gate, five questions, rewrite, approval (US2,
+finalized five-part framework)
 
-1. On a scored bullet whose result dimension is 0 or 1, accept the rewrite
-   gate "Do you want me to rewrite this bullet…?" (default Yes).
-2. Verify exactly one question per dimension scoring 0 or 1, asked in
-   Context → Action → Result order (0–3 total), each offering Answer / Skip.
-   The Result question ends with "If you have real numbers, include them."
-3. Answer the Result question, skip the others: the tool offers **save the
-   whole entry as a draft** or **approve a rewrite from the answers so far**.
+1. On a scored bullet, verify the framework display appears BEFORE the gate:
+   `Experience: <title> - Achievement <n> of <total>`, `Original: "<text>"`,
+   the five bracketed parts (missing parts like `[User need or problem -
+   missing]`, vague parts with the exact words + `vague`), and the
+   `Filled correctly` / `Still needs to be filled` lists.
+2. Accept the rewrite gate "Do you want me to rewrite this bullet…?"
+   (default Yes). Verify exactly one skippable question per missing/vague
+   part, in the order Need → Feature → Action → Result → Metric (0–5
+   total), each preceded by the identification line naming the achievement
+   and part. A complete bullet (2/2/2) gets NO questions — only a
+   confirmation.
+3. Answer the Metric question ("Do you have a real number? If not, you can
+   skip this."), skip the Result question: the tool offers **save the whole
+   entry as a draft** or **confirm a rewrite with your answers so far**.
    Choose draft → the entry becomes a draft and disappears from the overall
    average.
-4. Repeat with all questions answered: verify the proposed rewrite contains
-   ONLY words from the original bullet and your answers (no invented numbers,
-   impacts, or claims); approve it → the bullet is replaced with status
-   "edited", the previous text is kept in history, and the entry is
-   re-scored with the bullet re-analyzed.
-5. Repeat and reject the gate (or skip all questions): verify no rewrite, and
-   the bullet text and scores are byte-identical before and after.
+4. Repeat with the result answered too: verify the proposed rewrite contains
+   ONLY words from the original bullet and your answers (no invented
+   keywords, numbers, impacts, or claims); approve it → the bullet is
+   replaced with status "edited", the previous text is kept in history, and
+   the entry is re-scored with the bullet re-analyzed under rubric-3.0.0.
+5. Repeat and reject the gate (or skip all questions): verify no rewrite,
+   and the bullet text and scores are byte-identical before and after.
 
 ## Scenario C — Incremental re-analysis and before/after (US3)
 

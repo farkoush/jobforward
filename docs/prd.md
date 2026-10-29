@@ -104,9 +104,18 @@ Three features will be built in version 1. They all work only on resumes and onl
 
 **### 4.1 Job Description Matcher (JD Matcher)**
 
+> **Update (October 29, 2026):** Superseded by feature `002-jd-matcher`
+> (constitution v3.0.0 P6). The matcher now analyzes ONLY the pasted job
+> posting — it never reads or touches resumes — and outputs skill tables
+> only: three hard-skill tables (Must / Should / Nice) with verbatim
+> evidence for every row, plus one soft-skill table drawn strictly from the
+> 56-skill taxonomy (`docs/soft-skills-taxonomy.json`). The per-entry
+> actions ("Highlight / No change / Shorten") are retired as product
+> behavior, and postings must be English: a posting with more than 10%
+> Persian/Arabic-script letters is rejected. The original two-step design
+> below is kept as history.
 
-
-**\*\*Input:\*\*** Job posting text (Persian or English, pasted text only) and the job seeker's experience.
+**\*\*Input:\*\*** Job posting text (English only; a posting with more than 10% Persian/Arabic-script letters is rejected — updated October 29, 2026; originally Persian or English, pasted text only) and the job seeker's experience.
 
 
 
@@ -142,27 +151,32 @@ The matcher's output unit is the work experience entry, not the bullet.
 
 
 
-**### 4.2 Rewriting a Bullet Using the “Context → Action → Result” Pattern**
+**### 4.2 Rewriting a Bullet Using the Five‑Part Framework (User Need → Product Feature → Action → Result → Metric)**
 
+> **Update (October 29, 2026):** Finalized as the five‑part framework
+> (rubric_version 3). The five parts (`user_need`, `product_feature`,
+> `action`, `result`, `metric`) are extracted automatically and contain
+> only the candidate's own words; the candidate never fills in the
+> framework directly — they only answer the generated questions. The
+> question flow changed from 0–3 to 0–5 questions as described below. The
+> Context → Action → Result pattern remains the sentence structure for
+> rewrites.
 
+A bullet is free text. The framework only organizes the questions and the rewritten sentence; the user does not fill in separate fields.
 
-A bullet is free text. The “Context → Action → Result” pattern only guides the model's sentence structure when rewriting; the user does not fill in separate fields.
+First, the tool asks: “Do you want me to rewrite this bullet to make your experience stronger?” (Default: Yes). If the answer is yes, the tool asks exactly one question for each missing or vague part, in this order: Need, Feature, Action, Result, Metric. A part is missing when it is empty or vague; “vague” is determined by the relevant dimension score in section 4.3 (0 or 1). The Need, Action, and Result questions are asked when their dimension scores 0 or 1; the Feature and Metric questions are asked when the field is empty. This means there are 0–5 questions, and the job seeker can skip any question. Before each question, the tool identifies the achievement and the part being discussed. If the bullet is complete (Context, Specific Action, and Result all score 2), no questions are asked; the tool only asks the user to confirm the bullet at the end. The metric is optional and never blocks completeness.
 
+\- **\*\*Need:\*\*** “Who had a problem? What was the problem?”
 
-
-First, the tool asks: “Do you want me to rewrite this bullet to make your experience stronger?” (Default: Yes). If the answer is yes, the tool reviews the bullet using the pattern and asks exactly one question for each missing part (Context, Action, Result), in that order. The Context question is asked when the bullet has no context. The Action or Result question is asked when the relevant dimension in section 4.3 scores 0 or 1. This means there are 0–3 questions, and the job seeker can skip any question. If the bullet is complete, no questions are asked; the tool only asks the user to confirm the bullet at the end. “If you have real numbers, include them” is part of the Result question.
-
-
-
-\- **\*\*Context:\*\*** “What was the situation? For example, what project, team, or problem was it about?”
+\- **\*\*Feature:\*\*** “What was the feature or product part you worked on?”
 
 \- **\*\*Action:\*\*** “What exactly did you do? What was your role?”
 
-\- **\*\*Result:\*\*** “What changed after your work? Who did it help, or what result did it lead to? If you have real numbers, include them.”
+\- **\*\*Result:\*\*** “What changed after your work? Who did it help?”
 
+\- **\*\*Metric:\*\*** “Do you have a real number? If not, you can skip this.”
 
-
-The tool does not invent numbers, impact, or claims. If the job seeker has no real impact to report, the tool does not make one up. The pattern only changes the sentence structure and does not add new content; this rule also applies when rewriting with the pattern. If the job seeker answers at least one question but leaves the others unanswered, or needs time to think, the tool offers two options: save the work experience entry as a draft, or approve a rewrite using only the answers already provided. Rewriting uses only the user's own words and happens only after their approval. If the user does not answer or skips all questions, no rewrite is made.
+The tool does not invent numbers, impact, or claims. If the job seeker has no real impact to report, the tool does not make one up. Rewriting rules (WORDING): keywords — nouns, verbs, tool names, numbers, results, product names — stay unchanged; allowed changes are grammar, spelling, verb tense, short linking words (and, to, with, by, for), and word order; forbidden are replacing keywords (even synonyms), adding new nouns/verbs/tools/numbers/results, and overstating or understating the role. If a rewrite would require a new keyword, the relevant part stays empty and the tool asks a question. If the job seeker answers at least one question but leaves the others unanswered, or needs time to think, the tool offers two options: save the work experience entry as a draft, or confirm a rewrite using only the answers already provided. Rewriting uses only the user's own words and happens only after their approval. If the user does not answer or skips all questions, no rewrite is made.
 
 
 
@@ -178,13 +192,9 @@ The resume is reviewed, and the tool shows where each work experience entry lack
 
 
 
-**\*\*Three dimensions\*\*** (each uses a checklist scored 0, 1, or 2): Context, Role and Action Clarity, and Result. For Context: 0 means missing, 1 means general (“in an app”), and 2 means a specific situation (a specific project, team, or problem). The entry score is the simple average of the three equally weighted dimensions (0–100). The weights are not written as percentages. After the pilot, weights will be reviewed only using data, and any change will create a new rubric version.
+**\*\*Three dimensions\*\*** (each uses a checklist scored 0, 1, or 2): Context, Specific Action (replacing “Role and Action Clarity” — updated October 29, 2026; the stored key `role_action_clarity` is unchanged), and Result. The framework's five parts (`user_need`, `product_feature`, `action`, `result`, `metric`) are extracted automatically and contain only the candidate's own words; `part_present` (five booleans) replaced `context_present` (updated October 29, 2026). For Context (based on `user_need` and `product_feature`, priority given to the need): 0 means the need is missing, even if the feature is mentioned; 1 means the need is general, or the need is specific but the feature is missing; 2 means both the specific need and the feature are present. The exact 0/1/2 levels for Specific Action are defined in the scoring checklist (`specs/001-experience-improvement-flow/checklists/specific-action.md`). The entry score is the simple average of the three equally weighted dimensions (0–100). After the pilot, weights will be reviewed only using data, and any change will create a new rubric version.
 
-
-
-For the Result dimension, a specific qualitative result scores 2 and a vague result scores 1. Personal learning without an observable change (such as “I learned how it works”) scores 1. Examples of score 1:
-
-
+For the Result dimension, a specific qualitative result scores 2 even without a number, and a vague result scores 1. If only a bare number is supplied without a result (for example, “20% growth”), the result score is 1 and the tool asks what the number represents. The metric adds detail to the result but never changes its score. Personal learning without an observable change (such as “I learned how it works”) scores 1. Examples of score 1:
 
 \- Vague: “Improved performance”
 
@@ -192,17 +202,13 @@ For the Result dimension, a specific qualitative result scores 2 and a vague res
 
 \- Personal learning: “Learned how data analysis works”
 
+\- Bare number only: “20% growth”
 
+**\*\*Score:\*\*** The entry score is the equal average of the three equally weighted dimensions on a 0–100 scale (equal weights — the “25%” wording was a leftover and was corrected on October 29, 2026). The overall score is the simple average of entries that have bullets. Both the overall score and sub-scores are shown. After the pilot, weights will be reviewed only using data, and any change will create a new rubric version. `rubric_version` is now 3 because the Context definition changed; prior scores remain associated with their original rubric versions.
 
-**\*\*Score:\*\*** The entry score is the equal average of the three dimensions (each weighted at 25%, to be revised after the pilot) on a 0–100 scale. The overall score is the simple average of entries that have bullets. Both the overall score and sub-scores are shown. In version 1, the three dimensions have equal weights (25% each). After the pilot, weights will be reviewed only using data, and any change will create a new rubric version.
+An overlap warning suggests merging overlapping bullets within an experience entry and does not affect the score (corrected October 29, 2026: the overlap unit is the bullet, not the entry).
 
-
-
-An overlap warning suggests merging work experience entries and does not affect the score.
-
-
-
-**\*\*Feedback flow:\*\*** Bullet → analysis of the three dimensions and detection of context_present → “Do you want a rewrite?” question (default: Yes) → 0–3 questions in Context, Action, Result order (only for missing parts) → user answers → (if any part is unanswered: save as a draft or approve using the existing answers) → rewrite suggestion → user approves or rejects → new bullet marked “edited” → re-analysis. A complete bullet only requires final confirmation.
+**\*\*Feedback flow:\*\*** Bullet → extraction of the five parts and analysis of the three dimensions → framework display (header, `Original:` line, bracketed parts with `missing`/`vague` notes, `Filled correctly` and `Still needs to be filled` lists) → “Do you want a rewrite?” question (default: Yes) → 0–5 questions in Need, Feature, Action, Result, Metric order (only for missing or vague parts, each skippable) → user answers → (if any part is unanswered: save as a draft or confirm a rewrite using the existing answers) → rewrite suggestion → user approves or rejects → new bullet marked “edited” → re-analysis. A complete bullet only requires final confirmation. When all bullets are approved or left unchanged, the final text is shown without brackets, inside a code block, one bullet per line prefixed with “- ”, with a notice that the candidate can copy it.
 
 
 
@@ -254,13 +260,15 @@ Each work experience entry is saved using the same fields, whether entered manua
 
 \| Analysis status for each bullet \| `analysis_status` \| New, edited, or analyzed \| Automatic \| Only new or edited bullets are analyzed again. \|
 
-\| Analysis output \| `context_present` \| Boolean \| Yes \| Yes or no; analysis output. \|
+\| Framework parts \| `user_need`, `product_feature`, `action`, `result`, `metric` \| Text, extracted automatically \| Automatic \| The five parts contain only the candidate's own words (updated October 29, 2026). \|
 
-\| Dimension scores \| `dimension_scores {context, action, result}` \| Three values: 0, 1, or 2 \| Automatic \| Context, Role and Action Clarity, Result. \|
+\| Part presence \| `part_present` \| Five booleans \| Automatic \| Replaces `context_present` (updated October 29, 2026). \|
 
-\| Rubric version \| `rubric_version` \| Number \| Automatic \| Stored with each score. \|
+\| Dimension scores \| `dimension_scores {context, action, result}` \| Three values: 0, 1, or 2 \| Automatic \| Context, Specific Action, Result. \|
 
-\| Tool questions \| `follow_up_questions` \| List \| Automatic \| 0–3 questions. \|
+\| Rubric version \| `rubric_version` \| Number \| Automatic \| Stored with each score; current version 3. \|
+
+\| Tool questions \| `follow_up_questions` \| List \| Automatic \| 0–5 questions. \|
 
 \| User answers \| `user_answers` \| Free text, one per question \| Automatic \| \|
 
@@ -408,7 +416,7 @@ This version intentionally does not include:
 
 \- **\*\*Resume language:\*\*** English only. The language is declared during upload, and Persian resume uploads are blocked. Resume language detection must be coordinated with the technical team.
 
-\- **\*\*Job posting input:\*\*** Pasted text only, in Persian or English.
+\- **\*\*Job posting input:\*\*** Pasted text only, in English. A posting with more than 10% Persian/Arabic-script letters is rejected; scattered Persian names inside English text are allowed (updated October 29, 2026; originally Persian or English).
 
 \- **\*\*Data structure:\*\*** Each work experience entry has at least 1 and at most 6 bullets. An entry without a description is a draft.
 
@@ -426,7 +434,9 @@ This version intentionally does not include:
 
 \- **\*\*Language and interface for version 1:\*\*** Text-based terminal flow. All tool text is in English at B1 level. UI and Persian language will be added in later versions.
 
-\- **\*\*Matcher actions:\*\*** “Highlight / No change / Shorten,” each linked to an extracted skill (type + priority). There is no “Remove” action.
+\- **\*\*Matcher actions:\*\*** Retired October 29, 2026: superseded by feature `002-jd-matcher` (constitution v3.0.0 P6). The matcher analyzes only the pasted posting and outputs skill tables only (three Must/Should/Nice hard-skill tables with verbatim evidence + one soft-skill table from the 56-skill taxonomy); no per-entry actions are produced. Historically: “Highlight / No change / Shorten,” each linked to an extracted skill (type + priority), with no “Remove” action.
+
+\- **\*\*Rubric version:\*\*** Version 3 (October 29, 2026): the five-part framework (parts extracted automatically, only the candidate's own words), Context derived from `user_need` + `product_feature`, and Specific Action replacing “Role and Action Clarity” (stored key `role_action_clarity` unchanged). Prior scores keep their original rubric version.
 
 
 
@@ -529,3 +539,9 @@ This version intentionally does not include:
 \- October 25, 2026: Final decision: version 1 is a text-based terminal flow. All tool text is in English at B1 level. UI and Persian language will be added in later versions.
 
 \- October 25, 2026: Final decision: the rubric changed from four dimensions to three equally weighted dimensions (Context, Role and Action Clarity, Result). “Product Manager skill evidence,” “Structure and scannability,” and the phrase “Weak for a Product Manager” were removed. `context_present` is no longer needed; the Context score replaces it. A new rubric version was recorded (`rubric_version = 2`).
+
+\- October 29, 2026: Final decision: section 4.2 finalized as the five‑part framework (`user_need`, `product_feature`, `action`, `result`, `metric`, extracted automatically with only the candidate's own words). Questions changed from 0–3 (Context, Action, Result) to 0–5 in the order Need, Feature, Action, Result, Metric (Need/Action/Result when their dimension scores 0 or 1; Feature/Metric when the field is empty; each skippable; a complete 2/2/2 bullet gets no questions). Rewriting rules pin keywords (nouns, verbs, tool names, numbers, results, product names) as unchanged. The final output is a copyable code block with “- ” lines.
+
+\- October 29, 2026: Final decision: section 4.3 updated for rubric_version 3 — Specific Action replaced “Role and Action Clarity” (stored key `role_action_clarity` unchanged; levels defined in the scoring checklist), Context now derives from `user_need` + `product_feature` (need missing → 0 even with a feature), a bare-number-only result scores 1, and `part_present` (five booleans) replaced `context_present`. The leftover “25% each” weight wording was corrected to equal weights (1/3 each), the overlap unit was corrected to bullets (not entries), and the follow-up question range in section 4.4 changed to 0–5.
+
+\- October 29, 2026: Final decision: section 4.1 superseded by feature `002-jd-matcher` (constitution v3.0.0 P6): the matcher analyzes only the pasted posting and outputs skill tables only; the per-entry actions (“Highlight / No change / Shorten”) are retired. Job posting input changed to English only (>10% Persian/Arabic-script letters rejected), aligning with constitution v3.0.0 P10.

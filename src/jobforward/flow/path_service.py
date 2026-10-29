@@ -175,9 +175,10 @@ class PathService:
     # ------------------------------------------------------------------ #
     @staticmethod
     def copy_text(entry: ExperienceEntry) -> str:
-        """The exact entry text for clipboard use; non-mutating."""
+        """The final text for clipboard use (spec §8): one bullet per line
+        prefixed with ``- ``; unimproved bullets keep their exact wording."""
         lines = [entry.title]
-        lines.extend(b.text for b in entry.bullets)
+        lines.extend(f"- {b.text}" for b in entry.bullets)
         return "\n".join(lines)
 
     # ------------------------------------------------------------------ #

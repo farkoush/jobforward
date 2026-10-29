@@ -37,7 +37,6 @@ from .flow.path_service import PathService, contains_non_english
 from .flow.questions import (
     all_skipped,
     build_questions,
-    deficient_dimensions,
     gate_allowed,
     has_partial_answers,
     next_round,
@@ -192,13 +191,68 @@ class CLI:
         self.state = SessionState.SCORE_SHOWN
 
     # ------------------------------------------------------------------ #
+    # Framework display (spec §5, finalized five-part framework)
+    # ------------------------------------------------------------------ #
+    def _show_framework(self, entry: ExperienceEntry, bullet: Bullet, n: int) -> None:
+        """Render the five-part framework for one bullet (candidate's exact
+        words only; missing/vague markers per spec §5)."""
+        total = len(entry.bullets)
+        ratings = bullet.ratings
+        parts = bullet.parts_or_extract()
+        self._show(m.FRAMEWORK_HEADER.format(title=entry.title, n=n, total=total))
+        self._show(m.FRAMEWORK_ORIGINAL.format(text=bullet.text))
+        filled: list[tuple[str, str]] = []
+        needs: list[str] = []
+        for label, name, words, vague in (
+            (m.PART_LABEL_NEED, m.PART_NAME_NEED, parts.user_need,
+             ratings is not None and ratings.context < 2),
+            (m.PART_LABEL_FEATURE, m.PART_NAME_FEATURE, parts.product_feature,
+             False),
+            (m.PART_LABEL_ACTION, m.PART_NAME_ACTION, parts.action,
+             ratings is not None and ratings.role_action_clarity < 2),
+            (m.PART_LABEL_RESULT, m.PART_NAME_RESULT, parts.result,
+             ratings is not None and ratings.result < 2),
+            (m.PART_LABEL_METRIC, m.PART_NAME_METRIC, parts.metric, False),
+        ):
+            words = (words or "").strip()
+            if not words:
+                self._show(m.FRAMEWORK_PART_MISSING.format(label=label))
+                needs.append(label)
+            elif vague:
+                self._show(m.FRAMEWORK_PART_VAGUE.format(label=label, words=words))
+                needs.append(label)
+            else:
+                self._show(m.FRAMEWORK_PART_OK.format(label=label, words=words))
+                filled.append((label, words))
+        if filled:
+            self._show(m.FRAMEWORK_FILLED)
+            for label, words in filled:
+                self._show(m.FRAMEWORK_FILLED_LINE.format(label=label, words=words))
+        if needs:
+            self._show(m.FRAMEWORK_NEEDS)
+            for label in needs:
+                self._show(m.FRAMEWORK_NEEDS_LINE.format(label=label))
+
+    # ------------------------------------------------------------------ #
     # Scoring (US1)
     # ------------------------------------------------------------------ #
     def _score_and_show(self, entry: ExperienceEntry) -> bool:
         """Score all bullets, persist, display. Returns False on evaluator
         failure (exit-code-2 path, data intact)."""
         texts = [b.text for b in entry.bullets]
-        request = BulletRatingRequest(texts=texts, rubric_version=RUBRIC_VERSION)
+        parts = []
+        for bullet in entry.bullets:
+            extracted = bullet.parts_or_extract()
+            bullet.user_need = extracted.user_need
+            bullet.product_feature = extracted.product_feature
+            bullet.action = extracted.action
+            bullet.result = extracted.result
+            bullet.metric = extracted.metric
+            bullet.part_present = extracted.present()
+            parts.append(extracted)
+        request = BulletRatingRequest(
+            texts=texts, rubric_version=RUBRIC_VERSION, parts=parts
+        )
         try:
             response = self.evaluator.evaluate_with_retry(request)
         except EvaluatorOutputError:
@@ -296,12 +350,16 @@ class CLI:
     # Rewrite loop (US2)
     # ------------------------------------------------------------------ #
     def _rewrite_round(self, entry: ExperienceEntry) -> None:
-        """Gate + 0–3 questions per bullet; proposals on explicit approval."""
-        for bullet in list(entry.bullets):
+        """Framework display + gate + 0–5 questions per bullet; proposals on
+        explicit approval (finalized spec §§4.1, 5, 6)."""
+        for position, bullet in enumerate(list(entry.bullets), start=1):
             if bullet.ratings is None:
                 continue
             if not gate_allowed(bullet):
                 continue  # one round per bullet per run (FR-009)
+
+            # Step 4: display the framework BEFORE the gate (spec §4.1).
+            self._show_framework(entry, bullet, position)
 
             gate_choice = self._prompt(m.ASK_REWRITE_GATE)
             if gate_choice == "2":
@@ -315,21 +373,34 @@ class CLI:
                 )
                 self._show(m.NO_REWRITE)
                 continue
-            dims = deficient_dimensions(bullet.ratings)
-            if not dims:
-                # Complete bullet: only a final confirmation (PRD §4.2).
+            questions = build_questions(
+                bullet, bullet.ratings, GateDecision.ACCEPTED, next_round(bullet)
+            )
+            if not questions:
+                # Complete bullet: only a final confirmation (spec §6).
                 confirm = self._prompt(m.BULLET_CONFIRM)
                 if confirm == "2":
                     self._edit_bullet_flow(entry)
                 continue
 
-            round_number = next_round(bullet)
-            questions = build_questions(
-                bullet, bullet.ratings, GateDecision.ACCEPTED, round_number
-            )
             answers: dict[QuestionDimension, str] = {}
             for question in questions:
                 assert question.dimension is not None
+                part_name = {
+                    QuestionDimension.CONTEXT: m.PART_NAME_NEED,
+                    QuestionDimension.FEATURE: m.PART_NAME_FEATURE,
+                    QuestionDimension.ROLE_ACTION_CLARITY: m.PART_NAME_ACTION,
+                    QuestionDimension.RESULT: m.PART_NAME_RESULT,
+                    QuestionDimension.METRIC: m.PART_NAME_METRIC,
+                }[question.dimension]
+                self._show(
+                    m.ASK_PART_INTRO.format(
+                        title=entry.title,
+                        n=position,
+                        total=len(entry.bullets),
+                        part=part_name,
+                    )
+                )
                 outcome, answer = self._ask_question(question.text)
                 if outcome == "skip":
                     question.skipped = True
@@ -416,7 +487,16 @@ class CLI:
         if not needs_reanalysis(bullet):
             return
         before = entry.entry_score
-        request = BulletRatingRequest(texts=[bullet.text], rubric_version=RUBRIC_VERSION)
+        extracted = bullet.parts_or_extract()
+        bullet.user_need = extracted.user_need
+        bullet.product_feature = extracted.product_feature
+        bullet.action = extracted.action
+        bullet.result = extracted.result
+        bullet.metric = extracted.metric
+        bullet.part_present = extracted.present()
+        request = BulletRatingRequest(
+            texts=[bullet.text], rubric_version=RUBRIC_VERSION, parts=[extracted]
+        )
         try:
             response = self.evaluator.evaluate_with_retry(request)
         except EvaluatorOutputError:
@@ -553,6 +633,7 @@ class CLI:
         self._show(m.COPY_BEGIN)
         self._show(self.path_service.copy_text(entry))
         self._show(m.COPY_END)
+        self._show(m.COPY_NOTICE)
 
     @staticmethod
     def _bullet(entry: ExperienceEntry, bullet_id: int) -> Optional[Bullet]:

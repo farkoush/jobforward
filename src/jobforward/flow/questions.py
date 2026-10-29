@@ -1,11 +1,15 @@
 """Per-bullet rewrite gate and follow-up questions (flow/questions.py).
 
-Locked by FR-009 + Clarifications Session 2026-10-25:
+Finalized five-part framework (spec §§4.1, 6, 7) + FR-009:
   - analysis runs BEFORE any question;
   - for each bullet the gate "Do you want me to rewrite this bullet…?" is
     asked (default Yes); answering No → no questions, no rewrite;
-  - on accept: exactly one skippable question per dimension scoring 0 or 1,
-    asked in Context → Role and Action Clarity → Result order (0–3 total);
+  - on accept: exactly one skippable question per missing/vague part, in the
+    fixed order Need → Feature → Action → Result → Metric (0–5 total).
+    Conditions: Need/Action/Result when their dimension score is 0 or 1;
+    Feature/Metric when the field is empty;
+  - a COMPLETE bullet (Context, Specific Action, Result all 2) gets NO
+    questions — only a final confirmation;
   - at most ONE question round per bullet per improvement run;
   - ≥ 1 answered + others unanswered → the CLI offers save-entry-as-draft or
     approve-rewrite-from-answers-so-far.
@@ -23,26 +27,42 @@ from ..models.entities import (
 )
 from ..messages import (
     ASK_REWRITE_GATE,
-    ASK_CONTEXT,
+    ASK_NEED,
+    ASK_FEATURE,
     ASK_ACTION,
     ASK_RESULT,
+    ASK_METRIC,
 )
 
-# Question order locked by the PRD: context, action (role clarity), result.
+# Question order locked by the finalized spec §6.
 QUESTION_ORDER: tuple[QuestionDimension, ...] = (
     QuestionDimension.CONTEXT,
+    QuestionDimension.FEATURE,
     QuestionDimension.ROLE_ACTION_CLARITY,
     QuestionDimension.RESULT,
+    QuestionDimension.METRIC,
 )
 
 QUESTION_TEXT = {
-    QuestionDimension.CONTEXT: ASK_CONTEXT,
+    QuestionDimension.CONTEXT: ASK_NEED,
+    QuestionDimension.FEATURE: ASK_FEATURE,
     QuestionDimension.ROLE_ACTION_CLARITY: ASK_ACTION,
     QuestionDimension.RESULT: ASK_RESULT,
+    QuestionDimension.METRIC: ASK_METRIC,
 }
 
 # Hard cap: one round per bullet per improvement run (Clarification Q1).
 MAX_ROUND = 1
+
+
+def is_complete(ratings: Ratings) -> bool:
+    """A bullet is complete when all three dimensions score 2 (spec §6);
+    the metric is never required."""
+    return (
+        ratings.context == 2
+        and ratings.role_action_clarity == 2
+        and ratings.result == 2
+    )
 
 
 def deficient_dimensions(ratings: Ratings) -> list[QuestionDimension]:
@@ -52,7 +72,39 @@ def deficient_dimensions(ratings: Ratings) -> list[QuestionDimension]:
         QuestionDimension.ROLE_ACTION_CLARITY: ratings.role_action_clarity,
         QuestionDimension.RESULT: ratings.result,
     }
-    return [dim for dim in QUESTION_ORDER if values[dim] < 2]
+    return [
+        dim
+        for dim in QUESTION_ORDER
+        if dim in values and values[dim] < 2
+    ]
+
+
+def _field_empty(bullet: Bullet, dimension: QuestionDimension) -> bool:
+    field = {
+        QuestionDimension.FEATURE: bullet.product_feature,
+        QuestionDimension.METRIC: bullet.metric,
+    }.get(dimension)
+    return not (field or "").strip()
+
+
+def questions_for(bullet: Bullet, ratings: Ratings) -> list[QuestionDimension]:
+    """The parts to ask about, in locked order (spec §6 conditions)."""
+    if is_complete(ratings):
+        return []  # complete bullets get a confirmation, never questions
+    asks: list[QuestionDimension] = []
+    for dimension in QUESTION_ORDER:
+        if dimension in (QuestionDimension.FEATURE, QuestionDimension.METRIC):
+            if _field_empty(bullet, dimension):
+                asks.append(dimension)
+        else:
+            score = {
+                QuestionDimension.CONTEXT: ratings.context,
+                QuestionDimension.ROLE_ACTION_CLARITY: ratings.role_action_clarity,
+                QuestionDimension.RESULT: ratings.result,
+            }[dimension]
+            if score < 2:
+                asks.append(dimension)
+    return asks
 
 
 def gate_allowed(bullet: Bullet) -> bool:
@@ -79,9 +131,10 @@ def build_questions(
     gate_answer: GateDecision,
     round_number: int | None = None,
 ) -> list[QuestionRecord]:
-    """Build the question records for this round (0–3 questions).
+    """Build the question records for this round (0–5 questions).
 
     Preconditions: gate_answer == ACCEPTED and gate_allowed(bullet).
+    A complete bullet yields an empty list (confirmation only, spec §6).
     """
     if gate_answer == GateDecision.REJECTED:
         return []
@@ -89,12 +142,12 @@ def build_questions(
         round_number = next_round(bullet)
     return [
         QuestionRecord(
-            dimension=dim,
-            text=QUESTION_TEXT[dim],
+            dimension=dimension,
+            text=QUESTION_TEXT[dimension],
             round=round_number,
             gate_answer=gate_answer,
         )
-        for dim in deficient_dimensions(ratings)
+        for dimension in questions_for(bullet, ratings)
     ]
 
 

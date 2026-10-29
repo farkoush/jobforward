@@ -51,11 +51,18 @@ class GateDecision(str, Enum):
 
 
 class QuestionDimension(str, Enum):
-    """Which rubric dimension a follow-up question covers."""
+    """Which framework part a follow-up question covers (spec §6).
+
+    CONTEXT covers the Need question; ROLE_ACTION_CLARITY covers the Action
+    question (stored key unchanged); FEATURE and METRIC were added by the
+    five-part framework (rubric-3.0.0).
+    """
 
     CONTEXT = "context"
+    FEATURE = "feature"
     ROLE_ACTION_CLARITY = "role_action_clarity"
     RESULT = "result"
+    METRIC = "metric"
 
 
 class DraftReason(str, Enum):
@@ -96,10 +103,12 @@ class MatchActionType(str, Enum):
 
 @dataclass
 class Ratings:
-    """Three per-dimension scores, each int in {0, 1, 2} (rubric-2.0.0).
+    """Three per-dimension scores, each int in {0, 1, 2} (rubric-3.0.0).
 
     Produced by an evaluator adapter; all downstream arithmetic is deterministic
-    in scoring/metrics.py — never inside the adapter.
+    in scoring/metrics.py — never inside the adapter. The stored key
+    ``role_action_clarity`` carries the Specific Action dimension (rubric-3.0.0
+    renamed its semantics; the key is unchanged for data compatibility).
     """
 
     context: int
@@ -119,6 +128,30 @@ class Ratings:
             "context": self.context,
             "role_action_clarity": self.role_action_clarity,
             "result": self.result,
+        }
+
+
+PART_NAMES = ("user_need", "product_feature", "action", "result", "metric")
+
+
+@dataclass
+class BulletParts:
+    """The five framework parts extracted from one bullet (spec §2/§4).
+
+    Every part is a VERBATIM substring of the bullet text or empty — the
+    extractor never paraphrases or invents (constitution Principle 1).
+    """
+
+    user_need: str = ""
+    product_feature: str = ""
+    action: str = ""
+    result: str = ""
+    metric: str = ""
+
+    def present(self) -> dict[str, bool]:
+        """The five ``part_present`` booleans (spec §4)."""
+        return {
+            name: bool(getattr(self, name).strip()) for name in PART_NAMES
         }
 
 
@@ -160,6 +193,9 @@ class Bullet:
     """A single bullet inside an experience entry.
 
     ``text`` is stored EXACTLY as written by the user; never reshaped (P10).
+    The five part fields (rubric-3.0.0, spec §4) hold verbatim extracted
+    fragments; ``None`` means the bullet was stored before Phase 10 or the
+    parts were never extracted — old documents load unchanged.
     """
 
     id: int
@@ -172,6 +208,26 @@ class Bullet:
     questions: list[QuestionRecord] = field(default_factory=list)
     proposals: list[ProposalRecord] = field(default_factory=list)
     merge_warned: bool = False
+    user_need: Optional[str] = None
+    product_feature: Optional[str] = None
+    action: Optional[str] = None
+    result: Optional[str] = None
+    metric: Optional[str] = None
+    part_present: Optional[dict[str, bool]] = None
+
+    def parts_or_extract(self):
+        """Stored parts, or a fresh extraction for pre-Phase-10 bullets."""
+        from ..flow.parts import extract_parts
+
+        if self.part_present is not None and self.user_need is not None:
+            return BulletParts(
+                user_need=self.user_need or "",
+                product_feature=self.product_feature or "",
+                action=self.action or "",
+                result=self.result or "",
+                metric=self.metric or "",
+            )
+        return extract_parts(self.text)
 
 
 @dataclass

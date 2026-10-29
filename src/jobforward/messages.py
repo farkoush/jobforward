@@ -31,23 +31,43 @@ DRAFT_NOTICE = "The experience was saved as a draft (no bullets)."
 DRAFT_SUGGESTION = "Suggestion: add at least one description bullet so this experience can be scored."
 ENTRY_SAVED_AS_DRAFT = "The whole experience was saved as a draft. You can finish it later."
 
-# --- Rewrite gate + questions (ASK_*, FR-009) ---
+# --- Rewrite gate + questions (ASK_*, FR-009; finalized framework §6) ---
 ASK_REWRITE_GATE = (
     "Do you want me to rewrite this bullet to make your experience stronger? "
     "1) Yes (default) 2) No"
 )
-ASK_CONTEXT = (
-    "What was the situation? For example, what project, team, or problem was it about? "
-    "1) Answer 2) Skip"
+ASK_NEED = "Who had a problem? What was the problem? 1) Answer 2) Skip"
+ASK_FEATURE = (
+    "What was the feature or product part you worked on? 1) Answer 2) Skip"
 )
 ASK_ACTION = (
     "What exactly did you do? What was your role? 1) Answer 2) Skip"
 )
-ASK_RESULT = (
-    "What changed after your work? Who did it help, or what result did it lead to? "
-    "If you have real numbers, include them. 1) Answer 2) Skip"
-)
+ASK_RESULT = "What changed after your work? Who did it help? 1) Answer 2) Skip"
+ASK_METRIC = "Do you have a real number? If not, you can skip this. 1) Answer 2) Skip"
+ASK_PART_INTRO = "Experience: {title} - Achievement {n} of {total} - {part}:"
 ASK_ANSWER = ">"
+
+# --- Framework display (spec §5; finalized five-part framework) ---
+FRAMEWORK_HEADER = "Experience: {title} - Achievement {n} of {total}"
+FRAMEWORK_ORIGINAL = "Original: \"{text}\""
+FRAMEWORK_PART_OK = "[{label}: {words}]"
+FRAMEWORK_PART_MISSING = "[{label} - missing]"
+FRAMEWORK_PART_VAGUE = "[{label}: {words} - vague]"
+FRAMEWORK_FILLED = "Filled correctly:"
+FRAMEWORK_FILLED_LINE = "  {label}: {words}"
+FRAMEWORK_NEEDS = "Still needs to be filled:"
+FRAMEWORK_NEEDS_LINE = "  {label}"
+PART_LABEL_NEED = "User need or problem"
+PART_LABEL_FEATURE = "Product feature"
+PART_LABEL_ACTION = "Action"
+PART_LABEL_RESULT = "Result"
+PART_LABEL_METRIC = "Metric"
+PART_NAME_NEED = "Need"
+PART_NAME_FEATURE = "Feature"
+PART_NAME_ACTION = "Action"
+PART_NAME_RESULT = "Result"
+PART_NAME_METRIC = "Metric"
 
 # --- Complete bullet confirmation (PRD §4.2: a complete bullet is only
 # confirmed at the end; no questions are asked) ---
@@ -93,9 +113,10 @@ MATCH_ACTION_HEADER = "Match results for this posting:"
 MATCH_ACTION = "Experience '{title}': {action} - {reason}"
 MATCH_ACTIONS_LEGAL = "Actions: Highlight / No change / Not relevant to this job."
 
-# --- Copy text (COPY_*, FR-019) ---
+# --- Copy text (COPY_*, FR-019; finalized final output §8) ---
 COPY_BEGIN = "----- COPY FROM HERE -----"
 COPY_END = "----- COPY TO HERE -----"
+COPY_NOTICE = "You can copy the text above."
 
 # --- Scores (SCORE_*, FR-005/FR-008) ---
 SCORE_BULLET_HEADER = "Scores for experience '{text}' (rubric version {rubric}):"

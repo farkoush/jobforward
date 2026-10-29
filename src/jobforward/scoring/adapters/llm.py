@@ -40,7 +40,7 @@ class LlmHeuristicAdapter(BulletEvaluator):
     def __init__(
         self,
         endpoint: str,
-        rubric_version: str = "rubric-2.0.0",
+        rubric_version: str = "rubric-3.0.0",
         api_key: Optional[str] = None,
     ) -> None:
         super().__init__(rubric_version=rubric_version)

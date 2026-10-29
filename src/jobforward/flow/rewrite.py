@@ -19,12 +19,14 @@ from ..models.entities import QuestionDimension
 # exist in the sources. Percentages and plain numbers are covered.
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)?%?")
 
-# Structural glue labels used to join user segments into the C→A→R sentence
-# pattern. Glue adds NO claim (no number, no impact verb, no new fact).
+# Structural glue labels used to join user segments into the framework
+# sentence. Glue adds NO claim (no number, no impact verb, no new fact).
 _GLUE = {
     QuestionDimension.CONTEXT: "Context: ",
+    QuestionDimension.FEATURE: "Feature: ",
     QuestionDimension.ROLE_ACTION_CLARITY: "Action: ",
     QuestionDimension.RESULT: "Result: ",
+    QuestionDimension.METRIC: "Metric: ",
 }
 
 
@@ -60,6 +62,39 @@ def validate_no_extra_claims(proposal: str, sources: Iterable[str]) -> None:
             )
 
 
+def validate_wording_rules(proposal: str, sources: Iterable[str]) -> None:
+    """Raise :class:`ExtraClaimError` if the proposal contains a keyword that
+    is absent from the allowed sources (spec §7 wording rules).
+
+    Keywords are nouns, verbs, tool names, numbers, results, and product
+    names — enforced at token level: every word token in the proposal must
+    exist in the sources or belong to the fixed connector/glue set (short
+    linking words and the structural labels). Word order, tense, and glue
+    are the only freedoms; the assembler only inserts verbatim user
+    segments, so this check guards the invariants structurally.
+    """
+    allowed = _word_tokens(_sources_text(sources)) | _CONNECTOR_TOKENS
+    for token in _word_tokens(proposal):
+        if token not in allowed:
+            raise ExtraClaimError(
+                f"proposal contains keyword {token!r} absent from the "
+                f"original bullet and the user's answers (spec §7)"
+            )
+
+
+_WORD_TOKEN = re.compile(r"[a-z0-9]+")
+
+# Short linking words allowed by spec §7 plus the structural glue labels.
+_CONNECTOR_TOKENS = frozenset(
+    {"context", "feature", "action", "result", "metric",
+     "and", "to", "with", "by", "for"}
+)
+
+
+def _word_tokens(text: str) -> set[str]:
+    return set(_WORD_TOKEN.findall(text.lower()))
+
+
 def assemble_rewrite(
     bullet_text: str,
     answers: dict[QuestionDimension, str],
@@ -81,11 +116,14 @@ def assemble_rewrite(
 
     proposal = "\n".join(parts)
     validate_no_extra_claims(proposal, sources)
+    validate_wording_rules(proposal, sources)
     return proposal
 
 
 QUESTION_ORDER_LABELED: tuple[QuestionDimension, ...] = (
     QuestionDimension.CONTEXT,
+    QuestionDimension.FEATURE,
     QuestionDimension.ROLE_ACTION_CLARITY,
     QuestionDimension.RESULT,
+    QuestionDimension.METRIC,
 )

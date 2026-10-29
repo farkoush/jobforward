@@ -521,3 +521,113 @@ every story checkpoint against quickstart.md.
 - Matcher actions are Highlight / No change / Not relevant to this job ONLY;
   the strings "Remove" and "Shorten" must not appear in code or messages
 - Validate each story checkpoint with quickstart.md scenarios
+
+---
+
+## Phase 9: Five-Part Framework Update (rubric_version 3)
+
+- [X] T045 [US2] Define the Specific-Action scoring checklist (0/1/2) in a new design document.
+  - File: specs/001-experience-improvement-flow/checklists/specific-action.md
+  - Requirement: FR – Define exact 0/1/2 scoring levels for the Specific Action dimension (similar to Context and Result).
+
+- [X] T046 [US2] Update the local heuristic adapter to use the new Specific-Action checklist.
+  - File: src/jobforward/scoring/adapters/local.py (modify or add helper for action scoring)
+  - Requirement: FR – Adapter must rate the action dimension using the checklist.
+
+- [X] T047 [US2] Add unit tests that verify the Specific-Action scoring logic (0, 1, 2 cases).
+  - File: tests/unit/test_specific_action_scoring.py
+  - Requirement: FR – Test‑first implementation; tests must fail before adapter update.
+
+- [X] T048 [US2] Bump the default rubric version used by the evaluator to "rubric-3.0.0".
+  - File: src/jobforward/scoring/evaluator.py (change default rubric_version value)
+  - Requirement: FR – New scores must be stored with rubric_version = 3.
+
+- [X] T049 [US2] Update the storage layer to record the new rubric version for persisted bullets and entries.
+  - File: src/jobforward/storage/repository.py (and optionally src/jobforward/storage/schema.py) – adjust hard‑coded "rubric-2.0.0" literals to "rubric-3.0.0" and ensure backward compatibility.
+  - Requirement: FR – Persistence must reflect the new rubric version while remaining compatible with older data.
+
+- [X] T050 [US2] Run the full quickstart validation suite (Scenarios A–F) and record the results.
+  - No code change – execution task.
+  - Requirement: FR – All tests, including the new Specific-Action tests, must pass; any failures must be fixed before proceeding.
+
+---
+
+---
+
+## Phase 10: Five-Part Framework Implementation (spec finalized 2026-10-29)
+
+**Purpose**: Implement the finalized five-part rewriting framework (spec §§1–10;
+plan "Five-Part Framework Design"). Phase 9 (rubric-3.0.0 Specific Action
+scoring) is done; this phase adds part extraction, the framework display,
+0–5 questions, draft/confirm, and the final output. Tests are written FIRST
+and must FAIL before their implementation task (constitution P9).
+
+- [X] T051 [P] [US2] Write `tests/unit/test_part_extraction.py`: deterministic
+  five-part extraction per plan §Five-Part-Framework-Design — each part is a
+  verbatim substring of the bullet text or empty (never paraphrased, never
+  invented, Principle 1); metric = number-bearing phrase; result = outcome
+  clause after result connectors; action = action-verb clause; need =
+  problem statement; feature = named product surface; undetectable parts are
+  empty with `part_present` False
+- [X] T052 [US2] Implement `src/jobforward/flow/parts.py`
+  (`extract_parts(text) -> BulletParts`) with versioned marker lists; extend
+  `models/entities.py` Bullet with optional `user_need`, `product_feature`,
+  `action`, `result`, `metric` fields and the five-boolean `part_present`;
+  storage round trip must keep pre-Phase-10 documents loading unchanged
+  (depends on T051)
+- [X] T053 [P] [US2] Write `tests/unit/test_part_scoring.py`: Context from
+  extracted need/feature per spec §3 (need missing → 0 even with feature;
+  generic need or feature missing → 1; specific need + feature → 2); Result:
+  bare number only → 1 with the what-does-it-represent question, specific
+  qualitative → 2 without a number; metric never changes the result score;
+  raw-text fallback for bullets without part fields (spec §3, plan design §2)
+- [X] T054 [US2] Update `src/jobforward/scoring/adapters/local.py` and the
+  analysis path to consume extracted parts (context from need/feature, result
+  bare-number rule), keeping `role_action_clarity` as the stored key and
+  `rubric_version = "rubric-3.0.0"` on new scores (depends on T052, T053)
+- [X] T055 [P] [US2] Add the framework strings to `src/jobforward/messages.py`
+  (English B1, only place for user-facing strings) and write
+  `tests/contract/test_framework_display.py`: header
+  `Experience: <title> – Achievement <n> of <total>`, `Original: "<text>"`,
+  `[part]` brackets with `missing` note (e.g. `[User need or problem –
+  missing]`), vague note with exact words, `Filled correctly` and `Still
+  needs to be filled` lists, the draft-or-confirm message, and the copy
+  notice (spec §§5, 7, 8)
+- [X] T056 [US2] Implement the framework display in `src/jobforward/cli.py`
+  per spec §5 (depends on T052, T055)
+- [X] T057 [US2] Extend `src/jobforward/flow/questions.py` to the 0–5
+  question engine: fixed order Need → Feature → Action → Result → Metric;
+  conditions (Need/Action/Result when dimension score 0/1; Feature/Metric
+  when field empty); identification line before each question; every
+  question skippable; complete bullet (2/2/2) → confirmation only, zero
+  questions; update the rewrite-gate message to the finalized wording
+  (depends on T054)
+- [X] T058 [US2] Partial-answers path in `flow/questions.py` + `cli.py`:
+  unanswered parts after the round offer draft-save vs
+  confirm-rewrite-with-answers-so-far (rewrite_status "draft");
+  no answers or all skipped → no rewrite, original bullet untouched
+  (spec §7; depends on T057)
+- [X] T059 [P] [US2] Write `tests/unit/test_rewrite_wording_rules.py` and
+  align `flow/rewrite.py`: keywords (nouns, verbs, tool names, numbers,
+  results, product names) unchanged; only grammar/spelling/tense, linking
+  words (`and`, `to`, `with`, `by`, `for`), word order may change; a rewrite
+  needing a new keyword leaves the part empty and asks a question; no new or
+  changed keywords ever appear in a proposal (spec §7)
+- [X] T060 [P] [US2] Write `tests/contract/test_final_output.py`: final text
+  rendered without brackets, inside a code block, one bullet per line
+  prefixed `- `, with the copy notice; unimproved bullets keep their original
+  wording (spec §8)
+- [X] T061 [US2] Integration test `tests/integration/test_five_part_flow.py`:
+  full workflow — display → gate → questions (with skips) → draft or
+  approve → status edited → re-analysis stamped rubric-3.0.0 → final text;
+  5-run stability on the same input; update quickstart.md Scenario B to the
+  five-part flow (depends on T056–T060)
+- [X] T062 Final compliance review against constitution v3.0.0 for the
+  five-part flow: P1 (parts are verbatim candidate words; extraction never
+  invents), P2 (explicit approval + draft option + skips never mutate),
+  P4 (arithmetic deterministic; rubric-3 stored on new scores; old versions
+  preserved), P5 (only new/edited re-analyzed), P7 (events logged),
+  P10 (all new strings in messages.py, English B1) — and record the pending
+  constitution amendment: P4 still cites rubric_version = 2; re-pinning to
+  rubric 3 is a product-owner action (report-only, do not edit the
+  constitution in this feature)
