@@ -104,7 +104,70 @@ DELETED_BULLET = "Bullet deleted. It is excluded from all scores from now on."
 DELETED_ENTRY = "Experience deleted."
 DRAFT_REVERTED = "The experience has no bullets left, so it is a draft again."
 
-# --- Matcher (MATCH_*, FR-021/FR-022) ---
+# --- Matcher v1 — JD Matcher, posting-only skill analysis (002) ---
+# Fixed texts from specs/002-jd-matcher/contracts/matcher-pipeline.md §1;
+# reproduce them character-for-character (tasks.md T002).
+MATCH_PROMPT_PASTE = (
+    "Paste the full job posting in English. When you're done, type END on "
+    "its own line (or press Ctrl+D)."
+)
+MATCH_ERR_PERSIAN = (
+    "Persian input isn't supported yet. Please paste the job posting in English."
+)
+MATCH_ERR_TOO_SHORT = (
+    "Your text has only {count} words. A job posting needs at least "
+    "{limit} words. Please paste the full job posting."
+)
+MATCH_ERR_TOO_LONG = (
+    "Your text has {count} words. A job posting can have at most "
+    "{limit} words. Please paste a shorter posting."
+)
+MATCH_CLEAN_SCRIPT_ONE = "I removed 1 script block from your text. I did not run it."
+MATCH_CLEAN_BLOCKS = (
+    "I removed {scripts} script blocks and {styles} style blocks from your "
+    "text. I did not run them."
+)
+MATCH_CLEAN_TAGS = "I removed HTML tags from your text. The text inside them was kept."
+MATCH_WORD_COUNT = "Word count: {count}"
+MATCH_GATE = "Review the result above. [Y] Continue · [C] Cancel"
+MATCH_CANCELLED = "Cancelled. Going back to the start. Paste the job posting again."
+MATCH_CANCELLED_EXIT = "Cancelled. Exiting."
+MATCH_ERR_INVALID_KEY = "Please type Y to continue or C to cancel."
+MATCH_ERR_NOT_A_POSTING = (
+    "This doesn't look like a job posting, so I didn't analyze it. "
+    "Please paste the full text of a job posting."
+)
+MATCH_ERR_ZERO_SKILLS = (
+    "I couldn't extract any skills from this text. Nothing was analyzed."
+)
+MATCH_ERR_CONSISTENCY = (
+    "The report failed its consistency check, so I'm not showing it. "
+    "Please run the analysis again."
+)
+MATCH_DROPPED = (
+    "I left out {count} item(s) because I couldn't find supporting text in "
+    "the posting."
+)
+MATCH_LIMIT_HARD = (
+    "{priority}: showing {shown} of {total}. Version 1 shows up to 5 rows "
+    "per table."
+)
+MATCH_LIMIT_SOFT = (
+    "Showing {shown} of {total} soft skills. Version 1 shows up to 5 rows."
+)
+MATCH_NO_TAXONOMY_MATCH = "No taxonomy match: {text}"
+MATCH_COUNTS = "Must: {must} · Should: {should} · Nice: {nice}"
+MATCH_TABLE_HARD_HEADER = "Skill | Type | Evidence"
+MATCH_TABLE_SOFT_HEADER = "Skill | Group | Evidence | Priority | Certainty"
+MATCH_EMPTY_GROUP = "—"
+MATCH_TYPE_HARD = "Hard"
+MATCH_TYPE_HARD_TOOL = "Hard (tool)"
+MATCH_ROW_HARD = "{skill} | {type} | {evidence}"
+MATCH_ROW_HARD_DEFAULT = "{skill} (default) | {type} | {evidence}"
+MATCH_ROW_SOFT = "{skill} | {group} | {evidence} | {priority} | {certainty}"
+
+# --- Matcher (MATCH_*, FR-021/FR-022; superseded by the 002 JD Matcher,
+# kept for the superseded 001 matcher package) ---
 MATCH_POSTING = (
     "Paste the job description (Persian or English), then press Enter on an "
     "empty line to finish:"

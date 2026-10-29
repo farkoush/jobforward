@@ -50,9 +50,15 @@ from .storage.schema import is_eligible_for_overall
 from .scoring.evaluator import BulletEvaluator, BulletRatingRequest, EvaluatorOutputError
 from .scoring.adapters.local import LocalHeuristicAdapter
 from .scoring.metrics import entry_score_from_ratings, overall_score
-from .matcher.analyzer import MatcherOutputError, PostingAnalyzer
-from .matcher.adapters.local import LocalRuleAdapter
-from .matcher.actions import assign_actions
+from .matcher2.posting import clean_posting, language_ratio
+from .matcher2.hard_skills import extract_hard_skills, looks_like_posting
+from .matcher2.soft_skills import (
+    TaxonomyError,
+    load_taxonomy,
+    match_soft_skills,
+)
+from .matcher2.report import DISPLAY_LIMIT, PRIORITY_LABELS, build_report
+from .matcher2.rules_version import MATCHER_RULES_VERSION
 
 RUBRIC_VERSION = DEFAULT_RUBRIC_VERSION
 
@@ -80,15 +86,11 @@ class CLI:
         input_fn: Callable[[str], str] = input,
         output_fn: Callable[[str], None] = print,
         evaluator: Optional[BulletEvaluator] = None,
-        analyzer: Optional[PostingAnalyzer] = None,
     ) -> None:
         self.repository = Repository(repository_path)
         self.path_service = PathService(self.repository)
         self.logger = EventLogger(log_path)
         self.evaluator: BulletEvaluator = evaluator or LocalHeuristicAdapter(
-            rubric_version=RUBRIC_VERSION
-        )
-        self.analyzer: PostingAnalyzer = analyzer or LocalRuleAdapter(
             rubric_version=RUBRIC_VERSION
         )
         self._input = input_fn
@@ -643,55 +645,225 @@ class CLI:
         return None
 
     # ------------------------------------------------------------------ #
-    # Matcher (US5)
+    # JD Matcher v1 (specs/002-jd-matcher) — posting-only skill analysis.
+    # Supersedes the 001 per-entry matcher output; never touches resumes.
     # ------------------------------------------------------------------ #
     def _match_posting(self) -> None:
-        entries = [e for e in self.repository.load() if not e.deleted]
-        if not entries:
-            self._show(m.ERR_NO_ENTRY)
-            return
-        self._show(m.MATCH_POSTING)
-        lines: list[str] = []
+        """Staged flow: PASTE → REVIEW → HARD_SKILLS → SOFT_SKILLS → done.
+
+        Cancel returns to PASTE from any stage (result discarded); cancel at
+        PASTE exits the flow. Errors (language, length, not-a-posting, zero
+        skills, consistency) return to PASTE with their fixed messages and
+        are never reported as a mismatch (FR-008/FR-018/FR-019).
+        """
         while True:
-            line = self._input(m.PROMPT_CONTINUE)
-            if not line.strip():
-                break
-            lines.append(line.rstrip())
-        posting_text = "\n".join(lines)
-        if not posting_text.strip():
-            return
-        try:
-            analysis = self.analyzer.analyze_with_retry(posting_text)
-        except MatcherOutputError:
-            self._show(m.ERR_MATCHER_FAILURE)
-            self.failure_exit = True
-            return
-        self.logger.posting_analyzed(
-            context={
-                "rubric_version": RUBRIC_VERSION,
-                "requirements": len(analysis.requirements),
-            }
-        )
-        actions = assign_actions(analysis, entries)
-        self._show(m.MATCH_ACTION_HEADER)
-        for action in actions:
-            entry = next(e for e in entries if e.id == action.entry_id)
-            entry.match_action = action
-            self._show(
-                m.MATCH_ACTION.format(
-                    title=entry.title, action=action.action.value, reason=action.reason
+            self._show(m.MATCH_PROMPT_PASTE)
+            lines: list[str] = []
+            cancelled_at_paste = False
+            while True:
+                try:
+                    line = self._input(m.PROMPT_CONTINUE)
+                except EOFError:
+                    break  # end-of-input is an accepted terminator (FR-001)
+                stripped = line.strip()
+                if not lines and stripped == "C":
+                    cancelled_at_paste = True
+                    break
+                if stripped == "END":
+                    break
+                lines.append(line.rstrip())
+            if cancelled_at_paste:
+                self._show(m.MATCH_CANCELLED_EXIT)
+                return
+            raw = "\n".join(lines)
+            self.logger.posting_received(context={"word_count": len(raw.split())})
+            if not raw.strip():
+                continue
+
+            posting = clean_posting(raw)
+            if not posting.language_ok:
+                self._show(m.MATCH_ERR_PERSIAN)
+                self.logger.posting_rejected_language(
+                    context={"ratio": round(language_ratio(posting.cleaned_text), 4)}
                 )
-            )
-            self.logger.match_action_assigned(
+                continue
+            if posting.word_count < 100:
+                self._show(
+                    m.MATCH_ERR_TOO_SHORT.format(count=posting.word_count, limit=100)
+                )
+                self.logger.posting_rejected_length(
+                    context={"word_count": posting.word_count, "limit": 100}
+                )
+                continue
+            if posting.word_count > 1500:
+                self._show(
+                    m.MATCH_ERR_TOO_LONG.format(count=posting.word_count, limit=1500)
+                )
+                self.logger.posting_rejected_length(
+                    context={"word_count": posting.word_count, "limit": 1500}
+                )
+                continue
+
+            # REVIEW stage: cleaning report + word count + gate.
+            self._show_cleaning_report(posting)
+            self._show(m.MATCH_WORD_COUNT.format(count=posting.word_count))
+            self.logger.posting_cleaned(
                 context={
-                    "entry_id": action.entry_id,
-                    "action": action.action.value,
-                    "requirement_id": action.requirement_id,
-                    "rubric_version": RUBRIC_VERSION,
+                    "script_blocks": posting.script_blocks_removed,
+                    "style_blocks": posting.style_blocks_removed,
+                    "html_tags": posting.html_tags_removed,
+                    "word_count": posting.word_count,
                 }
             )
-        self._show(m.MATCH_ACTIONS_LEGAL)
-        self.repository.save(entries)  # persist the mutated entries (match_action)
+            if not looks_like_posting(posting.cleaned_text):
+                self._show(m.MATCH_ERR_NOT_A_POSTING)
+                self.logger.posting_not_a_job(context={})
+                continue
+            if self._stage_gate("review") == "cancel":
+                self._show(m.MATCH_CANCELLED)
+                continue
+
+            # HARD_SKILLS stage: extract, guard, render, gate.
+            try:
+                taxonomy = load_taxonomy()
+            except TaxonomyError:
+                self._show(m.MATCH_ERR_ZERO_SKILLS)
+                self.logger.extraction_failed(context={"reason": "taxonomy"})
+                continue
+            hard_rows, dropped = extract_hard_skills(posting.cleaned_text)
+            soft_rows, unmatched = match_soft_skills(posting.cleaned_text, taxonomy)
+            if not hard_rows and not soft_rows:
+                self._show(m.MATCH_ERR_ZERO_SKILLS)
+                self.logger.extraction_failed(context={})
+                continue
+            report = build_report(hard_rows, soft_rows, unmatched, dropped)
+            if not report.consistency_ok:
+                self._show(m.MATCH_ERR_CONSISTENCY)
+                self.logger.consistency_failed(
+                    context={
+                        "expected": {
+                            **report.hard_totals,
+                            "soft": report.soft_total,
+                        },
+                        "found": {
+                            p: len(rows) for p, rows in report.hard_tables.items()
+                        }
+                        | {"soft": len(report.soft_rows)},
+                    }
+                )
+                continue
+            self._render_hard_tables(report)
+            self.logger.posting_analyzed(
+                context={
+                    "rules_version": MATCHER_RULES_VERSION,
+                    "hard_counts": dict(report.hard_totals),
+                    "soft_count": report.soft_total,
+                }
+            )
+            if self._stage_gate("hard_skills") == "cancel":
+                self._show(m.MATCH_CANCELLED)
+                continue
+
+            # SOFT_SKILLS stage: render, final gate, done.
+            self._render_soft_table(report)
+            if self._stage_gate("soft_skills") == "cancel":
+                self._show(m.MATCH_CANCELLED)
+                continue
+            return  # flow complete → back to the idle menu
+
+    def _show_cleaning_report(self, posting) -> None:
+        script = posting.script_blocks_removed
+        style = posting.style_blocks_removed
+        if script == 1 and style == 0:
+            self._show(m.MATCH_CLEAN_SCRIPT_ONE)
+        elif script or style:
+            self._show(m.MATCH_CLEAN_BLOCKS.format(scripts=script, styles=style))
+        if posting.html_tags_removed:
+            self._show(m.MATCH_CLEAN_TAGS)
+
+    def _stage_gate(self, stage: str) -> str:
+        """`[Y]` advances, `[C]` cancels, anything else re-prompts (FR-008).
+        Every transition is logged with a timestamp (FR-023)."""
+        while True:
+            try:
+                answer = self._input(m.MATCH_GATE).strip()
+            except EOFError:
+                self.logger.stage_cancelled(context={"stage": stage})
+                return "cancel"
+            if answer in ("Y", "y"):
+                self.logger.stage_confirmed(context={"stage": stage})
+                return "continue"
+            if answer in ("C", "c"):
+                self.logger.stage_cancelled(context={"stage": stage})
+                return "cancel"
+            self._show(m.MATCH_ERR_INVALID_KEY)
+
+    def _render_hard_tables(self, report) -> None:
+        for priority in ("must", "should", "nice"):
+            rows = report.hard_tables.get(priority, [])
+            label = PRIORITY_LABELS[priority]
+            self._show(f"{label}:")
+            self._show(m.MATCH_TABLE_HARD_HEADER)
+            if not rows:
+                self._show(m.MATCH_EMPTY_GROUP)
+            else:
+                for row in report.displayed_hard(priority):
+                    type_label = (
+                        m.MATCH_TYPE_HARD_TOOL
+                        if row.type == "hard_tool"
+                        else m.MATCH_TYPE_HARD
+                    )
+                    if row.default_priority and not row.is_one_of:
+                        self._show(
+                            m.MATCH_ROW_HARD_DEFAULT.format(
+                                skill=row.name, type=type_label, evidence=row.evidence
+                            )
+                        )
+                    else:
+                        self._show(
+                            m.MATCH_ROW_HARD.format(
+                                skill=row.name, type=type_label, evidence=row.evidence
+                            )
+                        )
+                if len(rows) > DISPLAY_LIMIT:
+                    self._show(
+                        m.MATCH_LIMIT_HARD.format(
+                            priority=label, shown=DISPLAY_LIMIT, total=len(rows)
+                        )
+                    )
+        self._show(
+            m.MATCH_COUNTS.format(
+                must=report.hard_totals.get("must", 0),
+                should=report.hard_totals.get("should", 0),
+                nice=report.hard_totals.get("nice", 0),
+            )
+        )
+        if report.dropped_count:
+            self._show(m.MATCH_DROPPED.format(count=report.dropped_count))
+
+    def _render_soft_table(self, report) -> None:
+        self._show(m.MATCH_TABLE_SOFT_HEADER)
+        if not report.soft_rows:
+            self._show(m.MATCH_EMPTY_GROUP)
+        else:
+            for row in report.displayed_soft():
+                self._show(
+                    m.MATCH_ROW_SOFT.format(
+                        skill=row.label_en,
+                        group=row.group_code,
+                        evidence=row.evidence,
+                        priority=PRIORITY_LABELS[row.priority],
+                        certainty=row.certainty.capitalize(),
+                    )
+                )
+            if len(report.soft_rows) > DISPLAY_LIMIT:
+                self._show(
+                    m.MATCH_LIMIT_SOFT.format(
+                        shown=DISPLAY_LIMIT, total=len(report.soft_rows)
+                    )
+                )
+        for concept in report.unmatched:
+            self._show(m.MATCH_NO_TAXONOMY_MATCH.format(text=concept.text))
 
     # ------------------------------------------------------------------ #
     # Main loop

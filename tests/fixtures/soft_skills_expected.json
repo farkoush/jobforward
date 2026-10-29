@@ -1,0 +1,39 @@
+{
+  "rules_version": "matcher-rules-1.0.0",
+  "rows": [
+    {
+      "label_en": "work in teams",
+      "group_code": "T4.3",
+      "priority": "must",
+      "certainty": "explicit",
+      "reason": null,
+      "evidence": "Work in teams with designers and engineers to ship payment features"
+    },
+    {
+      "label_en": "make decisions",
+      "group_code": "T3.2",
+      "priority": "must",
+      "certainty": "explicit",
+      "reason": null,
+      "evidence": "Make decisions quickly when trade-offs appear"
+    },
+    {
+      "label_en": "build networks",
+      "group_code": "T4.3",
+      "priority": "must",
+      "certainty": "inferred",
+      "reason": "Stakeholder management has no direct equivalent and this is the closest option.",
+      "evidence": "Manage stakeholders across the company and keep everyone aligned"
+    },
+    {
+      "label_en": "comply with regulations",
+      "group_code": "T4.5",
+      "priority": "should",
+      "certainty": "explicit",
+      "reason": null,
+      "evidence": "You comply with regulations for payment services and data protection"
+    }
+  ],
+  "unmatched": ["Excellent communication skills"],
+  "no_row_from_company_sentence": true
+}

@@ -1,0 +1,66 @@
+{
+  "rules_version": "matcher-rules-1.0.0",
+  "counts": { "must": 3, "should": 2, "nice": 1 },
+  "rows": [
+    {
+      "name": "digital product management",
+      "type": "hard",
+      "priority": "must",
+      "default_priority": true,
+      "is_one_of": false,
+      "alternatives": null,
+      "order": 0,
+      "evidence": "3+ years of experience in digital product management"
+    },
+    {
+      "name": "Scrum and Agile",
+      "type": "hard",
+      "priority": "must",
+      "default_priority": true,
+      "is_one_of": false,
+      "alternatives": null,
+      "order": 1,
+      "evidence": "Hands-on experience with Scrum and Agile"
+    },
+    {
+      "name": "lending and BNPL concepts",
+      "type": "hard",
+      "priority": "nice",
+      "default_priority": false,
+      "is_one_of": false,
+      "alternatives": null,
+      "order": 2,
+      "evidence": "Familiarity with lending and BNPL concepts is a plus"
+    },
+    {
+      "name": "One of: Power BI / Metabase / Grafana",
+      "type": "hard_tool",
+      "priority": "must",
+      "default_priority": true,
+      "is_one_of": true,
+      "alternatives": ["Power BI", "Metabase", "Grafana"],
+      "order": 3,
+      "evidence": "Power BI, Metabase, or Grafana"
+    },
+    {
+      "name": "digital wallets and BNPL products",
+      "type": "hard",
+      "priority": "should",
+      "default_priority": true,
+      "is_one_of": false,
+      "alternatives": null,
+      "order": 4,
+      "evidence": "Experience with digital wallets and BNPL products"
+    },
+    {
+      "name": "Shaparak and payment networks",
+      "type": "hard",
+      "priority": "should",
+      "default_priority": true,
+      "is_one_of": false,
+      "alternatives": null,
+      "order": 5,
+      "evidence": "Knowledge of Shaparak and payment networks"
+    }
+  ]
+}

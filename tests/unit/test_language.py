@@ -10,15 +10,20 @@ import src.jobforward.messages as messages
 from src.jobforward.flow.path_service import contains_non_english
 
 
-def test_all_messages_are_ascii_english():
-    """Every user-facing string is ASCII (B1 English, no Persian)."""
+def test_all_messages_are_english():
+    """Every user-facing string is English B1 (all LETTERS are ASCII; no
+    Persian). The "·" separator in the contractual matcher v1 gate and
+    counts lines (specs/002-jd-matcher) is punctuation, not text."""
     for name in dir(messages):
         if name.startswith("_"):
             continue
         value = getattr(messages, name)
         if not isinstance(value, str):
             continue
-        assert value.isascii(), f"{name} is not ASCII English: {value!r}"
+        letters = [c for c in value if c.isalpha()]
+        assert all(ord(c) < 128 for c in letters), (
+            f"{name} is not English B1: {value!r}"
+        )
 
 
 def test_persian_bullet_rejected():

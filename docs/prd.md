@@ -98,22 +98,38 @@ These assumptions are currently treated as true and need to be tested. Items 7�
 
 
 
-Three features will be built in version 1. They all work only on resumes and only on data entered by the user. Version 1 is a text-based terminal flow, and all tool text is in English at B1 level. The UI and Persian language will be added in later versions.
+Three features will be built in version 1. They all work only on data entered by the user (updated October 30, 2026: the JD Matcher analyzes only the pasted job posting and never touches resumes — originally "only on resumes"). Version 1 is a text-based terminal flow, and all tool text is in English at B1 level. The UI and Persian language will be added in later versions.
 
 
 
 **### 4.1 Job Description Matcher (JD Matcher)**
 
-> **Update (October 29, 2026):** Superseded by feature `002-jd-matcher`
-> (constitution v3.0.0 P6). The matcher now analyzes ONLY the pasted job
-> posting — it never reads or touches resumes — and outputs skill tables
-> only: three hard-skill tables (Must / Should / Nice) with verbatim
-> evidence for every row, plus one soft-skill table drawn strictly from the
-> 56-skill taxonomy (`docs/soft-skills-taxonomy.json`). The per-entry
-> actions ("Highlight / No change / Shorten") are retired as product
-> behavior, and postings must be English: a posting with more than 10%
-> Persian/Arabic-script letters is rejected. The original two-step design
-> below is kept as history.
+> **Update (October 29, 2026; expanded October 30, 2026 after implementation):**
+> Superseded by feature `002-jd-matcher` (constitution v3.0.0 P6; implemented
+> October 30, 2026 under rules version `matcher-rules-1.0.0`). The matcher
+> analyzes ONLY the pasted job posting — it never reads or touches resumes —
+> and outputs skill tables only: three hard-skill tables (Must / Should /
+> Nice) with verbatim evidence for every row, plus one soft-skill table drawn
+> strictly from the 56-skill taxonomy (`docs/soft-skills-taxonomy.json`; the
+> shown skill name is exactly `label_en` and the ESCO id is stored but never
+> displayed). The flow is staged with an explicit gate at every stage
+> (`[Y] Continue · [C] Cancel`; Cancel returns to the paste prompt and
+> discards the stage result; Cancel at the paste prompt exits): paste the
+> full posting in English, finished by a line containing only `END` (or
+> end-of-input) → review the cleaning report and word count (the pasted text
+> is cleaned of control characters, `<script>`/`<style>` blocks, and HTML
+> tags — nothing in it is executed; 100–1,500 cleaned words are accepted) →
+> hard-skill tables → soft-skill table. Priorities follow a fixed cascade
+> (explicit priority word on the item > section heading > Must
+> "(default)"); each table shows at most 5 rows while the counts line always
+> shows the real totals; rows without verbatim evidence are dropped and
+> counted. There is no free-form "matches / does not match" verdict: input
+> errors (not a job posting) and extraction failures (zero skills) are
+> reported with their own fixed messages and are never reported as a
+> mismatch. The per-entry actions ("Highlight / No change / Shorten") are
+> retired as product behavior, and postings must be English: a posting with
+> more than 10% Persian/Arabic-script letters is rejected. The original
+> two-step design below is kept as history.
 
 **\*\*Input:\*\*** Job posting text (English only; a posting with more than 10% Persian/Arabic-script letters is rejected — updated October 29, 2026; originally Persian or English, pasted text only) and the job seeker's experience.
 
@@ -356,9 +372,13 @@ This version intentionally does not include:
 
 \- Portfolio (version 1 supports resumes only)
 
-\- Persian resumes; uploads are blocked
+\- Persian resumes; uploads are blocked (pasted job postings in Persian are rejected too — see section 4.1)
 
 \- Job posting input by link or file (pasted text only)
+
+\- A free-form "matches / does not match" verdict from the JD Matcher (the output is skill tables and their counts only — see section 4.1)
+
+\- Skills outside the hard-skill extraction and the 56-skill soft-skill taxonomy (`docs/soft-skills-taxonomy.json`)
 
 \- Generating fake experience or numbers for the job seeker (the tool only works with the user's own data)
 
@@ -434,7 +454,7 @@ This version intentionally does not include:
 
 \- **\*\*Language and interface for version 1:\*\*** Text-based terminal flow. All tool text is in English at B1 level. UI and Persian language will be added in later versions.
 
-\- **\*\*Matcher actions:\*\*** Retired October 29, 2026: superseded by feature `002-jd-matcher` (constitution v3.0.0 P6). The matcher analyzes only the pasted posting and outputs skill tables only (three Must/Should/Nice hard-skill tables with verbatim evidence + one soft-skill table from the 56-skill taxonomy); no per-entry actions are produced. Historically: “Highlight / No change / Shorten,” each linked to an extracted skill (type + priority), with no “Remove” action.
+\- **\*\*Matcher actions:\*\*** Retired October 29, 2026: superseded by feature `002-jd-matcher` (constitution v3.0.0 P6). The matcher analyzes only the pasted posting and outputs skill tables only (three Must/Should/Nice hard-skill tables with verbatim evidence + one soft-skill table from the 56-skill taxonomy); no per-entry actions are produced. Implemented October 30, 2026 (spec `specs/002-jd-matcher/`, rules version `matcher-rules-1.0.0`) as a staged paste → review → hard skills → soft skills flow with per-stage `[Y]/[C]` gates, a 100–1,500-word gate on the cleaned text, a 5-row display limit with real-total counts, and no free-form verdict. Historically: “Highlight / No change / Shorten,” each linked to an extracted skill (type + priority), with no “Remove” action.
 
 \- **\*\*Rubric version:\*\*** Version 3 (October 29, 2026): the five-part framework (parts extracted automatically, only the candidate's own words), Context derived from `user_need` + `product_feature`, and Specific Action replacing “Role and Action Clarity” (stored key `role_action_clarity` unchanged). Prior scores keep their original rubric version.
 
@@ -445,6 +465,8 @@ This version intentionally does not include:
 
 
 \- Event logs with timestamps: start, bullet added, each question answered or skipped, work experience saved as a draft, complete bullet approved, rewrite accepted or rejected, before-and-after scores.
+
+\- Matcher event logs with timestamps (updated October 30, 2026): posting received, cleaned, rejected for language or length, not a job posting, analyzed (with the rules version and skill counts), extraction failed, consistency failed, stage confirmed, stage cancelled.
 
 \- A tool to collect evaluator scores and answers to the five-second test.
 
@@ -516,7 +538,7 @@ This version intentionally does not include:
 
 
 
-\- **\*\*Adding a “Remove” action after the pilot:\*\*** Decide based on filtering accuracy on real job postings. Until then, the job seeker decides what to remove.
+\- **\*\*Adding a “Remove” action after the pilot:\*\*** ~~Decide based on filtering accuracy on real job postings.~~ Updated October 30, 2026: moot for the current matcher — feature `002-jd-matcher` produces no per-entry filtering, so there is no “Remove” decision to base on it. The question would only return if a future version reintroduces per-entry actions. Until then, the job seeker decides what to remove.
 
 
 
@@ -545,3 +567,5 @@ This version intentionally does not include:
 \- October 29, 2026: Final decision: section 4.3 updated for rubric_version 3 — Specific Action replaced “Role and Action Clarity” (stored key `role_action_clarity` unchanged; levels defined in the scoring checklist), Context now derives from `user_need` + `product_feature` (need missing → 0 even with a feature), a bare-number-only result scores 1, and `part_present` (five booleans) replaced `context_present`. The leftover “25% each” weight wording was corrected to equal weights (1/3 each), the overlap unit was corrected to bullets (not entries), and the follow-up question range in section 4.4 changed to 0–5.
 
 \- October 29, 2026: Final decision: section 4.1 superseded by feature `002-jd-matcher` (constitution v3.0.0 P6): the matcher analyzes only the pasted posting and outputs skill tables only; the per-entry actions (“Highlight / No change / Shorten”) are retired. Job posting input changed to English only (>10% Persian/Arabic-script letters rejected), aligning with constitution v3.0.0 P10.
+
+\- October 30, 2026: Final decision: section 4.1 aligned with the implemented JD Matcher v1 (feature `002-jd-matcher`, rules version `matcher-rules-1.0.0`): the supersession note now records the implemented flow — `END`-terminated one-shot paste, cleaning of control characters / `<script>`/`<style>` blocks / HTML tags, the 100–1,500-word gate on the cleaned text, the staged `[Y]/[C]` gates, the fixed priority cascade, the 5-row display limit with real-total counts, verbatim-evidence-only rows, `label_en`-verbatim soft-skill names with the ESCO id stored but never shown, and the no-verdict guarantee with fixed input-error and extraction-failure messages. The section 4 preamble no longer says all features work “only on resumes” (the matcher never touches resumes). Section 6 gained two out-of-scope items (free-form verdict; skills outside the taxonomy) and the Persian-posting rejection. Section 8 “Matcher actions” records the October 30 implementation with the staged flow, and the measurement requirements now list the ten matcher event types.

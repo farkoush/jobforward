@@ -31,6 +31,17 @@ EVENT_MATCH_ACTION_ASSIGNED = "match_action_assigned"
 EVENT_EVALUATOR_INVALID_OUTPUT = "evaluator_invalid_output"
 EVENT_EVALUATOR_RETRY = "evaluator_retry"
 
+# Matcher v1 event types (specs/002-jd-matcher/data-model.md)
+EVENT_POSTING_RECEIVED = "posting_received"
+EVENT_POSTING_CLEANED = "posting_cleaned"
+EVENT_POSTING_REJECTED_LANGUAGE = "posting_rejected_language"
+EVENT_POSTING_REJECTED_LENGTH = "posting_rejected_length"
+EVENT_POSTING_NOT_A_JOB = "posting_not_a_job"
+EVENT_EXTRACTION_FAILED = "extraction_failed"
+EVENT_CONSISTENCY_FAILED = "consistency_failed"
+EVENT_STAGE_CONFIRMED = "stage_confirmed"
+EVENT_STAGE_CANCELLED = "stage_cancelled"
+
 ALL_EVENT_TYPES = frozenset({
     EVENT_PATH_START,
     EVENT_ANALYSIS_COMPLETED,
@@ -47,6 +58,15 @@ ALL_EVENT_TYPES = frozenset({
     EVENT_MATCH_ACTION_ASSIGNED,
     EVENT_EVALUATOR_INVALID_OUTPUT,
     EVENT_EVALUATOR_RETRY,
+    EVENT_POSTING_RECEIVED,
+    EVENT_POSTING_CLEANED,
+    EVENT_POSTING_REJECTED_LANGUAGE,
+    EVENT_POSTING_REJECTED_LENGTH,
+    EVENT_POSTING_NOT_A_JOB,
+    EVENT_EXTRACTION_FAILED,
+    EVENT_CONSISTENCY_FAILED,
+    EVENT_STAGE_CONFIRMED,
+    EVENT_STAGE_CANCELLED,
 })
 
 
@@ -138,3 +158,31 @@ class EventLogger:
 
     def evaluator_retry(self, context: Optional[dict[str, Any]] = None) -> None:
         self.log(EVENT_EVALUATOR_RETRY, context)
+
+    # Matcher v1 convenience methods
+    def posting_received(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_POSTING_RECEIVED, context)
+
+    def posting_cleaned(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_POSTING_CLEANED, context)
+
+    def posting_rejected_language(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_POSTING_REJECTED_LANGUAGE, context)
+
+    def posting_rejected_length(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_POSTING_REJECTED_LENGTH, context)
+
+    def posting_not_a_job(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_POSTING_NOT_A_JOB, context)
+
+    def extraction_failed(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_EXTRACTION_FAILED, context)
+
+    def consistency_failed(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_CONSISTENCY_FAILED, context)
+
+    def stage_confirmed(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_STAGE_CONFIRMED, context)
+
+    def stage_cancelled(self, context: Optional[dict[str, Any]] = None) -> None:
+        self.log(EVENT_STAGE_CANCELLED, context)

@@ -11,10 +11,40 @@ through a guided rewrite flow, and match it against a pasted job description.
   No login, no upload, no network calls in the default run. PDF upload and
   email sign-in are deferred to a later version.
 - **Language**: all tool text is English (B1 level); bullets and answers must
-  be English. Pasted job-description text may be Persian or English.
+  be English. Pasted job postings must be English too (the JD Matcher rejects
+  a posting with more than 10% Persian/Arabic-script letters).
 - **Scoring**: three dimensions (Context, Role and Action Clarity, Result),
   each 0/1/2, under rubric version `rubric-2.0.0`. All arithmetic is
   deterministic code — never the language model.
+
+## JD Matcher (v1)
+
+Menu option 2 runs the JD Matcher (specs/002-jd-matcher): it analyzes one
+pasted job posting and never touches your resume.
+
+1. **Paste** the full posting in English, finished by a line containing only
+   `END` (or Ctrl+D). The tool cleans it (control characters, line endings,
+   `<script>`/`<style>` blocks and HTML tags — never executed), reports what
+   it removed, and shows the word count (100–1,500 words accepted).
+2. **Review** and confirm with `[Y]` / cancel with `[C]` at every stage.
+   Cancel always returns to the paste prompt; cancel at the paste prompt
+   exits.
+3. **Hard skills** in three tables — Must / Should / Nice — with a fixed
+   priority cascade, verbatim evidence for every row, real-total counts and
+   a display limit of 5 rows per table.
+4. **Soft skills** drawn strictly from the 56-skill taxonomy in
+   `docs/soft-skills-taxonomy.json` (skill names shown exactly as
+   `label_en`; ESCO ids stored, never shown), with Explicit/Inferred
+   certainty and a "No taxonomy match" line for concepts without an
+   equivalent.
+
+There is no free-form "matches / does not match" verdict: the output is only
+the tables, their counts, and stage messages. Analysis errors (not a job
+posting, zero skills extracted) are reported with their own messages and are
+never treated as a mismatch. The pipeline is deterministic under rules
+version `matcher-rules-1.0.0`. This replaces the 001 per-entry matcher
+output (Highlight / No change / Not relevant), which is retired as product
+behavior.
 
 ## Run
 
@@ -66,13 +96,15 @@ Both are git-ignored. Delete the `data/` directory to reset to a fresh state.
    explicit approval; the previous bullet stays in history.
 4. **Rerun**: only new or edited bullets are re-analyzed; approved rewrites
    show BEFORE/AFTER scores side by side.
-5. **Match**: paste a job description; every entry gets exactly one action —
-   Highlight / No change / Not relevant to this job — with a one-line
-   reason. The matcher never changes any score and never suggests removal.
+5. **Match**: superseded by the JD Matcher (v1) above — the per-entry
+   actions (Highlight / No change / Not relevant to this job) are retired;
+   the matcher now analyzes the posting only and never changes any score.
 
 ## Design documents
 
 - Spec: `specs/001-experience-improvement-flow/spec.md`
 - Plan: `specs/001-experience-improvement-flow/plan.md`
 - Validation scenarios: `specs/001-experience-improvement-flow/quickstart.md`
-- Constitution: `.specify/memory/constitution.md` (v2.0.0)
+- JD Matcher (v1): `specs/002-jd-matcher/spec.md` (plan, contracts,
+  quickstart, and regression fixtures alongside)
+- Constitution: `.specify/memory/constitution.md` (v3.0.0)

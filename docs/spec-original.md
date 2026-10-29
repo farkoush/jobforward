@@ -1,16 +1,28 @@
 
 ## Spec 1: Job Description Matcher (JD Matcher)
 
-> **Update (October 29, 2026):** This spec is SUPERSEDED by feature
-> `002-jd-matcher` (specs/002-jd-matcher/spec.md, constitution v3.0.0 P6).
-> The matcher now analyzes ONLY the pasted job posting — it never reads or
-> touches resumes — and outputs skill tables only: three hard-skill tables
-> (Must / Should / Nice) with verbatim evidence plus one soft-skill table
-> drawn strictly from the 56-skill taxonomy. The per-entry actions
-> ("Highlight / Keep as is / Shorten" — implementation naming: Highlight /
-> No change / Not relevant) are retired as product behavior. Postings must
-> be English; a posting with more than 10% Persian/Arabic-script letters is
-> rejected. The text below is kept as the historical original.
+> **Update (October 29, 2026; expanded October 30, 2026 after implementation):**
+> This spec is SUPERSEDED by feature `002-jd-matcher`
+> (specs/002-jd-matcher/spec.md, constitution v3.0.0 P6; implemented
+> October 30, 2026 under rules version `matcher-rules-1.0.0`). The matcher
+> analyzes ONLY the pasted job posting — it never reads or touches resumes —
+> and outputs skill tables only: three hard-skill tables (Must / Should /
+> Nice) with verbatim evidence plus one soft-skill table drawn strictly from
+> the 56-skill taxonomy (shown names are exactly `label_en`; ESCO ids are
+> stored but never displayed). The flow is staged — paste the full posting
+> (terminated by a line containing only `END` or end-of-input) → review the
+> cleaning report and word count (100–1,500 cleaned words accepted; a
+> posting with more than 10% Persian/Arabic-script letters is rejected) →
+> hard-skill tables → soft-skill table — with an explicit `[Y]/[C]` gate at
+> every stage. Priorities follow a fixed cascade (explicit priority word >
+> section heading > Must "(default)"); at most 5 rows are shown per table
+> while the counts line always shows the real totals; rows without verbatim
+> evidence are dropped and counted. There is no free-form verdict: input
+> errors (not a job posting) and extraction failures (zero skills) are
+> reported with their own fixed messages and are never reported as a
+> mismatch. The per-entry actions ("Highlight / Keep as is / Shorten" —
+> implementation naming: Highlight / No change / Not relevant) are retired
+> as product behavior. The text below is kept as the historical original.
 
 **Goal:** By fully analyzing the job description and the candidate’s experience entries, assign one action to each entry: “Highlight,” “Keep as is,” or “Shorten,” with a one-line reason. The candidate decides whether to remove an entry; the tool does not recommend removing it.
 
@@ -156,3 +168,4 @@ Entry score = (75 + 100 + 75) / 3 = 83.33
 - October 25, 2026: Final decision: The rubric changed from four dimensions to three equally weighted dimensions (Context, Role and Action Clarity, Result). The dimensions “Product Manager Skill Evidence” and “Structure and Scannability,” and the phrase “Weak for a Product Manager,” were removed. `context_present` is no longer needed; the Context score replaces it. The new rubric version was recorded (`rubric_version = 2`).
 - October 29, 2026: Final decision: Spec 2 and Spec 3 finalized as the five‑part framework (rubric_version = 3). Questions changed from 0–3 (Context → Action → Result) to 0–5 in the order Need → Feature → Action → Result → Metric (Need/Action/Result asked when their dimension scores 0 or 1; Feature/Metric when the field is empty); question texts updated; Specific Action replaced “Role and Action Clarity” (stored key `role_action_clarity` unchanged); the five parts are extracted automatically with only the candidate’s own words and `part_present` (five booleans) replaced `context_present`; the Context definition now derives from `user_need` + `product_feature`; a bare-number-only result scores 1; rewriting rules pin keywords (nouns, verbs, tool names, numbers, results, product names) as unchanged; the final output is a copyable code block with “- ” lines.
 - October 29, 2026: Final decision: Spec 1 superseded by feature `002-jd-matcher` (constitution v3.0.0 P6): the matcher analyzes only the pasted posting and outputs skill tables only; the per-entry actions (“Highlight / Keep as is / Shorten”) are retired. Postings must be English (>10% Persian/Arabic-script letters rejected).
+- October 30, 2026: Final decision: the Spec 1 supersession note was expanded to the implemented JD Matcher v1 (feature `002-jd-matcher`, rules version `matcher-rules-1.0.0`): staged paste → review → hard skills → soft skills flow with per-stage `[Y]/[C]` gates, `END`-terminated one-shot paste, cleaning + 100–1,500-word gate, the fixed priority cascade, a 5-row display limit with real-total counts, verbatim-evidence-only rows, `label_en`-verbatim soft-skill names (ESCO ids stored, never shown), and the no-verdict guarantee with fixed input-error and extraction-failure messages.

@@ -1,0 +1,18 @@
+Senior Digital Product Manager - Payments
+
+We are a fintech company building online payment products for shops and
+banks across the region. Our teams ship in small groups and own their
+features from idea to launch. This role sits at the center of that work,
+and you will talk to merchants, engineers and designers every week.
+
+Requirements:
+- 3+ years of experience in digital product management
+- Hands-on experience with Scrum and Agile
+- Familiarity with lending and BNPL concepts is a plus
+
+Required Tools:
+- Power BI, Metabase, or Grafana
+
+Preferred Qualifications:
+- Experience with digital wallets and BNPL products
+- Knowledge of Shaparak and payment networks
