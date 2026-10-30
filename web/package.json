@@ -9,7 +9,7 @@
     "test": "node --experimental-vm-modules scripts/run-engine-tests.mjs"
   },
   "dependencies": {
-    "next": "15.1.6",
+    "next": "15.1.11",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "zod": "3.24.1"
