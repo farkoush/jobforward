@@ -23,6 +23,21 @@
 > mismatch. The per-entry actions ("Highlight / Keep as is / Shorten" —
 > implementation naming: Highlight / No change / Not relevant) are retired
 > as product behavior. The text below is kept as the historical original.
+>
+> **Update (October 30, 2026 — web usability prototype):** A web prototype
+> of the tool was built for usability tests with 5 job seekers (`web/`).
+> The terminal's deterministic engine is ported line-for-line to TypeScript
+> (parity with the Python engine verified) and no model is called; all tool
+> texts are unchanged. The supersession above applies to the web matcher
+> too: skill tables only, never per-entry actions. Web-only decision by the
+> product owner: the soft-skill table is displayed BEFORE the hard-skill
+> tables — a deliberate deviation from the terminal's hard → soft stage
+> order, web only. Specs 2 and 3 run in the browser with their finalized
+> texts, conditions and flows unchanged; the web flow covers ONE experience
+> entry per session with a "Restart session" control between participants,
+> session state is held in the browser, event logs are JSONL behind a
+> storage adapter, and access is behind a shared-password gate with a
+> per-session rate limit.
 
 **Goal:** By fully analyzing the job description and the candidate’s experience entries, assign one action to each entry: “Highlight,” “Keep as is,” or “Shorten,” with a one-line reason. The candidate decides whether to remove an entry; the tool does not recommend removing it.
 
@@ -169,3 +184,4 @@ Entry score = (75 + 100 + 75) / 3 = 83.33
 - October 29, 2026: Final decision: Spec 2 and Spec 3 finalized as the five‑part framework (rubric_version = 3). Questions changed from 0–3 (Context → Action → Result) to 0–5 in the order Need → Feature → Action → Result → Metric (Need/Action/Result asked when their dimension scores 0 or 1; Feature/Metric when the field is empty); question texts updated; Specific Action replaced “Role and Action Clarity” (stored key `role_action_clarity` unchanged); the five parts are extracted automatically with only the candidate’s own words and `part_present` (five booleans) replaced `context_present`; the Context definition now derives from `user_need` + `product_feature`; a bare-number-only result scores 1; rewriting rules pin keywords (nouns, verbs, tool names, numbers, results, product names) as unchanged; the final output is a copyable code block with “- ” lines.
 - October 29, 2026: Final decision: Spec 1 superseded by feature `002-jd-matcher` (constitution v3.0.0 P6): the matcher analyzes only the pasted posting and outputs skill tables only; the per-entry actions (“Highlight / Keep as is / Shorten”) are retired. Postings must be English (>10% Persian/Arabic-script letters rejected).
 - October 30, 2026: Final decision: the Spec 1 supersession note was expanded to the implemented JD Matcher v1 (feature `002-jd-matcher`, rules version `matcher-rules-1.0.0`): staged paste → review → hard skills → soft skills flow with per-stage `[Y]/[C]` gates, `END`-terminated one-shot paste, cleaning + 100–1,500-word gate, the fixed priority cascade, a 5-row display limit with real-total counts, verbatim-evidence-only rows, `label_en`-verbatim soft-skill names (ESCO ids stored, never shown), and the no-verdict guarantee with fixed input-error and extraction-failure messages.
+- October 30, 2026: Web usability prototype recorded (note added above Spec 1): a `web/` Next.js prototype was built on a line-for-line TypeScript port of the deterministic engine (no model calls; parity with the Python engine verified). The matcher supersession applies to the web too (skill tables only, no per-entry actions). Product-owner decision: the web matcher displays the soft-skill table before the hard-skill tables (web-only deviation from the terminal's hard → soft order). Specs 2 and 3 run in the browser with finalized texts and flows unchanged; one experience entry per session with a restart control; browser-held session state; JSONL event logs behind a storage adapter; shared-password gate with a per-session rate limit.

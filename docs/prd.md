@@ -130,6 +130,25 @@ Three features will be built in version 1. They all work only on data entered by
 > retired as product behavior, and postings must be English: a posting with
 > more than 10% Persian/Arabic-script letters is rejected. The original
 > two-step design below is kept as history.
+>
+> **Update (October 30, 2026 — web usability prototype):** A clickable web
+> prototype of this tool was built for usability tests with 5 job seekers
+> (`web/`, Next.js; prototype name "Job Forward"). It adds no new rules: the
+> terminal's deterministic engine was ported line-for-line to TypeScript
+> (verified output-identical against the Python engine on cleaning, both
+> skill extractions, scoring, question conditions, rewrite assembly and the
+> reference fixture), no model is called, and all tool texts are the
+> terminal's. Web-only decisions recorded by the product owner: (1) in the
+> web matcher the SOFT-skill table is displayed BEFORE the hard-skill
+> tables — a deliberate deviation from the terminal order hard → soft,
+> recorded in the stage-gate logs under their true stage names; (2) the web
+> flow covers ONE experience entry per session, with a "Restart session"
+> control between participants; (3) Features 2–3 texts and the staged
+> gates are unchanged. Session state lives in the browser (localStorage),
+> event logs are JSONL behind a replaceable storage adapter (secrets
+> stripped), and access is behind a shared-password gate with a per-session
+> rate limit. This prototype is a test instrument only; the "UI and Persian
+> language in later versions" decision for the product is unchanged.
 
 **\*\*Input:\*\*** Job posting text (English only; a posting with more than 10% Persian/Arabic-script letters is rejected — updated October 29, 2026; originally Persian or English, pasted text only) and the job seeker's experience.
 
@@ -569,3 +588,5 @@ This version intentionally does not include:
 \- October 29, 2026: Final decision: section 4.1 superseded by feature `002-jd-matcher` (constitution v3.0.0 P6): the matcher analyzes only the pasted posting and outputs skill tables only; the per-entry actions (“Highlight / No change / Shorten”) are retired. Job posting input changed to English only (>10% Persian/Arabic-script letters rejected), aligning with constitution v3.0.0 P10.
 
 \- October 30, 2026: Final decision: section 4.1 aligned with the implemented JD Matcher v1 (feature `002-jd-matcher`, rules version `matcher-rules-1.0.0`): the supersession note now records the implemented flow — `END`-terminated one-shot paste, cleaning of control characters / `<script>`/`<style>` blocks / HTML tags, the 100–1,500-word gate on the cleaned text, the staged `[Y]/[C]` gates, the fixed priority cascade, the 5-row display limit with real-total counts, verbatim-evidence-only rows, `label_en`-verbatim soft-skill names with the ESCO id stored but never shown, and the no-verdict guarantee with fixed input-error and extraction-failure messages. The section 4 preamble no longer says all features work “only on resumes” (the matcher never touches resumes). Section 6 gained two out-of-scope items (free-form verdict; skills outside the taxonomy) and the Persian-posting rejection. Section 8 “Matcher actions” records the October 30 implementation with the staged flow, and the measurement requirements now list the ten matcher event types.
+
+- October 30, 2026: Web usability prototype recorded (section 4.1 update): a `web/` Next.js prototype was built on a line-for-line TypeScript port of the deterministic engine (no model calls; parity with the Python engine verified). Product-owner decisions: the web matcher shows the soft-skill table before the hard-skill tables (web-only deviation from the terminal order), the web flow covers one experience entry per session with a restart control, session state is held in the browser, event logs are JSONL behind a storage adapter, and access is gated by a shared password with a per-session rate limit. The prototype is a test instrument; the “UI in later versions” decision for the product is unchanged.

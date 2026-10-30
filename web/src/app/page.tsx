@@ -720,9 +720,11 @@ export default function Home() {
 
   function matchStageConfirmed(stage: string) {
     logEvent("stage_confirmed", "Y", { stage });
-    if (stage === "review") go("match_hard");
-    else if (stage === "hard_skills") go("match_soft");
-    else go("menu"); // soft_skills confirmed -> flow complete
+    // Web-prototype order requested by the product owner: soft skills are
+    // shown BEFORE hard skills (the terminal order was hard -> soft).
+    if (stage === "review") go("match_soft");
+    else if (stage === "soft_skills") go("match_hard");
+    else go("menu"); // hard_skills confirmed -> flow complete
   }
 
   function matchStageCancelled(stage: string) {
@@ -864,7 +866,7 @@ export default function Home() {
         {!needsGate && screen === "welcome" && <Welcome onAccept={acceptConsent} />}
         {screen === "menu" && (
           <Menu
-            hasDraft={entry !== null && entry.draft_reason === "user_saved"}
+            entry={entry}
             onAdd={() => {
               logEvent("menu_choice", "add_experience");
               setDraftBullets([]);
@@ -1358,21 +1360,22 @@ function Welcome({ onAccept }: { onAccept: () => void }) {
 }
 
 function Menu({
+  entry,
   onAdd,
   onMatch,
   onExit,
-  hasDraft,
 }: {
+  entry: StoredEntry | null;
   onAdd: () => void;
   onMatch: () => void;
   onExit: () => void;
-  hasDraft: boolean;
 }) {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-semibold">
         {msg.MENU_IDLE.split("?")[0]}?
       </h1>
+      {entry && <EntryPanel entry={entry} />}
       <div className="flex flex-col gap-3">
         <button className="btn-primary" onClick={onAdd}>
           1) Add an experience
@@ -1384,9 +1387,35 @@ function Menu({
           3) Exit
         </button>
       </div>
-      {hasDraft && (
-        <p className="mt-6 text-neutral-700">{msg.SCORE_DRAFT_LINE}</p>
+    </div>
+  );
+}
+
+function EntryPanel({ entry }: { entry: StoredEntry }) {
+  const isDraft = entry.bullets.length === 0 || entry.draft_reason === "user_saved";
+  return (
+    <div className="card mb-6">
+      <p className="mb-1 text-sm font-semibold text-neutral-500">
+        Saved in this session
+      </p>
+      <p className="mb-1 font-medium">
+        {entry.title || "(no title)"} — {entry.bullets.length} bullet
+        {entry.bullets.length === 1 ? "" : "s"}
+        {entry.entry_score !== null && !isDraft
+          ? ` — ${fmt(msg.SCORE_EXPERIENCE, {
+              value: round2(entry.entry_score),
+              rubric: DEFAULT_RUBRIC_VERSION,
+            })}`
+          : ""}
+      </p>
+      {isDraft && (
+        <p className="text-[15px] text-neutral-700">
+          {msg.SCORE_DRAFT_LINE} {msg.DRAFT_SUGGESTION}
+        </p>
       )}
+      <p className="mt-1 text-sm text-neutral-600">
+        Adding a new experience replaces this entry in the session.
+      </p>
     </div>
   );
 }
