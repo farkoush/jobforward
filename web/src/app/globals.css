@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* Job Forward web prototype — English only, left-to-right, left-aligned.
+   Body 17px, line height ~1.6, one content column ~680px, high contrast. */
+
+:root {
+  --content-width: 680px;
+}
+
+body {
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+/* Large, high-contrast primary action button — one per screen. */
+.btn-primary {
+  @apply w-full sm:w-auto min-h-12 px-6 py-3 rounded-lg bg-neutral-900 text-white
+    font-medium text-[17px] hover:bg-neutral-700 focus-visible:outline-4
+    focus-visible:outline-offset-2 focus-visible:outline-neutral-900
+    disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply w-full sm:w-auto min-h-12 px-6 py-3 rounded-lg bg-white text-neutral-900
+    border-2 border-neutral-900 font-medium text-[17px] hover:bg-neutral-100
+    focus-visible:outline-4 focus-visible:outline-offset-2
+    focus-visible:outline-neutral-900 disabled:opacity-50
+    disabled:cursor-not-allowed;
+}
+
+.text-input {
+  @apply w-full min-h-12 px-4 py-3 rounded-lg border-2 border-neutral-400
+    text-[17px] focus:border-neutral-900 focus:outline-none;
+}
+
+.card {
+  @apply border border-neutral-300 rounded-xl p-5 bg-white;
+}

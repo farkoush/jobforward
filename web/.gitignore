@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# logs and local secrets
+data/events.log.jsonl
+.env.local
+.env*.local
