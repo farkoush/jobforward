@@ -8,6 +8,7 @@
  */
 
 import { apiPost, getSession } from "./client";
+import { redact } from "@/lib/byok/redact";
 
 let lastStepAt: number | null = null;
 
@@ -26,6 +27,7 @@ export function logEvent(
     timestamp: new Date().toISOString(),
     ms_since_last: msSinceLast,
     choice,
-    detail,
+    // Central redaction (BYOK §4): no key pattern can reach the log.
+    detail: detail ? (redact(detail) as Record<string, unknown>) : null,
   });
 }

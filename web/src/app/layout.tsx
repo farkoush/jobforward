@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
+// Dynamic rendering is required for the per-request CSP nonce (middleware).
+export const dynamic = "force-dynamic";
+
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",

@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --experimental-vm-modules scripts/run-engine-tests.mjs"
+    "test": "node --experimental-vm-modules scripts/run-engine-tests.mjs",
+    "test:byok": "tsx --test tests/byok/*.test.ts",
+    "scan:byok": "node scripts/byok-security-scan.mjs"
   },
   "dependencies": {
     "next": "15.1.6",

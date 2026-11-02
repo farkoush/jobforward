@@ -32,11 +32,29 @@ import {
   apiPost,
 } from "@/lib/client";
 import { logEvent } from "@/lib/logger";
+import { ByokSettings } from "@/components/ByokSettings";
+import {
+  getByokState,
+  initByok,
+  rateBulletsWithModel,
+} from "@/lib/byok/client";
+import {
+  BYOK_EVALUATOR_SYSTEM_PROMPT,
+  buildEvaluatorUserPrompt,
+} from "@/lib/byok/prompts";
+import { extractParts } from "@/engine/flow/parts";
+import {
+  EvaluatorOutputError,
+  validateResponse,
+} from "@/engine/scoring/evaluator";
+import { entryScoreFromRatings } from "@/engine/scoring/metrics";
+import { redact } from "@/lib/byok/redact";
 
 type Screen =
   | "gate"
   | "welcome"
   | "menu"
+  | "byok_settings"
   | "entry_type"
   | "entry_title"
   | "entry_bullets"
@@ -149,6 +167,7 @@ export default function Home() {
   useEffect(() => {
     const existing = getSession();
     setSession(existing);
+    initByok();
     if (!getGateToken()) setScreen("gate");
     else if (existing && existing.consentAt) setScreen("menu");
     setReady(true);
@@ -252,20 +271,84 @@ export default function Home() {
     entryData.rubric_version = result.rubric_version;
   }
 
-  /** Score the stored entry on the server and persist the ratings into the
-   * session (applied inside updateSession so mutations are not lost). */
+  /**
+   * BYOK path (advanced, opt-in): the model produces ONLY the 0/1/2 bullet
+   * ratings, browser -> provider directly (the key never reaches our
+   * server). Output is untrusted: zod + the shared validity check gate it,
+   * and ALL arithmetic stays in the engine (metrics.ts) — mirroring the
+   * terminal's opt-in LLM evaluator design.
+   */
+  async function scoreWithByok(texts: string[]) {
+    const parts = texts.map((t) => extractParts(t));
+    const outcome = await rateBulletsWithModel(texts, (bullets) => [
+      { role: "system" as const, content: BYOK_EVALUATOR_SYSTEM_PROMPT },
+      { role: "user" as const, content: buildEvaluatorUserPrompt(bullets) },
+    ]);
+    if (!outcome.ok || !outcome.ratings) {
+      return {
+        ok: false as const,
+        error: outcome.error?.userMessage ?? msg.ERR_EVALUATOR_FAILURE,
+      };
+    }
+    try {
+      const normalized = outcome.ratings.map((r, i) => ({
+        bullet_index: i,
+        context: r.context,
+        role_action_clarity: r.role_action_clarity,
+        result: r.result,
+      }));
+      // Shared validity check (values in {0,1,2}, one rating per bullet).
+      validateResponse(normalized, texts.length);
+      const entryScore = entryScoreFromRatings(
+        normalized.map((r) => ({
+          context: r.context,
+          role_action_clarity: r.role_action_clarity,
+          result: r.result,
+        }))
+      );
+      return {
+        ok: true as const,
+        ratings: normalized,
+        parts,
+        entry_score: entryScore,
+        rubric_version: DEFAULT_RUBRIC_VERSION,
+      };
+    } catch {
+      return { ok: false as const, error: msg.ERR_EVALUATOR_FAILURE };
+    }
+  }
+
+  /** Score the stored entry (server engine by default, or the user's model
+   * when BYOK is enabled) and persist the ratings into the session (applied
+   * inside updateSession so mutations are not lost). */
   async function scoreAndPersist(onlyBulletId?: number) {
     const stored = getSession();
     if (!stored?.entry) return null;
-    const result = await scoreAllTexts(stored.entry.bullets.map((b) => b.text));
+    const byok = getByokState();
+    const useByok = byok.useForScoring && byok.hasKey && Boolean(byok.model);
+    let result:
+      | Awaited<ReturnType<typeof scoreAllTexts>>
+      | Awaited<ReturnType<typeof scoreWithByok>>;
+    if (useByok) {
+      setBusy(true);
+      result = await scoreWithByok(stored.entry.bullets.map((b) => b.text));
+      setBusy(false);
+    } else {
+      result = await scoreAllTexts(stored.entry.bullets.map((b) => b.text));
+    }
     if (!result.ok) {
-      setError(msg.ERR_EVALUATOR_FAILURE);
+      setError("error" in result && result.error ? result.error : msg.ERR_EVALUATOR_FAILURE);
       return null;
     }
     updateSession((s) => {
       if (s.entry) applyScoreToEntry(s.entry, result, onlyBulletId);
     });
     setSession(getSession());
+    logEvent(
+      "analysis_backend",
+      null,
+      redact({ backend: useByok ? "byok" : "deterministic", model: byok.model }) as Record<string, unknown>
+    );
     return result;
   }
 
@@ -882,8 +965,13 @@ export default function Home() {
               logEvent("menu_choice", "exit");
               go("done");
             }}
+            onByok={() => {
+              logEvent("menu_choice", "byok_settings");
+              go("byok_settings");
+            }}
           />
         )}
+        {screen === "byok_settings" && <ByokSettings onBack={() => go("menu")} />}
         {screen === "entry_type" && (
           <ChoiceScreen
             title={msg.ADD_TYPE}
@@ -1364,11 +1452,13 @@ function Menu({
   onAdd,
   onMatch,
   onExit,
+  onByok,
 }: {
   entry: StoredEntry | null;
   onAdd: () => void;
   onMatch: () => void;
   onExit: () => void;
+  onByok: () => void;
 }) {
   return (
     <div>
@@ -1385,6 +1475,9 @@ function Menu({
         </button>
         <button className="btn-secondary" onClick={onExit}>
           3) Exit
+        </button>
+        <button className="btn-secondary !border-neutral-400 text-[15px] text-neutral-600" onClick={onByok}>
+          Model settings (advanced — use your own API key)
         </button>
       </div>
     </div>
