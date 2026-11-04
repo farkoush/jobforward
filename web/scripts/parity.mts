@@ -10,6 +10,7 @@ import { loadTaxonomy, matchSoftSkills } from "../src/engine/matcher2/softSkills
 import { buildReport } from "../src/engine/matcher2/report";
 import { extractParts } from "../src/engine/flow/parts";
 import { localEvaluate } from "../src/engine/scoring/local";
+import { DEFAULT_RUBRIC_VERSION } from "../src/engine/types";
 import { assembleRewrite } from "../src/engine/flow/rewrite";
 import { findOverlaps } from "../src/engine/scoring/overlap";
 import { entryScoreFromRatings } from "../src/engine/scoring/metrics";
@@ -126,7 +127,7 @@ if (JSON.stringify(parts) !== JSON.stringify(expected.parts)) {
 }
 
 // --- local ratings ---
-const ratings = localEvaluate({ texts: BULLETS, parts, rubric_version: "rubric-3.0.0" });
+const ratings = localEvaluate({ texts: BULLETS, parts, rubric_version: DEFAULT_RUBRIC_VERSION });
 if (JSON.stringify(ratings) !== JSON.stringify(expected.ratings)) {
   fail(
     `ratings mismatch:\n ts=${JSON.stringify(ratings)}\n py=${JSON.stringify(expected.ratings)}`
@@ -185,6 +186,13 @@ const EDGE_BULLETS = [
   "I built a checkout page so that users could pay faster",
   "Ran the beta program; the team of 3 shipped 12 user interviews",
   "Owned pricing",
+  "Benchmarked 7 local and international competitors and mapped Upwork " +
+    "and Freelancer user journeys to uncover friction in hiring and " +
+    "project-assignment flows.",
+  "Researched why new hires quit within their first year",
+  "I built the export button to reduce churn",
+    "Hiring teams had no clear view of competitor strengths, so I redesigned the hiring and project-assignment flows, and users no longer face friction in hiring and project-assignment flows by 35%.",
+  "Benchmarked 7 competitors and mapped Upwork journeys to \nuncover friction in hiring flows.",
 ];
 
 const cleaned2 = cleanPosting(POSTING2);
@@ -226,7 +234,7 @@ if (JSON.stringify(partsEdge) !== JSON.stringify(expected.parts_edge)) {
     `parts_edge mismatch:\n ts=${JSON.stringify(partsEdge, null, 1)}\n py=${JSON.stringify(expected.parts_edge, null, 1)}`
   );
 }
-const ratingsEdge = localEvaluate({ texts: EDGE_BULLETS, parts: partsEdge, rubric_version: "rubric-3.0.0" });
+const ratingsEdge = localEvaluate({ texts: EDGE_BULLETS, parts: partsEdge, rubric_version: DEFAULT_RUBRIC_VERSION });
 if (JSON.stringify(ratingsEdge) !== JSON.stringify(expected.ratings_edge)) {
   fail(
     `ratings_edge mismatch:\n ts=${JSON.stringify(ratingsEdge)}\n py=${JSON.stringify(expected.ratings_edge)}`

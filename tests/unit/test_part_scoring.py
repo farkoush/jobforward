@@ -89,3 +89,48 @@ def test_full_framework_bullet_scores_complete():
 
     part = extract_parts(text)
     assert _score(text, part) == (2, 2, 2)
+
+
+def test_present_vague_result_part_scores_one_not_zero():
+    """rubric-3.1.0, docs/bullet-parser-prompt Problem 6: a result part that
+    exists but only states a purpose ("to uncover …") is a vague result —
+    score 1; 0 is reserved for a missing result."""
+    part = BulletParts(
+        user_need="Benchmarked 7 competitors and mapped Upwork and Freelancer journeys",
+        result="to uncover friction in hiring and project-assignment flows.",
+    )
+    score = _score(
+        "Benchmarked 7 competitors and mapped Upwork and Freelancer journeys "
+        "to uncover friction in hiring and project-assignment flows.",
+        part,
+    )
+    assert score[2] == 1
+
+
+def test_missing_result_part_still_scores_zero():
+    """0 stays reserved for a bullet with no result anywhere: an empty
+    result part and a raw text without any outcome marker."""
+    part = BulletParts(
+        user_need="Researched why new hires quit within their first year",
+    )
+    score = _score(
+        "Researched why new hires quit within their first year",
+        part,
+    )
+    assert score[2] == 0
+
+
+def test_improved_bullet_scores_full_marks():
+    """The re-scored improved bullet must be rewarded: need ("had no"),
+    concrete feature ("flows"), delivery verb ("redesigned"), and a
+    qualitative outcome ("no longer face") all score 2 — the confirmed
+    improvements must be reflected in the clarity score."""
+    from src.jobforward.flow.parts import extract_parts
+
+    text = (
+        "Hiring teams had no clear view of competitor strengths, so I "
+        "redesigned the hiring and project-assignment flows, and users no "
+        "longer face friction in hiring and project-assignment flows by 35%."
+    )
+    score = _score(text, extract_parts(text))
+    assert score == (2, 2, 2)

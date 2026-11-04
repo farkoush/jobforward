@@ -631,3 +631,249 @@ and must FAIL before their implementation task (constitution P9).
   constitution amendment: P4 still cites rubric_version = 2; re-pinning to
   rubric 3 is a product-owner action (report-only, do not edit the
   constitution in this feature)
+
+---
+
+## Phase 11: Rubric-3.1.0 — Parsing Correctness, Display↔Score Agreement & Web Improvement Loop (implemented 2026-11-03, recorded 2026-11-04)
+
+> **BACKFILL NOTE**: the tasks below record work that is already implemented
+> and verified (not executed sequentially from this file). Evidence is cited
+> per task. Spec sections §2.1, §3.1, §5.1 and §6.1 document this phase.
+> The Python terminal's DISPLAY and FLOW are unchanged (product-owner
+> decision): only the shared extraction/scoring rules live in both engines,
+> with web↔Python parity as a release gate.
+
+**Purpose**: correct the five-part extraction (research verbs, intention
+clauses, word sharing), align the result score with constitution P4
+(present-but-vague = 1), and ship the web prototype's one-sentence display,
+inline improvement loop, model disclosure and calibrated model prompt.
+
+### Setup & Foundational
+
+- [X] T063 Record the product-owner decisions governing this phase:
+  web+parser-doc display scope only (terminal display unchanged), ALWAYS
+  "resulting in [result: …]", research verbs → need never action, vague
+  result = 1, adaptive connectors over the fixed frame, inline improvement
+  form replacing the question screens (evidence: scope comment in
+  `web/src/engine/messages.ts`, spec §2.1/§5.1/§6.1)
+- [X] T064 [P] Pin web run scripts to port 3100 in `web/package.json`
+  (`"dev": "next dev -p 3100"`, `"start": "next start -p 3100"`)
+- [X] T065 Bump the default rubric version to `rubric-3.1.0` in
+  `src/jobforward/scoring/evaluator.py`,
+  `src/jobforward/scoring/adapters/llm.py`,
+  `src/jobforward/storage/repository.py` (DEFAULT_RUBRIC_VERSION) and
+  `web/src/engine/types.ts`; update version literals in
+  `tests/contract/test_cli_session.py`, `tests/integration/test_five_part_flow.py`,
+  `tests/integration/test_full_path.py`, `tests/unit/test_storage.py`,
+  `web/tests/byok/client.test.ts`
+- [X] T066 [P] Extend the parity harnesses to rubric-3.1.0 in
+  `web/scripts/parity.mts` and `web/scripts/parity_python.py` with the same
+  new edge bullets on both sides (research/intention Upwork bullet,
+  research-only bullet, improved bullet, multi-line bullet) — PARITY OK
+
+### User Story 1 — Correct five-part parsing (P1) (spec §2.1)
+
+- [X] T067 [P] [US1] Write the extraction tests in
+  `tests/unit/test_part_extraction.py` (8 new): research verbs fill need not
+  action (the "Benchmarked 7 … to uncover friction in hiring and
+  project-assignment flows." case), research-only bullet leaves action empty,
+  purpose clause inside an action clause is not carved, purpose clause after
+  a delivery verb stays out of the result, need phrases ending in "to" are
+  not intentions, multi-line bullet extracts like one line, improved-bullet
+  parts case, feature marker inside the intention clause skipped
+- [X] T068 [US1] Implement rubric-3.1.0 extraction in
+  `src/jobforward/flow/parts.py`: NEED_MARKER += problem-discovery verbs
+  (analyzed, researched, identified, noticed, found, benchmarked, mapped,
+  surveyed, audited, compared, evaluated) + "had no"; ACTION_VERB -=
+  analyzed|researched; FEATURE_MARKER += `flows?`; new `_INTENTION_MARKER`
+  ("to uncover|deliver|improve|…") with lookbehinds excluding need phrases
+  ending in "to"; carve the intention tail from a non-action need clause,
+  else take it from a clause with no action verb and no metric; skip feature
+  markers inside the intention tail; strip a leading "and|or" from the
+  feature fragment; normalize whitespace at the top of `extract_parts`
+- [X] T069 [US1] Mirror the identical rule set in `web/src/engine/flow/parts.ts`
+  (verbatim twin of `parts.py`, same regexes, same comments citing
+  specs/001-experience-improvement-flow/few-shot/parser-prompt Problems 1/2/4)
+- [X] T070 [US1] Parity gate — `cd web && npx tsx scripts/parity.mts` →
+  PARITY OK for rubric-3.1.0 on the extended edge corpus
+
+### User Story 2 — Display and score agree (P1) (spec §3)
+
+- [X] T071 [P] [US2] Write the scoring tests in
+  `tests/unit/test_part_scoring.py` (3 new): present vague result part scores
+  1 not 0; missing result part still scores 0; the improved bullet scores
+  full marks (2,2,2)
+- [X] T072 [US2] Floor a present-but-vague result at 1 in
+  `src/jobforward/scoring/adapters/local.py` and
+  `web/src/engine/scoring/local.ts`; extend ACTION_VERB_ANY (rebuilt,
+  redesigned, implemented, introduced, shipped, migrated, established,
+  spearheaded, fixed, simplified, scoped), CONCRETE_OBJECT (+ `flows?`) and
+  SPECIFIC_RESULT (+ "no longer") in BOTH files
+- [X] T073 [US2] Fix `frameworkRows` in `web/src/app/page.tsx`: a "vague"
+  designation requires non-empty words — an empty part is always "missing",
+  never vague with an empty quote
+
+### User Story 3 — The five-part display reads as one sentence (P2, web-only) (spec §5.1)
+
+- [X] T074 [P] [US3] Add the web-only display strings to
+  `web/src/engine/messages.ts`: sentence frame + connector variants
+  (FRAMEWORK_OPEN_*/FRAMEWORK_SEG_*/FRAMEWORK_TAIL), renamed labels
+  (PART_LABEL_FEATURE "Feature name", PART_LABEL_ACTION "Specific action"),
+  FRAMEWORK_ORIGINAL "Job seeker's original text: …", NEEDS_REASON_*/SUGGEST_*/
+  STARTER_*/INLINE_Q_*/METRIC_REAL_NUMBER_NOTE/COPY_BUTTON; header comment
+  records the 2026-11-03 web-only decision and the intentional divergence
+  from `src/jobforward/messages.py` (which keeps the §5 list format)
+- [X] T075 [US3] Implement `frameworkSentence()` in `web/src/app/page.tsx`
+  with the connector selector regexes (RESEARCH_START, COLLAB_MARKER,
+  COLLAB_WITH, DELIVERY_VERB): one-sentence display on the bullet-gate screen
+  with status-colored brackets (filled emerald / vague amber / missing red),
+  connectors plain; the old `<ul>` list rendering removed
+- [X] T076 [US3] Regenerate the parser-doc display layer in
+  `specs/001-experience-improvement-flow/few-shot/parser-prompt.md`: Display Rules rewritten to the closed
+  variant set; all example and answer-key sentences regenerated under the
+  same rules (E1/E3/E5 keep collaboration because their actions really
+  collaborate; E2/T2/T9 → "work on"; T5 → "research into"; rest →
+  "building of")
+- [X] T077 [US3] Verify live at http://localhost:3100 (rebuild + restart +
+  "Restart session"): the research bullet renders "Research into […] and
+  research into [feature name - missing] through […]"; connectors re-predict
+  from confirmed answers
+
+### User Story 4 — Improve the bullet in one screen (P2, web-only) (spec §6.1)
+
+- [X] T078 [P] [US4] Implement grounded suggestions: `resultCore()` derives a
+  problem-area core from the original extracted result (strip trailing period
+  + "to <verb>" intention prefix) in `web/src/app/page.tsx`;
+  STARTER_GROUND_* templates compose per-part answers around it in
+  `web/src/engine/messages.ts`; generic STARTER_* remain the fallback; metric
+  stays x-based with METRIC_REAL_NUMBER_NOTE
+- [X] T079 [US4] Build the inline improvement form in `web/src/app/page.tsx`
+  BulletGate: one block per empty/vague part — colored headline with status,
+  "Why this is unclear:" reason first for vague parts, INLINE_Q_* question in
+  large font, select with 2 editable grounded options, always-editable input,
+  Confirm button applying `improveAnswer()` light repair (collapse spaces,
+  capitalize, add "I " to subject-less delivery-verb actions, dedupe "the
+  the") with an "Improved phrasing:" note when text changed; confirmed blocks
+  stay visible/editable with a green "(filled)" headline; sentence + Filled
+  list update on Confirm
+- [X] T080 [US4] Implement `submitInlineAnswers` in `web/src/app/page.tsx`:
+  0 answers → final confirmation for a complete bullet (`isComplete`), else
+  NO_REWRITE → bullet_list; ≥1 answer (partial allowed) → `improvedBullet()`
+  plain-prose assembly, history + proposals records with status "edited",
+  re-score through `scoreAndPersist` (the SAME first-time pipeline: fresh
+  extraction + ratings, BYOK or local), SCORE_BEFORE_AFTER on the score
+  screen; delete QuestionScreen, draft_or_approve screen, proposal screen and
+  their state/imports; `gateAnswer` simplified to the rejection path
+- [X] T081 [US4] Add the copy action in `web/src/app/page.tsx`: "Copy" text
+  button beside the original text; copies `improvedBullet()` output as plain
+  prose (no brackets/labels/status markers; trailing periods stripped;
+  mid-sentence parts lowercased unless starting with "I"); hidden-textarea +
+  `execCommand` fallback for browsers where the async clipboard API fails;
+  "Copied" tooltip (role=status, 2s); falls back to the verbatim original
+  bullet when nothing improved exists
+- [X] T082 [US4] Verify end-to-end in the browser (rebuild + restart +
+  "Restart session"): select→input→Confirm per part, "1) Yes" → score screen
+  with before/after (33.33 → 100 for the fully improved bullet); 2-of-5
+  answered goes straight through; zero answers on an incomplete bullet →
+  no-rewrite outcome
+
+### User Story 5 — Model disclosure & calibrated prompt (P3) (spec §3.1)
+
+- [X] T083 [P] [US5] Create `web/src/components/ModelBanner.tsx`: amber note
+  "Model in use on this screen: {provider displayName}: {model}"
+  (BYOK §3 disclosure), self-subscribing to BYOK state changes, rendered only
+  when the screen is active AND useForScoring AND key AND model are set;
+  hidden for the deterministic engine
+- [X] T084 [US5] Mount ModelBanner in `web/src/app/page.tsx` for the
+  model-capable screens (entry_bullets, score, bullet_list, merge); matcher
+  screens never show it
+- [X] T085 [US5] Update `web/src/lib/byok/prompts.ts`: governing-goal line
+  ("every bullet should show problem-solving — the problem first, then the
+  work done to fix it, then the result"), explicit result rules (actual
+  outcome = 2; goal/purpose phrase "to uncover…"/"in order to…"/"aiming
+  to…"/"so that…" = 1 never 2; no outcome phrase = 0), and four calibration
+  few-shot examples with expected JSON ratings (complete bullet / missing
+  need / output-only result / goal-instead-of-result) — 24/24
+  `npm run test:byok` green incl. live-Ollama contract test
+
+### User Story 6 — One normative contract for external models (P3) (spec §2.1, contracts/parser-prompt.md)
+
+- [X] T086 [P] [US6] Write `specs/001-experience-improvement-flow/few-shot/parser-prompt.md` (governing goal,
+  Scope of Execution, Section Display Rules with the closed variant set,
+  Problems 1–6, Fixed Rules, Examples 1–6 as acceptance tests, test bullets
+  T1–T10 with traps T6/T9, tester-only answer key) and
+  `specs/001-experience-improvement-flow/few-shot/parser-samples.json` v1.3.0 (acceptance_examples E1–E6,
+  test_bullets T1–T10, display_frame)
+- [X] T087 [P] [US6] Rule the pasted format demo 1 "FORMAT DEMO ONLY — not
+  normative" (product-owner decision 2026-11-04): the demo no longer appears
+  in the document (removed in the 2026-11-03 rewrite; the Scope of Execution
+  already states all examples are illustrative); the ruling is recorded in
+  spec §2.1 and this task
+- [X] T088 [US6] Record the one-rule-set parity obligation: the deterministic
+  engine satisfies the same acceptance examples (E1–E6, T1–T10) — spec §2.1,
+  §9; `contracts/parser-prompt.md`
+
+### Polish & Cross-Cutting
+
+- [X] T089 Run the full gate suite: `python -m pytest` (216 green), parity
+  PARITY OK, `tsc` clean, `npm run test:byok` (24 green; the live Ollama test
+  may time out under machine load — environmental, passed twice same day),
+  `npm run scan:byok` green
+- [X] T090 Amend the project constitution to v3.1.0
+  (`.specify/memory/constitution.md`, 2026-11-04): replace the stale
+  `rubric_version = 2` integer pins with semver-string pinning (version of
+  record = the rubric-X.Y.Z string stored with every score; current
+  rubric-3.1.0); clarify that a present-but-vague result = 1 and 0 is
+  reserved for a missing result; re-baseline the 83.33 reference-test and
+  quality gates under the governing semver rubric; matcher rules stay v1 —
+  this closes the amendment T062 reported as pending
+- [ ] T091 [P] Align the parser-doc answer-key "Still needs to be filled"
+  lists with the web presentation (reason + suggestions + inline question)
+  — the doc currently shows reason-only lists. OPEN: on product-owner
+  request (web-only richness was deliberate)
+- [ ] T092 [P] Retry OpenRouter CORS from a different VPN exit; if the 403
+  edge block persists, disable the provider in
+  `web/src/lib/byok/providers.config.ts` with the documented reason. OPEN:
+  tracked in `docs/byok-cors-results.md` (FAIL row 2026-11-03; worked once
+  after a VPN change — retest from the blocked exit)
+- [X] T093 [P] Make the rubric version a single source of truth
+  (product-owner request 2026-11-04): new `src/jobforward/rubric.py`
+  (`RUBRIC_VERSION = "rubric-3.1.0"`) is the ONLY Python literal;
+  `storage/repository.py` re-exports it as `DEFAULT_RUBRIC_VERSION` (all
+  existing importers unchanged); `scoring/evaluator.py` (2 dataclass
+  defaults) and `scoring/adapters/llm.py` (adapter default) import it; tests
+  assert against the constant instead of a literal
+  (`tests/contract/test_cli_session.py`, `tests/integration/test_five_part_flow.py`,
+  `tests/integration/test_full_path.py`, `tests/unit/test_storage.py` — the
+  `rubric-2.0.0` historical fixture stays); parity harnesses
+  (`web/scripts/parity.mts`, `web/scripts/parity_python.py`) import their
+  engine's constant. TS twin: `web/src/engine/types.ts`
+  `DEFAULT_RUBRIC_VERSION` is the only TS literal (already imported by
+  `api/score/route.ts` and `lib/byok/prompts.ts`; now also by
+  `web/tests/byok/client.test.ts`). Parity gate proves the two constants
+  agree. Historic comments/docstrings naming a version are a record of what
+  changed in that version and stay. Behavior unchanged — evidence: pytest
+  216 green, PARITY OK, tsc clean, test:byok 23/24 (live-Ollama timeout
+  environmental, unchanged).
+- [X] T094 [P] Consolidate the model-facing prompt package into
+  `specs/001-experience-improvement-flow/few-shot/` (product-owner request
+  2026-11-04 — one folder with everything a model is given for spec 001, so
+  different models converge): MOVED (not copied — single source of truth)
+  `docs/bullet-parser-prompt.md` → `few-shot/parser-prompt.md` and
+  `docs/bullet-parser-samples.json` → `few-shot/parser-samples.json`
+  (v1.3.0 — location-move changelog entry, no sample changes); added
+  `few-shot/model-rating-few-shots.md` (documents the 4 BYOK rating few-shots
+  verbatim from `web/src/lib/byok/prompts.ts`, which stays the runtime
+  source; both must change together) and `few-shot/README.md` (purpose, the
+  two model surfaces — parsing stays deterministic in-app, ratings are the
+  only model output — new-model test procedure, convergence measurement via
+  the 16 acceptance examples, change rules). All references updated to the
+  new path: spec §2.1, plan, tasks (T076/T086/T087/T088/T091), research,
+  quickstart, `contracts/parser-prompt.md`, and the code comments in
+  `flow/parts.py` + `flow/parts.ts` (kept as verbatim twins),
+  `scoring/adapters/local.py` + `web/src/engine/scoring/local.ts`,
+  `web/src/app/page.tsx`. Convergence levers recorded: explicit rules,
+  few-shots, `temperature: 0` (client.ts), schema validation + retry,
+  0/1/2-only output, arithmetic in code. Evidence: pytest 216 green, PARITY
+  OK, tsc clean after the move; zero stale `docs/bullet-parser*` references
+  (grep clean).

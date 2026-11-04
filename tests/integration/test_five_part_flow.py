@@ -12,6 +12,7 @@ import json
 from src.jobforward import messages as m
 from src.jobforward.cli import CLI
 from src.jobforward.flow.parts import extract_parts
+from src.jobforward.rubric import RUBRIC_VERSION
 from src.jobforward.scoring.adapters.local import LocalHeuristicAdapter
 from src.jobforward.scoring.evaluator import BulletRatingRequest
 
@@ -86,12 +87,12 @@ def test_five_part_flow_end_to_end(tmp_path):
     assert m.SCORE_BEFORE_AFTER.split("{before}")[0] in rendered
 
     # Storage: bullet replaced (edited → analyzed), history retained, and
-    # the new score carries rubric-3.0.0.
+    # the new score carries rubric-3.1.0.
     entries = cli.repository.load()
     (entry,) = entries
     bullet = entry.bullets[0]
     assert bullet.status.value == "analyzed"
-    assert bullet.rubric_version == "rubric-3.0.0"
+    assert bullet.rubric_version == RUBRIC_VERSION
     assert METRIC_ANSWER in bullet.text
     assert bullet.history[0].text == BULLET
     assert bullet.ratings.role_action_clarity == 2

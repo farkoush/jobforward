@@ -192,3 +192,117 @@ boundaries, 90% stability gate).
   chosen stack; constitution Principle 9 ordering is respected in task design.
 - **Alternatives considered**: property-based testing (nice-to-have, not
   needed); manual test script (not repeatable).
+
+---
+
+## Addendum: rubric-3.1.0 decisions (2026-11-03, recorded 2026-11-04)
+
+Decisions made during Phase 11 implementation (spec §2.1/§3/§3.1/§5.1/§6.1);
+each with its rationale and rejected alternatives.
+
+### D1 — Research/mapping verbs are need signals, never action verbs
+
+- **Decision**: `analyzed`, `researched`, `identified`, `noticed`, `found`,
+  `benchmarked`, `mapped`, `surveyed`, `audited`, `compared`, `evaluated` (+
+  `had no`) are user-need markers; `analyzed`/`researched` removed from the
+  action-verb list. An all-research bullet leaves Action empty/vague.
+- **Rationale**: the governing goal (problem → fix work → result) needs Action
+  to mean product-changing/delivery work; research establishes the problem.
+- **Alternatives rejected**: research counts as Action (broke Problems 2/4;
+  user accepted "keep current rules" after a rule-by-rule dispute over their
+  Upwork bullet); ask-the-user on every all-research bullet (deferred — same
+  revisit trigger).
+
+### D2 — Infinitive purpose clause is a vague result
+
+- **Decision**: intention marker (`to uncover|deliver|improve|…`) with
+  lookbehinds excluding need phrases ending in "to"; result taken from the
+  marker onward; carved from the need clause when it carries no action verb,
+  else from a clause filling neither Action nor a metric.
+- **Rationale**: "aiming to …" states intent, not an outcome (Problem 4);
+  carving keeps the no-shared-words rule intact.
+- **Alternatives rejected**: purpose phrase as complete result (fabricates an
+  outcome); leave result empty and keep the phrase in the need (hides the
+  vagueness the user must fix).
+
+### D3 — No shared words, one permitted overlap
+
+- **Decision**: each word in exactly one part; exception = feature name
+  inside the action sentence; feature markers inside the carved intention
+  tail are skipped; leading "and|or" stripped from the feature fragment.
+- **Alternatives rejected**: permissive overlap everywhere; zero overlap with
+  no exception (real bullets legitimately name the feature inside the action).
+
+### D4 — Present-but-vague result scores 1; 0 = missing only
+
+- **Decision**: a non-empty extracted result whose raw rating is 0 is floored
+  at 1 in BOTH engines; missing result still scores 0.
+- **Rationale**: constitution P4 always said a vague result is 1; the local
+  engine's 0 contradicted the display (Problem 6) and the constitution. This
+  is an alignment fix, not a new criterion.
+- **Alternatives rejected**: keep 0 for vague; ask the model each time.
+
+### D5 — In-sentence display with a closed connector variant set
+
+- **Decision**: ONE sentence; verbatim bracketed words with status colors;
+  connectors predicted from a CLOSED set (Research into/Analysis of;
+  collaboration/building/work/research feature segment; through/, resulting
+  in/and fixed). ALWAYS ", resulting in [result: …]" even for vague results
+  (user ruling).
+- **Rationale**: the earlier fixed frame asserted "collaboration with the
+  product team" for a solo research bullet — a fabricated claim (P1).
+- **Alternatives rejected**: fixed frame for everything (fabrication);
+  free-form connectors (not deterministic, can invent words).
+
+### D6 — Inline improvement form replaces the question screens (web only)
+
+- **Decision**: one block per empty/vague part (ambiguity reason, grounded
+  suggestion, editable input, Confirm with light repair); "1) Yes" submits;
+  the question screens, draft-or-approve step and proposal screen are removed
+  from the web path (terminal keeps §4.1 steps 5–10).
+- **Alternatives rejected**: keep both flows (redundant); live-update on
+  keystroke without Confirm (user chose Confirm-based replacement).
+
+### D7 — Improved bullets re-scored by the same first-time pipeline
+
+- **Decision**: on submit with ≥1 confirmed answer, the improved text is
+  assembled as plain prose, recorded with status "edited", and re-scored
+  through exactly the first-time path, showing before/after.
+- **Rationale**: the user required "same as the first raw submission".
+- **Note**: the first run exposed real gaps (improved bullet scored LOWER,
+  33.33→16.67) which drove the `had no`/`flows?`/verb-list extensions — all
+  fixed and parity-tested (33.33 → 100).
+
+### D8 — Grounded suggestions and light repair
+
+- **Decision**: suggestions derived from the bullet's own words (a "core"
+  from the original extracted result; per-part templates), generic fill-ins
+  as fallback; metric suggestions use "x" and stress a real number. Confirm
+  applies light repair shown as "Improved phrasing".
+- **Rationale**: generic fill-ins produced useless answers; repair is
+  cosmetic and never adds claims (P1).
+
+### D9 — Model disclosure banner + BYOK prompt calibration
+
+- **Decision**: amber banner "Model in use on this screen: {provider}:
+  {model}" only on screens where a model call can happen, only when BYOK
+  scoring is on with key+model. The BYOK evaluator prompt states the
+  governing goal and adds four calibration examples (complete outcome = 2;
+  goal/purpose phrase = 1 never 2; no outcome phrase = 0).
+- **Rationale**: transparency (P4; BYOK §3); a live OpenRouter test rated a
+  purpose-phrase result 2/2 against the written rule — few-shot examples
+  fixed it (24/24 green incl. live Ollama).
+- **Alternatives rejected**: post-hoc clamping of model scores (hides the
+  disagreement); banner on all screens (matcher is deterministic — it would
+  lie).
+
+### D10 — Parser prompt document as the external-model contract
+
+- **Decision**: `specs/001-experience-improvement-flow/few-shot/parser-prompt.md` +
+  `specs/001-experience-improvement-flow/few-shot/parser-samples.json` (v1.3.0) are the normative contract for
+  external models; the engine must satisfy the same examples. The pasted
+  format demo is FORMAT DEMO ONLY, not normative (user decision 2026-11-04);
+  the demo no longer appears in the document (removed in the 2026-11-03
+  rewrite).
+- **Alternatives rejected**: treat the demo as normative (contradicts the
+  doc's own rules); two rule sets for models and engine (parity is the point).

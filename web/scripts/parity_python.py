@@ -16,6 +16,7 @@ from jobforward.matcher2.hard_skills import extract_hard_skills, looks_like_post
 from jobforward.matcher2.soft_skills import load_taxonomy, match_soft_skills
 from jobforward.matcher2.report import build_report
 from jobforward.flow.parts import extract_parts
+from jobforward.rubric import RUBRIC_VERSION
 from jobforward.scoring.adapters.local import LocalHeuristicAdapter
 from jobforward.flow.rewrite import assemble_rewrite
 from jobforward.scoring.overlap import find_overlaps
@@ -65,6 +66,13 @@ EDGE_BULLETS = [
     "I built a checkout page so that users could pay faster",
     "Ran the beta program; the team of 3 shipped 12 user interviews",
     "Owned pricing",
+    "Benchmarked 7 local and international competitors and mapped Upwork "
+    "and Freelancer user journeys to uncover friction in hiring and "
+    "project-assignment flows.",
+    "Researched why new hires quit within their first year",
+    "I built the export button to reduce churn",
+    "Hiring teams had no clear view of competitor strengths, so I redesigned the hiring and project-assignment flows, and users no longer face friction in hiring and project-assignment flows by 35%.",
+    "Benchmarked 7 competitors and mapped Upwork journeys to \nuncover friction in hiring flows.",
 ]
 
 EXTRA_ANSWERS = {"context": "candidates dropped off", "action": "rebuilt the form"}
@@ -151,7 +159,7 @@ def main():
         type(
             "Req",
             (),
-            {"texts": BULLETS, "parts": parts, "answers": None, "rubric_version": "rubric-3.0.0"},
+            {"texts": BULLETS, "parts": parts, "answers": None, "rubric_version": RUBRIC_VERSION},
         )()
     )
     out["ratings"] = [
@@ -218,7 +226,7 @@ def main():
         type(
             "Req",
             (),
-            {"texts": EDGE_BULLETS, "parts": parts_e, "answers": None, "rubric_version": "rubric-3.0.0"},
+            {"texts": EDGE_BULLETS, "parts": parts_e, "answers": None, "rubric_version": RUBRIC_VERSION},
         )()
     )
     out["ratings_edge"] = [

@@ -195,3 +195,62 @@ architecture must absorb:
 | Optional LLM scoring adapter (`scoring/adapters/llm.py`, opt-in) | The PRD describes language-model ratings with structured, validatable output; PRD acceptance includes invalid-output and retry behavior that only exist with a model in the loop | A local-only heuristic adapter alone cannot exercise the invalid-output/retry/report path, and deleting the port would break the reference-example, stability, and no-claims test strategy that depends on separating ratings (adapter) from arithmetic (deterministic code). Default run remains fully local (Principle 8 compliant) |
 | `matcher/` package with its own adapter port | Spec US5 / FR-021–FR-022 (docs/prd.md §4.1) required per-entry matcher actions — SUPERSEDED by feature 002-jd-matcher (posting-only analysis); the package stays for storage compatibility and is not reworked | A single LLM-only matcher would break the default-local rule (Principle 8); the port's validate/retry contract remains the reference pattern for 002's `matcher2/` |
 | Deterministic five-part extraction heuristics (`flow/parts.py`) | The finalized spec requires the five parts "extracted automatically" with only the candidate's own words, deterministically (reliability gate, Principle 1) | An LLM extraction step would break determinism/stability and risk fabricated part text; asking the user to fill five fields contradicts spec §1 ("the candidate never fills in the framework directly"). Marker-based extraction is testable and versioned with the rubric |
+
+---
+
+## Phase 11 Addendum (rubric-3.1.0 as-built, 2026-11-04)
+
+Phase 11 (implemented 2026-11-03, tasks T063–T092) extends this plan as
+follows; spec sections §2.1, §3, §3.1, §5.1, §6.1 are the normative record.
+
+### Technical context additions
+
+- **Engines**: the rubric-3.1.0 extraction/scoring rules live in BOTH the
+  Python engine (`src/jobforward/flow/parts.py`,
+  `src/jobforward/scoring/adapters/local.py`) and the deterministic TS port
+  (`web/src/engine/flow/parts.ts`, `web/src/engine/scoring/local.ts`) as
+  verbatim twins; parity gate `web/scripts/parity.mts` ↔
+  `web/scripts/parity_python.py` is a release gate (PARITY OK on the extended
+  edge corpus: research/intention bullet, research-only bullet, improved
+  bullet, multi-line bullet).
+- **Display divergence (intentional)**: the web display layer
+  (`web/src/engine/messages.ts`, `web/src/app/page.tsx frameworkSentence`)
+  implements the §5.1 one-sentence format with the closed connector variant
+  set and status colors; `src/jobforward/messages.py` keeps the §5 list
+  format. Display-only divergence — product-owner decision 2026-11-03.
+- **Web improvement loop**: `web/src/app/page.tsx` replaces the per-screen
+  question flow with the §6.1 inline form (grounded suggestions via
+  `resultCore()` + STARTER_GROUND_*, Confirm + `improveAnswer()` light
+  repair, `submitInlineAnswers` → `improvedBullet()` → re-score through
+  `scoreAndPersist` with before/after, copy with execCommand fallback).
+- **Model disclosure & prompt**: `web/src/components/ModelBanner.tsx` on the
+  model-capable screens (entry_bullets, score, bullet_list, merge);
+  `web/src/lib/byok/prompts.ts` carries the governing goal + four calibration
+  few-shot examples (§3.1).
+- **External-model contract**: `specs/001-experience-improvement-flow/few-shot/parser-prompt.md` +
+  `specs/001-experience-improvement-flow/few-shot/parser-samples.json` (v1.3.0) are normative for any model and
+  for the engine (§2.1); declared in `contracts/parser-prompt.md`.
+- **Versioning**: every new score stores `rubric-3.1.0`; the constitution was
+  amended to v3.1.0 (2026-11-04) pinning the semver string as the version of
+  record and clarifying present-but-vague result = 1 (T090). Single source of
+  truth (T093, product-owner request): the version literal exists exactly
+  once per engine — `src/jobforward/rubric.py` `RUBRIC_VERSION` (re-exported
+  as `DEFAULT_RUBRIC_VERSION` by `storage/repository.py`) and
+  `web/src/engine/types.ts` `DEFAULT_RUBRIC_VERSION`; all other consumers
+  import, so a bump is a one-line edit per engine, with the parity gate
+  proving the two constants agree.
+
+### Constitution check (Phase 11)
+
+No violations. P1 (verbatim brackets; improved bullets only from confirmed
+answers; suggestions never auto-applied), P2 (Confirm per part; zero answers
+⇒ no rewrite), P4 (vague=1 alignment; deterministic arithmetic; semver rubric
+stored), P8 (three screens REMOVED — simplification), P9 (tests landed with
+every rule change), P10 (English B1 strings only). Recorded notes: the
+display divergence (P8 note) and the backfill sequencing (P9 note).
+
+### Gates (as-run)
+
+`python -m pytest` 216 green · parity PARITY OK · `tsc` clean ·
+`npm run test:byok` 24 green (live-Ollama timeout environmental) ·
+`npm run scan:byok` green.

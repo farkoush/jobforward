@@ -12,13 +12,12 @@ import * as msg from "@/engine/messages";
 import { fmt } from "@/engine/messages";
 import {
   DEFAULT_RUBRIC_VERSION,
-  Bullet,
   PART_NAMES,
   QuestionDimension,
   Ratings,
 } from "@/engine/types";
 import { containsNonEnglish } from "@/engine/flow/pathService";
-import { QUESTION_TEXT, buildQuestions } from "@/engine/flow/questions";
+import { isComplete } from "@/engine/flow/questions";
 import {
   clearSession,
   getGateToken,
@@ -33,6 +32,7 @@ import {
 } from "@/lib/client";
 import { logEvent } from "@/lib/logger";
 import { ByokSettings } from "@/components/ByokSettings";
+import { ModelBanner } from "@/components/ModelBanner";
 import {
   getByokState,
   initByok,
@@ -61,9 +61,6 @@ type Screen =
   | "score"
   | "bullet_list"
   | "bullet_gate"
-  | "question"
-  | "draft_or_approve"
-  | "proposal"
   | "confirm_complete"
   | "merge"
   | "copy"
@@ -111,13 +108,6 @@ const PART_LABELS: Record<string, string> = {
   metric: msg.PART_LABEL_METRIC,
 };
 
-const PART_QUESTION_NAMES: Record<QuestionDimension, string> = {
-  context: msg.PART_NAME_NEED,
-  feature: msg.PART_NAME_FEATURE,
-  role_action_clarity: msg.PART_NAME_ACTION,
-  result: msg.PART_NAME_RESULT,
-  metric: msg.PART_NAME_METRIC,
-};
 
 type Rating = { context: number; role_action_clarity: number; result: number };
 
@@ -144,11 +134,6 @@ export default function Home() {
   // Bullet improvement flow
   const [askedThisRun, setAskedThisRun] = useState<Set<number>>(new Set());
   const [currentBulletId, setCurrentBulletId] = useState<number | null>(null);
-  const [questionQueue, setQuestionQueue] = useState<QuestionDimension[]>([]);
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Partial<Record<QuestionDimension, string>>>({});
-  const [answerInput, setAnswerInput] = useState<string>("");
-  const [proposalText, setProposalText] = useState<string | null>(null);
   const [editText, setEditText] = useState<string>("");
   const [editingBulletId, setEditingBulletId] = useState<number | null>(null);
 
@@ -478,39 +463,90 @@ export default function Home() {
     return entry.bullets.find((b) => b.id === currentBulletId) ?? null;
   }
 
-  function gateAnswer(accepted: boolean) {
+  /** Inline improvement (user decision 2026-11-03): the answers typed on the
+   * bullet-gate screen replace the per-screen question flow. 0 answers ->
+   * confirmation for a complete bullet, otherwise no rewrite; any answers ->
+   * the confirmed improvements replace the bullet's weak parts and the
+   * improved text is RE-SCORED through the full first-time pipeline (fresh
+   * extraction + rubric ratings) before the rewrite is offered. */
+  async function submitInlineAnswers(inline: Partial<Record<QuestionDimension, string>>) {
     const bullet = currentBullet();
     if (!bullet) return;
-    logEvent("rewrite_gate", accepted ? "accepted" : "rejected", {
-      bullet_id: bullet.id,
-    });
-    if (!accepted) {
-      markAsked();
+    for (const [, value] of Object.entries(inline)) {
+      if (value && containsNonEnglish(value)) {
+        setError(msg.ERR_NON_ENGLISH_INPUT);
+        return;
+      }
+    }
+    logEvent("rewrite_gate", "accepted", { bullet_id: bullet.id, inline: true });
+    markAsked();
+    setError(null);
+    const answered = Object.values(inline).filter((v) => v && v.trim()).length;
+    if (answered === 0) {
+      const ratings = bullet.ratings;
+      // A complete bullet (all three dimensions 2) gets only the final
+      // confirmation, never questions (spec §6).
+      if (ratings && isComplete(ratings as Ratings)) {
+        go("confirm_complete");
+        return;
+      }
       setMessage(msg.NO_REWRITE);
       go("bullet_list");
       return;
     }
-    const ratings = bullet.ratings;
-    if (!ratings) return;
-    // Question selection mirrors flow/questions.py exactly; the bullet here
-    // only contributes the feature/metric fields and the run's round number.
-    const bulletLike = {
-      status: bullet.status,
-      questions: [],
-      product_feature: bullet.product_feature,
-      metric: bullet.metric,
-    } as unknown as Bullet;
-    const questions = buildQuestions(bulletLike, ratings as Ratings, "accepted", 1);
-    markAsked();
-    if (questions.length === 0) {
-      go("confirm_complete");
+    // Apply the confirmed improvements to the bullet text, then re-score the
+    // improved text exactly like the first analysis (rubric-3.1.0 pipeline):
+    // fresh five-part extraction + fresh rubric ratings, and the before/
+    // after experience score is shown on the score screen.
+    const improved = improvedBullet(frameworkRows(bullet), inline) || bullet.text;
+    if (improved !== bullet.text) {
+      const before = entry?.entry_score ?? null;
+      updateSession((s) => {
+        if (!s.entry) return;
+        const b = s.entry.bullets.find((x) => x.id === bullet.id);
+        if (!b) return;
+        b.history.push({
+          text: b.text,
+          ratings: b.ratings,
+          rubric_version: b.rubric_version,
+          replaced_at: new Date().toISOString(),
+        });
+        b.text = improved;
+        b.status = "edited";
+        b.proposals.push({ text: improved, decision: "approved" });
+      });
+      setSession(getSession());
+      logEvent("bullet_improved_inline", null, { bullet_id: bullet.id });
+      const scored = await scoreAndPersist(bullet.id);
+      if (!scored) return;
+      const current = getSession();
+      setMessage(
+        fmt(msg.SCORE_BEFORE_AFTER, {
+          before: before === null ? "None" : round2(before),
+          after:
+            current?.entry?.entry_score === null || current?.entry?.entry_score === undefined
+              ? "None"
+              : round2(current.entry.entry_score),
+          rubric: DEFAULT_RUBRIC_VERSION,
+        })
+      );
+      go("score");
       return;
     }
-    setQuestionQueue(questions.map((q) => q.dimension));
-    setQuestionIndex(0);
-    setAnswers({});
-    setAnswerInput("");
-    go("question");
+    // Nothing changed (all answers matched the original words): show the
+    // re-scored state without a before/after line.
+    await scoreAndPersist(bullet.id);
+    go("score");
+  }
+
+  /** "2) No" on the bullet gate: no rewrite, no questions. */
+  function gateAnswer() {
+    const bullet = currentBullet();
+    if (!bullet) return;
+    logEvent("rewrite_gate", "rejected", { bullet_id: bullet.id });
+    markAsked();
+    setMessage(msg.NO_REWRITE);
+    go("bullet_list");
   }
 
   function markAsked() {
@@ -519,135 +555,6 @@ export default function Home() {
     }
   }
 
-  // ---------- question screens (one per screen, Answer/Skip) ----------
-
-  function submitAnswer() {
-    const answer = answerInput.trim();
-    if (!answer) {
-      skipQuestion(); // an empty answer is a skip (terminal behavior)
-      return;
-    }
-    if (containsNonEnglish(answer)) {
-      setError(msg.ERR_NON_ENGLISH_INPUT);
-      return;
-    }
-    const dimension = questionQueue[questionIndex];
-    const nextAnswers = { ...answers, [dimension]: answer };
-    setAnswers(nextAnswers);
-    logEvent("question_answered", "answer", {
-      bullet_id: currentBulletId,
-      dimension,
-    });
-    setAnswerInput("");
-    setError(null);
-    advanceQuestion(nextAnswers);
-  }
-
-  function skipQuestion() {
-    const dimension = questionQueue[questionIndex];
-    logEvent("question_skipped", "skip", {
-      bullet_id: currentBulletId,
-      dimension,
-    });
-    setAnswerInput("");
-    setError(null);
-    advanceQuestion(answers);
-  }
-
-  function advanceQuestion(currentAnswers: Partial<Record<QuestionDimension, string>>) {
-    if (questionIndex + 1 < questionQueue.length) {
-      setQuestionIndex(questionIndex + 1);
-      return;
-    }
-    const answered = Object.values(currentAnswers).filter(Boolean).length;
-    const total = questionQueue.length;
-    if (answered === 0) {
-      setMessage(msg.NO_REWRITE);
-      go("bullet_list");
-      return;
-    }
-    if (answered < total) {
-      go("draft_or_approve");
-      return;
-    }
-    void makeProposal();
-  }
-
-  // ---------- draft-or-approve + proposal ----------
-
-  function saveDraft() {
-    updateSession((s) => {
-      if (s.entry) s.entry.draft_reason = "user_saved";
-    });
-    setSession(getSession());
-    logEvent("entry_saved_as_draft", "user_saved", null);
-    setMessage(msg.ENTRY_SAVED_AS_DRAFT);
-    go("menu");
-  }
-
-  async function makeProposal() {
-    const bullet = currentBullet();
-    if (!bullet) return;
-    setBusy(true);
-    const result = await apiPost<{ proposal: string }>("/api/rewrite", {
-      bullet_text: bullet.text,
-      answers: Object.entries(answers)
-        .filter(([, v]) => Boolean(v))
-        .map(([dimension, answer]) => ({ dimension, answer })),
-    });
-    setBusy(false);
-    if (!result.ok) {
-      // Zero tolerance: a refused assembly is never shown (FR-010).
-      setError(msg.ERR_EVALUATOR_FAILURE);
-      go("bullet_list");
-      return;
-    }
-    setProposalText(result.proposal);
-    go("proposal");
-  }
-
-  async function proposalDecision(approved: boolean) {
-    const bullet = currentBullet();
-    if (!bullet) return;
-    logEvent(approved ? "proposal_accepted" : "proposal_rejected", approved ? "approved" : "rejected", {
-      bullet_id: bullet.id,
-    });
-    if (!approved) {
-      setMessage(msg.PROPOSAL_REJECTED);
-      go("bullet_list");
-      return;
-    }
-    const before = entry?.entry_score ?? null;
-    updateSession((s) => {
-      if (!s.entry) return;
-      const b = s.entry.bullets.find((x) => x.id === bullet.id);
-      if (!b) return;
-      b.history.push({
-        text: b.text,
-        ratings: b.ratings,
-        rubric_version: b.rubric_version,
-        replaced_at: new Date().toISOString(),
-      });
-      b.text = proposalText ?? b.text;
-      b.status = "edited";
-      b.proposals.push({ text: proposalText ?? "", decision: "approved" });
-    });
-    setSession(getSession());
-    const result = await scoreAndPersist(bullet.id);
-    if (!result) return;
-    const current = getSession();
-    setMessage(
-      fmt(msg.SCORE_BEFORE_AFTER, {
-        before: before === null ? "None" : round2(before),
-        after:
-          current?.entry?.entry_score === null || current?.entry?.entry_score === undefined
-            ? "None"
-            : round2(current.entry.entry_score),
-        rubric: DEFAULT_RUBRIC_VERSION,
-      }) + " " + msg.PROPOSAL_ACCEPTED
-    );
-    go("bullet_list");
-  }
 
   // ---------- complete-bullet confirmation + direct edit ----------
 
@@ -844,12 +751,18 @@ export default function Home() {
 
   function frameworkRows(bullet: StoredBullet) {
     const ratings = bullet.ratings;
+    // "vague" needs words — an empty part is always "missing", never vague.
+    const vague = (words: string, low: boolean) =>
+      words !== "" && ratings !== null && low;
+    const needWords = (bullet.user_need ?? "").trim();
+    const actionWords = (bullet.action ?? "").trim();
+    const resultWords = (bullet.result ?? "").trim();
     return [
       {
         key: "user_need",
         label: PART_LABELS.user_need,
-        words: (bullet.user_need ?? "").trim(),
-        vague: ratings !== null && ratings.context < 2,
+        words: needWords,
+        vague: vague(needWords, ratings !== null && ratings.context < 2),
       },
       {
         key: "product_feature",
@@ -860,14 +773,14 @@ export default function Home() {
       {
         key: "action",
         label: PART_LABELS.action,
-        words: (bullet.action ?? "").trim(),
-        vague: ratings !== null && ratings.role_action_clarity < 2,
+        words: actionWords,
+        vague: vague(actionWords, ratings !== null && ratings.role_action_clarity < 2),
       },
       {
         key: "result",
         label: PART_LABELS.result,
-        words: (bullet.result ?? "").trim(),
-        vague: ratings !== null && ratings.result < 2,
+        words: resultWords,
+        vague: vague(resultWords, ratings !== null && ratings.result < 2),
       },
       {
         key: "metric",
@@ -923,6 +836,15 @@ export default function Home() {
             {message}
           </div>
         )}
+
+        {/* Screens where a model call can happen (scoring flows): announce
+            the model in use on the same screen; hidden when the deterministic
+            engine runs or BYOK is off. */}
+        <ModelBanner
+          active={["entry_bullets", "score", "bullet_list", "merge"].includes(
+            screen
+          )}
+        />
 
         {needsGate && (
           <div>
@@ -1059,51 +981,8 @@ export default function Home() {
             n={bulletIndex.n}
             rows={frameworkRows(currentBullet()!)}
             onAnswer={gateAnswer}
+            onSubmitAnswers={submitInlineAnswers}
           />
-        )}
-        {screen === "question" && entry && currentBullet() && (
-          <QuestionScreen
-            title={entry.title}
-            n={bulletIndex.n}
-            total={bulletIndex.total}
-            part={PART_QUESTION_NAMES[questionQueue[questionIndex]]}
-            question={QUESTION_TEXT[questionQueue[questionIndex]]}
-            value={answerInput}
-            setValue={setAnswerInput}
-            onAnswer={submitAnswer}
-            onSkip={skipQuestion}
-          />
-        )}
-        {screen === "draft_or_approve" && (
-          <ChoiceScreen
-            title={msg.DRAFT_OR_APPROVE}
-            options={[
-              ["draft", "Save this experience as a draft"],
-              ["approve", "Approve a rewrite using your answers so far"],
-            ]}
-            onPick={(pick) => {
-              if (pick === "draft") saveDraft();
-              else void makeProposal();
-            }}
-          />
-        )}
-        {screen === "proposal" && proposalText && (
-          <div>
-            <h1 className="mb-4 text-2xl font-semibold">
-              {msg.PROPOSAL_SHOW.split("\n")[0]}
-            </h1>
-            <pre className="card mb-6 whitespace-pre-wrap font-mono text-[16px]">
-              {proposalText}
-            </pre>
-            <div className="flex flex-wrap gap-3">
-              <button className="btn-primary" onClick={() => void proposalDecision(true)}>
-                Approve and replace
-              </button>
-              <button className="btn-secondary" onClick={() => void proposalDecision(false)}>
-                Reject and keep unchanged
-              </button>
-            </div>
-          </div>
         )}
         {screen === "confirm_complete" && (
           <ChoiceScreen
@@ -1692,21 +1571,331 @@ function BulletList({
   );
 }
 
+/** One in-sentence bracket for the five-part display: the job seeker's
+ * words only, lowercase label, "missing" when empty, "vague" when the
+ * rating is below 2. Colors (user decision 2026-11-03): filled = green,
+ * vague = yellow, missing = red — dark shades for readable text on white. */
+const PART_COLOR_OK = "text-emerald-700";
+const PART_COLOR_VAGUE = "text-amber-700";
+const PART_COLOR_MISSING = "text-red-700";
+
+function frameworkPieceText(row: FrameworkRow): string {
+  const label = row.label.toLowerCase();
+  if (!row.words) return fmt(msg.FRAMEWORK_PART_MISSING, { label });
+  if (row.vague) return fmt(msg.FRAMEWORK_PART_VAGUE, { label, words: row.words });
+  return fmt(msg.FRAMEWORK_PART_OK, { label, words: row.words });
+}
+
+function frameworkSpan(row: FrameworkRow) {
+  const text = frameworkPieceText(row);
+  const color = !row.words
+    ? PART_COLOR_MISSING
+    : row.vague
+      ? PART_COLOR_VAGUE
+      : PART_COLOR_OK;
+  return <span key={row.key} className={color}>{text}</span>;
+}
+
+// Defined-creativity connectors (specs/001-experience-improvement-flow/few-shot/parser-prompt.md, Display
+// Rules): the words outside the brackets are predicted from THIS bullet's
+// content via this closed variant set — never copied from an example.
+const RESEARCH_START =
+  /^(analyzed|researched|identified|noticed|found|benchmarked|mapped|surveyed|audited|compared|evaluated)\b/i;
+const COLLAB_MARKER = /\b(collaborated|worked with|partnered|coordinated)\b/i;
+const COLLAB_WITH =
+  /\bwith (the|a|one|our|my) [a-z-]+ ?(team|engineer|designer|developer|analyst)s?\b/i;
+const DELIVERY_VERB =
+  /\b(led|built|designed|created|managed|launched|wrote|defined|rebuilt|redesigned|implemented|developed|delivered|shipped|introduced|established|fixed|simplified|automated|planned|tested|migrated|spearheaded|organized|owned|ran|prototyped|negotiated|scoped)\b/i;
+
+/** Framework row key -> question dimension (engine question order). */
+const PART_KEY_TO_DIM: Record<string, QuestionDimension> = {
+  user_need: "context",
+  product_feature: "feature",
+  action: "role_action_clarity",
+  result: "result",
+  metric: "metric",
+};
+
+/** Clean inline question text for one framework part (no 1) 2) suffix). */
+function inlineQuestion(key: string): string {
+  switch (PART_KEY_TO_DIM[key]) {
+    case "context":
+      return msg.INLINE_Q_CONTEXT;
+    case "feature":
+      return msg.INLINE_Q_FEATURE;
+    case "role_action_clarity":
+      return msg.INLINE_Q_ACTION;
+    case "result":
+      return msg.INLINE_Q_RESULT;
+    case "metric":
+      return msg.INLINE_Q_METRIC;
+    default:
+      return "";
+  }
+}
+
+/** The problem-area phrase predicted from the ORIGINAL bullet: the vague
+ * result's words without the "to <verb>" intention prefix ("to uncover
+ * friction in hiring flows" -> "friction in hiring flows"). */
+function resultCore(resultWords: string): string | null {
+  let w = resultWords.trim().replace(/[.…]+$/, "");
+  w = w.replace(/^to\s+\w+\s+/i, "");
+  return w ? w : null;
+}
+
+function capFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Two editable fill-in starters per part. Each is a REAL answer to the
+ * part's question (user decision 2026-11-03), predicted from the original
+ * bullet's own words via the problem-area core; generic starters are the
+ * fallback when no core can be derived. Metric starters keep the "x"
+ * number placeholder. */
+function answerStarters(row: FrameworkRow, core: string | null): string[] {
+  // "friction in X" -> "X" for feature/action phrasing.
+  const area = core ? core.replace(/^friction (in|around|with)\s+/i, "") : null;
+  switch (row.key) {
+    case "user_need":
+      if (core)
+        return [
+          fmt(msg.STARTER_GROUND_NEED_1, { core }),
+          fmt(msg.STARTER_GROUND_NEED_2, { core }),
+        ];
+      return row.vague
+        ? [msg.STARTER_NEED_VAGUE_1, msg.STARTER_NEED_VAGUE_2]
+        : [msg.STARTER_NEED_MISSING_1, msg.STARTER_NEED_MISSING_2];
+    case "product_feature":
+      if (area)
+        return [
+          fmt(msg.STARTER_GROUND_FEATURE_1, { core: area }),
+          fmt(msg.STARTER_GROUND_FEATURE_2, { core: area }),
+        ];
+      return [msg.STARTER_FEATURE_1, msg.STARTER_FEATURE_2];
+    case "action":
+      if (area)
+        return [
+          fmt(msg.STARTER_GROUND_ACTION_1, { core: area }),
+          fmt(msg.STARTER_GROUND_ACTION_2, { core: area }),
+        ];
+      return row.vague
+        ? [msg.STARTER_ACTION_VAGUE_1, msg.STARTER_ACTION_VAGUE_2]
+        : [msg.STARTER_ACTION_MISSING_1, msg.STARTER_ACTION_MISSING_2];
+    case "result":
+      if (core)
+        return [
+          fmt(msg.STARTER_GROUND_RESULT_1, { Core: capFirst(core), core }),
+          fmt(msg.STARTER_GROUND_RESULT_2, { core }),
+        ];
+      return row.vague
+        ? [msg.STARTER_RESULT_VAGUE_1, msg.STARTER_RESULT_VAGUE_2]
+        : [msg.STARTER_RESULT_MISSING_1, msg.STARTER_RESULT_MISSING_2];
+    case "metric":
+      return [msg.STARTER_METRIC_1, msg.STARTER_METRIC_2];
+    default:
+      return [];
+  }
+}
+
+/** Assemble the five-part display sentence with content-predicted
+ * connecting words; each bracket span takes its status color. */
+function frameworkSentence(rows: FrameworkRow[]) {
+  const [need, feature, action, result, metric] = rows;
+  const openConn = need.words && RESEARCH_START.test(need.words)
+    ? msg.FRAMEWORK_CONN_RESEARCH
+    : msg.FRAMEWORK_CONN_ANALYSIS;
+  let featureConn: string;
+  if (action.words && (COLLAB_MARKER.test(action.words) || COLLAB_WITH.test(action.words))) {
+    featureConn = msg.FRAMEWORK_CONN_COLLAB;
+  } else if (action.words && DELIVERY_VERB.test(action.words)) {
+    featureConn = msg.FRAMEWORK_CONN_BUILD;
+  } else if (action.words) {
+    featureConn = msg.FRAMEWORK_CONN_WORK;
+  } else if (need.words && RESEARCH_START.test(need.words)) {
+    featureConn = msg.FRAMEWORK_CONN_RESEARCH_SEG;
+  } else {
+    featureConn = msg.FRAMEWORK_CONN_WORK;
+  }
+  return (
+    <>
+      {openConn} {frameworkSpan(need)} {featureConn} {frameworkSpan(feature)}{" "}
+      {msg.FRAMEWORK_CONN_THROUGH} {frameworkSpan(action)}
+      {msg.FRAMEWORK_CONN_RESULTING} {frameworkSpan(result)} {msg.FRAMEWORK_CONN_AND}{" "}
+      {frameworkSpan(metric)}.
+    </>
+  );
+}
+
+/** Ambiguity reason for a vague part (Problem 5 of the parser prompt). */
+function needReason(row: FrameworkRow): string | null {
+  if (!row.vague) return null;
+  switch (row.key) {
+    case "user_need":
+      return fmt(msg.NEEDS_REASON_NEED_VAGUE, { words: row.words });
+    case "action":
+      return fmt(msg.NEEDS_REASON_ACTION_VAGUE, { words: row.words });
+    case "result":
+      return fmt(msg.NEEDS_REASON_RESULT_VAGUE, { words: row.words });
+    default:
+      return null;
+  }
+}
+
+/** Two medium-creativity suggestions per unfilled or vague part; metric
+ * suggestions use "x" as the number placeholder (a real number matters). */
+function needSuggestions(row: FrameworkRow): string[] {
+  switch (row.key) {
+    case "user_need":
+      return row.vague
+        ? [msg.SUGGEST_NEED_VAGUE_1, msg.SUGGEST_NEED_VAGUE_2]
+        : [msg.SUGGEST_NEED_MISSING_1, msg.SUGGEST_NEED_MISSING_2];
+    case "product_feature":
+      return [msg.SUGGEST_FEATURE_MISSING_1, msg.SUGGEST_FEATURE_MISSING_2];
+    case "action":
+      return row.vague
+        ? [msg.SUGGEST_ACTION_VAGUE_1, msg.SUGGEST_ACTION_VAGUE_2]
+        : [msg.SUGGEST_ACTION_MISSING_1, msg.SUGGEST_ACTION_MISSING_2];
+    case "result":
+      return row.vague
+        ? [msg.SUGGEST_RESULT_VAGUE_1, msg.SUGGEST_RESULT_VAGUE_2]
+        : [msg.SUGGEST_RESULT_MISSING_1, msg.SUGGEST_RESULT_MISSING_2];
+    case "metric":
+      return [msg.SUGGEST_METRIC_MISSING_1, msg.SUGGEST_METRIC_MISSING_2];
+    default:
+      return [];
+  }
+}
+
+/** Light phrasing repair for a confirmed answer (user decision
+ * 2026-11-03): collapse spaces, capitalize, and give action answers their
+ * "I" subject when it is missing. The improved form is shown back to the
+ * job seeker whenever it differs from what they typed. */
+function improveAnswer(key: string, raw: string): string {
+  let t = raw.trim().replace(/\s+/g, " ");
+  if (!t) return t;
+  if (key === "user_need" || key === "result" || key === "action") {
+    t = capFirst(t);
+  }
+  if (key === "action") {
+    const hasSubjectOrVerb =
+      /^(i|we|led|built|designed|created|wrote|defined|rebuilt|launched|managed|ran|owned|organized|coordinated|improved|developed|delivered|planned|tested|researched|prototyped|automated|negotiated|redesigned|implemented|introduced|shipped|migrated|established|spearheaded|fixed|simplified|scoped)\b/i;
+    if (!hasSubjectOrVerb.test(t)) {
+      t = "I " + t.charAt(0).toLowerCase() + t.slice(1);
+    }
+  }
+  if (key === "product_feature") {
+    t = t.replace(/^the\s+the\s+/i, "the ");
+  }
+  return t;
+}
+
+/** The improved bullet as PLAIN prose (user decision 2026-11-03): each part
+ * is the confirmed answer or the original extracted words; brackets, labels,
+ * missing/vague notes and template punctuation are dropped. Parts join as
+ * "need, so action, and result metric." with light mid-sentence casing. */
+function improvedBullet(rows: FrameworkRow[], confirmed: Record<string, string>): string {
+  const rowWords = (rowKey: string) => {
+    const row = rows.find((r) => r.key === rowKey);
+    return row ? row.words : "";
+  };
+  const pick = (dim: string, rowKey: string) => {
+    const conf = (confirmed[dim] ?? "").trim();
+    return conf || rowWords(rowKey);
+  };
+  const clean = (s: string) =>
+    s.replace(/\s+/g, " ").trim().replace(/[.…]+$/, "").trim();
+  // Mid-sentence parts start lowercase unless they begin with "I".
+  const lower = (s: string) =>
+    /^i\b/i.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1);
+  const segments: string[] = [];
+  const need = clean(pick("context", "user_need"));
+  const feature = clean(pick("feature", "product_feature"));
+  const action = clean(pick("role_action_clarity", "action"));
+  const result = clean(pick("result", "result"));
+  const metric = clean(pick("metric", "metric"));
+  if (need) segments.push(need);
+  if (action) segments.push(lower(action));
+  else if (feature) segments.push(lower("I built " + feature));
+  if (result) segments.push(lower(result));
+  if (metric) {
+    if (result && segments.length > 0) segments[segments.length - 1] += " " + lower(metric);
+    else segments.push(lower(metric));
+  }
+  if (segments.length === 0) return "";
+  let out = segments[0];
+  for (let i = 1; i < segments.length; i++) {
+    out += (i === 1 ? ", so " : ", and ") + segments[i];
+  }
+  return out + ".";
+}
+
 function BulletGate({
   entry,
   bullet,
   n,
   rows,
   onAnswer,
+  onSubmitAnswers,
 }: {
   entry: StoredEntry;
   bullet: StoredBullet;
   n: number;
   rows: FrameworkRow[];
   onAnswer: (accepted: boolean) => void;
+  onSubmitAnswers: (answers: Partial<Record<QuestionDimension, string>>) => void;
 }) {
-  const filled = rows.filter((r) => r.words);
-  const needs = rows.filter((r) => !r.words);
+  // Inline answers per part. The sentence replaces a part only when the
+  // user presses Confirm; until then the extracted display stays.
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [confirmed, setConfirmed] = useState<Record<string, string>>({});
+  const [improvedShown, setImprovedShown] = useState<Record<string, boolean>>({});
+  // Grounding core for suggestions: predicted once from the ORIGINAL
+  // extracted result (stable while the user types).
+  const core = resultCore((rows.find((r) => r.key === "result") ?? { words: "" }).words);
+  // Copy button state: the improved bullet goes to the clipboard; "Copied"
+  // shows next to the button for a moment. Fallback to a hidden textarea +
+  // execCommand because some embedded browsers reject the async clipboard
+  // API (the silent failure the user hit).
+  const [copied, setCopied] = useState(false);
+  const copyText = improvedBullet(rows, confirmed) || bullet.text;
+  const copyImproved = () => {
+    const done = () => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    };
+    const legacyCopy = (text: string) => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } catch {
+        // nothing else we can do; the tooltip still confirms the attempt
+      }
+      document.body.removeChild(ta);
+    };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(copyText).then(done).catch(() => {
+        legacyCopy(copyText);
+        done();
+      });
+    } else {
+      legacyCopy(copyText);
+      done();
+    }
+  };
+  const displayRows = rows.map((r) => {
+    const val = (confirmed[PART_KEY_TO_DIM[r.key]] ?? "").trim();
+    return val ? { ...r, words: val, vague: false } : r;
+  });
+  const filled = displayRows.filter((r) => r.words && !r.vague);
+  // The form keeps a block for every originally empty OR vague part, even
+  // after confirm (headline turns green "(filled)") so the answer stays
+  // editable and the improved-phrasing note stays visible.
+  const needs = rows.filter((r) => !r.words || r.vague);
   return (
     <div>
       <h1 className="mb-2 text-2xl font-semibold">
@@ -1716,20 +1905,32 @@ function BulletGate({
           total: entry.bullets.length,
         })}
       </h1>
-      <p className="mb-4 text-[17px]">
-        {fmt(msg.FRAMEWORK_ORIGINAL, { text: bullet.text })}
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <p className="text-[17px]">
+          {fmt(msg.FRAMEWORK_ORIGINAL, { text: bullet.text })}
+        </p>
+        <div className="relative shrink-0">
+          <button
+            aria-label={msg.COPY_BUTTON}
+            title={msg.COPY_BUTTON}
+            className="btn-secondary !min-h-9 text-sm"
+            onClick={copyImproved}
+          >
+            {msg.COPY_BUTTON}
+          </button>
+          {copied && (
+            <span
+              role="status"
+              className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded bg-neutral-900 px-2 py-1 text-[12px] text-white"
+            >
+              {msg.COPY_TOOLTIP}
+            </span>
+          )}
+        </div>
+      </div>
+      <p className="mb-4 text-[16px]">
+        {frameworkSentence(displayRows)}
       </p>
-      <ul className="mb-4 space-y-1 text-[16px]">
-        {rows.map((row) =>
-          !row.words ? (
-            <li key={row.key}>{fmt(msg.FRAMEWORK_PART_MISSING, { label: row.label })}</li>
-          ) : row.vague ? (
-            <li key={row.key}>{fmt(msg.FRAMEWORK_PART_VAGUE, { label: row.label, words: row.words })}</li>
-          ) : (
-            <li key={row.key}>{fmt(msg.FRAMEWORK_PART_OK, { label: row.label, words: row.words })}</li>
-          )
-        )}
-      </ul>
       {filled.length > 0 && (
         <div className="mb-2">
           <p className="font-medium">{msg.FRAMEWORK_FILLED}</p>
@@ -1743,67 +1944,112 @@ function BulletGate({
       {needs.length > 0 && (
         <div className="mb-6">
           <p className="font-medium">{msg.FRAMEWORK_NEEDS}</p>
-          {needs.map((row) => (
-            <p key={row.key} className="pl-4 text-[16px]">
-              {fmt(msg.FRAMEWORK_NEEDS_LINE, { label: row.label })}
-            </p>
-          ))}
+          {needs.map((row) => {
+            const dim = PART_KEY_TO_DIM[row.key];
+            const conf = (confirmed[dim] ?? "").trim();
+            const color = conf
+              ? PART_COLOR_OK
+              : !row.words
+                ? PART_COLOR_MISSING
+                : PART_COLOR_VAGUE;
+            const headline = conf
+              ? fmt(msg.FRAMEWORK_NEEDS_ITEM_FILLED, { label: row.label })
+              : row.vague
+                ? fmt(msg.FRAMEWORK_NEEDS_ITEM_VAGUE, { label: row.label })
+                : fmt(msg.FRAMEWORK_NEEDS_ITEM_MISSING, { label: row.label });
+            const reason = conf ? null : needReason(row);
+            return (
+              <div key={row.key} className="mb-4 pl-4">
+                <p className={`text-[16px] font-medium ${color}`}>{headline}</p>
+                {reason && (
+                  <div className="mt-1">
+                    <p className="text-[15px] font-semibold text-neutral-800">
+                      {msg.NEEDS_WHY_TITLE}
+                    </p>
+                    <p className="text-[15px] text-neutral-700">{reason}</p>
+                  </div>
+                )}
+                <p className="mt-2 text-lg font-semibold text-neutral-900">
+                  {inlineQuestion(row.key)}
+                </p>
+                {row.key === "metric" && (
+                  <p className="text-[15px] text-neutral-700">{msg.METRIC_REAL_NUMBER_NOTE}</p>
+                )}
+                <select
+                  aria-label={`Suggestions for ${row.label}`}
+                  className="text-input mt-2"
+                  value=""
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v) setInputs((prev) => ({ ...prev, [dim]: v }));
+                  }}
+                >
+                  <option value="">{msg.STARTER_PLACEHOLDER}</option>
+                  {answerStarters(row, core).map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  aria-label={`Your answer for ${row.label}`}
+                  className="text-input mt-2"
+                  value={inputs[dim] ?? ""}
+                  placeholder={msg.STARTER_INPUT_PLACEHOLDER}
+                  onChange={(e) =>
+                    setInputs((prev) => ({ ...prev, [dim]: e.target.value }))
+                  }
+                />
+                <div className="mt-2 flex items-center gap-3">
+                  <button
+                    className="btn-secondary !min-h-10 !py-2 text-sm"
+                    onClick={() => {
+                      const raw = inputs[dim] ?? "";
+                      const better = improveAnswer(row.key, raw);
+                      if (better !== raw) {
+                        setImprovedShown((prev) => ({ ...prev, [dim]: true }));
+                      }
+                      setInputs((prev) => ({ ...prev, [dim]: better }));
+                      setConfirmed((prev) => ({ ...prev, [dim]: better }));
+                    }}
+                  >
+                    {msg.STARTER_CONFIRM}
+                  </button>
+                  {improvedShown[dim] && (
+                    <p className="text-[14px] text-neutral-600">
+                      {msg.NEEDS_IMPROVED_NOTE} “{confirmed[dim]}”
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
       <p className="mb-4 font-medium">{msg.ASK_REWRITE_GATE}</p>
       <div className="flex flex-wrap gap-3">
-        <button className="btn-primary" onClick={() => onAnswer(true)}>
+        <button
+          className="btn-primary"
+          onClick={() => {
+            const DIM_TO_KEY: Record<string, string> = {
+              context: "user_need",
+              feature: "product_feature",
+              role_action_clarity: "action",
+              result: "result",
+              metric: "metric",
+            };
+            const collected: Partial<Record<QuestionDimension, string>> = {};
+            for (const [key, value] of Object.entries(inputs)) {
+              const v = improveAnswer(DIM_TO_KEY[key] ?? key, (value ?? "").trim());
+              if (v) collected[key as QuestionDimension] = v;
+            }
+            onSubmitAnswers(collected);
+          }}
+        >
           1) Yes (default)
         </button>
         <button className="btn-secondary" onClick={() => onAnswer(false)}>
           2) No
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function QuestionScreen({
-  title,
-  n,
-  total,
-  part,
-  question,
-  value,
-  setValue,
-  onAnswer,
-  onSkip,
-}: {
-  title: string;
-  n: number;
-  total: number;
-  part: string;
-  question: string;
-  value: string;
-  setValue: (v: string) => void;
-  onAnswer: () => void;
-  onSkip: () => void;
-}) {
-  return (
-    <div>
-      <h1 className="mb-2 text-2xl font-semibold">
-        {fmt(msg.ASK_PART_INTRO, { title, n, total, part })}
-      </h1>
-      <p className="mb-6 text-[18px] font-medium">{question}</p>
-      <textarea
-        className="text-input mb-4"
-        rows={3}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Write your answer in English"
-        autoFocus
-      />
-      <div className="flex flex-wrap gap-3">
-        <button className="btn-primary" onClick={onAnswer}>
-          1) Answer
-        </button>
-        <button className="btn-secondary" onClick={onSkip}>
-          2) Skip
         </button>
       </div>
     </div>

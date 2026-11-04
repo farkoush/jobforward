@@ -11,6 +11,7 @@ import json
 
 from src.jobforward import messages as m
 from src.jobforward.cli import CLI
+from src.jobforward.rubric import RUBRIC_VERSION
 
 
 def _scripted_cli(tmp_path, inputs):
@@ -73,7 +74,7 @@ def test_full_path_end_to_end(tmp_path):
     assert m.ASK_METRIC in rendered
     assert m.PROPOSAL_SHOW.split("{proposal}")[0] in rendered
     assert m.SCORE_BEFORE_AFTER.split("{before}")[0] in rendered
-    assert "rubric-3.0.0" in rendered
+    assert RUBRIC_VERSION in rendered
 
     # The approved rewrite replaced the bullet with status edited→analyzed
     # and the previous text kept in history.
@@ -102,7 +103,7 @@ def test_full_path_end_to_end(tmp_path):
     for event in events:
         if event["type"] in ("score_before", "score_after"):
             assert isinstance(event["context"]["entry_score"], float)
-            assert event["context"]["rubric_version"] == "rubric-3.0.0"
+            assert event["context"]["rubric_version"] == RUBRIC_VERSION
 
     # score_before ≠ score_after is allowed but both must exist and the
     # 'after' reflects the re-scored entry.

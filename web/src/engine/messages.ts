@@ -36,19 +36,134 @@ export const ASK_METRIC = "Do you have a real number? If not, you can skip this.
 export const ASK_PART_INTRO = "Experience: {title} - Achievement {n} of {total} - {part}:";
 export const ASK_ANSWER = ">";
 
-// --- Framework display (spec §5; finalized five-part framework) ---
+// --- Framework display (spec §5; five-part framework) ---
+// WEB-ONLY display update 2026-11-03 (user decision): the five parts are
+// shown as ONE continuous sentence with in-sentence brackets; the terminal
+// (messages.py) still uses the list format, so these strings intentionally
+// diverge from the Python port.
 export const FRAMEWORK_HEADER = "Experience: {title} - Achievement {n} of {total}";
-export const FRAMEWORK_ORIGINAL = 'Original: "{text}"';
+export const FRAMEWORK_ORIGINAL = "Job seeker's original text: \"{text}\"";
+export const FRAMEWORK_SENTENCE =
+  "Analysis of {need} and collaboration with the product team on designing {feature} through {action}, resulting in {result} and {metric}.";
+// Connecting words are a CONTENT-BASED PREDICTION with defined creativity
+// (user decision 2026-11-03): never copied from an example, chosen from this
+// closed variant set by the bullet's own content — see page.tsx selector.
+export const FRAMEWORK_CONN_ANALYSIS = "Analysis of";
+export const FRAMEWORK_CONN_RESEARCH = "Research into";
+export const FRAMEWORK_CONN_COLLAB =
+  "and collaboration with the product team on designing";
+export const FRAMEWORK_CONN_BUILD = "and building of";
+export const FRAMEWORK_CONN_WORK = "and work on";
+export const FRAMEWORK_CONN_RESEARCH_SEG = "and research into";
+export const FRAMEWORK_CONN_THROUGH = "through";
+export const FRAMEWORK_CONN_RESULTING = ", resulting in";
+export const FRAMEWORK_CONN_AND = "and";
 export const FRAMEWORK_PART_OK = "[{label}: {words}]";
 export const FRAMEWORK_PART_MISSING = "[{label} - missing]";
 export const FRAMEWORK_PART_VAGUE = "[{label}: {words} - vague]";
 export const FRAMEWORK_FILLED = "Filled correctly:";
-export const FRAMEWORK_FILLED_LINE = "  {label}: {words}";
+export const FRAMEWORK_FILLED_LINE = "{label}: \"{words}\"";
 export const FRAMEWORK_NEEDS = "Still needs to be filled:";
-export const FRAMEWORK_NEEDS_LINE = "  {label}";
+export const FRAMEWORK_NEEDS_LINE = "{label}";
+export const FRAMEWORK_NEEDS_ITEM_MISSING = "{label} (missing)";
+export const FRAMEWORK_NEEDS_ITEM_VAGUE = "{label} (vague)";
+export const FRAMEWORK_NEEDS_ITEM_FILLED = "{label} (filled)";
+
+// --- Still-needs-to-be-filled detail (user decision 2026-11-03): vague
+// items show the ambiguity reason first, then two medium-creativity
+// suggestions; missing items show two suggestions. Metric suggestions use
+// "x" as the number placeholder and stress that a REAL number matters. ---
+export const NEEDS_REASON_NEED_VAGUE =
+  "\u201c{words}\u201d says what you studied, but not who had which problem.";
+export const NEEDS_REASON_ACTION_VAGUE =
+  "\u201c{words}\u201d does not say what you did or what your role was.";
+export const NEEDS_REASON_RESULT_VAGUE =
+  "\u201c{words}\u201d does not say what changed after your work or who it helped.";
+export const SUGGEST_NEED_MISSING_1 =
+  "Start with the group who had the problem — users, customers, agents — and name them.";
+export const SUGGEST_NEED_MISSING_2 =
+  "Say what went wrong for that group in one sentence, before your work.";
+export const SUGGEST_FEATURE_MISSING_1 =
+  "Name the exact product part you worked on — a page, tool, flow, or module.";
+export const SUGGEST_FEATURE_MISSING_2 =
+  "If the part has no name, describe it in a few words — for example: \u201cthe review queue\u201d.";
+export const SUGGEST_ACTION_MISSING_1 =
+  "Say what you did to change the product — use a delivery verb: built, designed, wrote, led.";
+export const SUGGEST_ACTION_MISSING_2 =
+  "Add your role and method — for example: \u201cI led \u2026\u201d, \u201cI collaborated with the design team to \u2026\u201d.";
+export const SUGGEST_RESULT_MISSING_1 =
+  "Say what changed after your work — an outcome, not a plan.";
+export const SUGGEST_RESULT_MISSING_2 =
+  "Say who benefited from the change.";
+export const SUGGEST_METRIC_MISSING_1 =
+  "A real number matters here. If you have one, add it — for example: \u201cby x%\u201d.";
+export const SUGGEST_METRIC_MISSING_2 =
+  "If you measured before and after, use a range — for example: \u201cfrom x% to y%\u201d. A real number matters more than a guess.";
+export const SUGGEST_NEED_VAGUE_1 =
+  "Add who had the problem — the group inside your research (the users or teams you studied).";
+export const SUGGEST_NEED_VAGUE_2 =
+  "State the problem itself in one sentence before your work — what was wrong for them.";
+export const SUGGEST_ACTION_VAGUE_1 =
+  "Replace the vague wording with a delivery verb — built, designed, wrote, led.";
+export const SUGGEST_ACTION_VAGUE_2 =
+  "Add your role and scope — for example: \u201cI led the redesign of \u2026\u201d.";
+export const SUGGEST_RESULT_VAGUE_1 =
+  "Say the change that happened — an outcome, not a plan or a deliverable.";
+export const SUGGEST_RESULT_VAGUE_2 =
+  "Name who benefited — and if you have a number, add it (a real number matters).";
+
+// --- Inline improvement form (user decision 2026-11-03): the bullet-gate
+// screen asks each unfilled/vague part inline — clean question text (no
+// terminal 1) 2) suffix), a suggestion dropdown with editable fill-in
+// starters, and a live-updating sentence. ---
+export const INLINE_Q_CONTEXT = "Who had a problem? What was the problem?";
+export const INLINE_Q_FEATURE = "What was the feature or product part you worked on?";
+export const INLINE_Q_ACTION = "What exactly did you do? What was your role?";
+export const INLINE_Q_RESULT = "What changed after your work? Who did it help?";
+export const INLINE_Q_METRIC = "Do you have a real number? If not, you can skip this part.";
+export const NEEDS_WHY_TITLE = "Why this is unclear:";
+export const METRIC_REAL_NUMBER_NOTE =
+  "A real number matters here — replace x with your real number if you have one. If you don't have one, you can skip this part.";
+export const STARTER_PLACEHOLDER = "Choose a suggestion…";
+export const STARTER_INPUT_PLACEHOLDER = "Or write your own answer here";
+export const STARTER_CONFIRM = "Confirm";
+export const NEEDS_IMPROVED_NOTE = "Improved phrasing:";
+// Copy button on the bullet-gate screen (user decision 2026-11-03): copies
+// the IMPROVED bullet — the confirmed answers (or the original words) as
+// plain prose, no brackets, labels, missing/vague notes, or template
+// punctuation.
+export const COPY_TOOLTIP = "Copied";
+export const COPY_BUTTON = "Copy";
+export const STARTER_NEED_MISSING_1 = "Users could not …, and this made … hard for them.";
+export const STARTER_NEED_MISSING_2 = "… struggled to … because … .";
+export const STARTER_NEED_VAGUE_1 = "Users could not …";
+export const STARTER_NEED_VAGUE_2 = "… struggled to … because … .";
+export const STARTER_FEATURE_1 = "the … page";
+export const STARTER_FEATURE_2 = "the … tool";
+export const STARTER_ACTION_MISSING_1 = "I built …";
+export const STARTER_ACTION_MISSING_2 = "I collaborated with the design team to …";
+export const STARTER_ACTION_VAGUE_1 = "I built …";
+export const STARTER_ACTION_VAGUE_2 = "I led …";
+export const STARTER_RESULT_MISSING_1 = "… improved for …";
+export const STARTER_RESULT_MISSING_2 = "… grew for …";
+export const STARTER_RESULT_VAGUE_1 = "… changed for …";
+export const STARTER_RESULT_VAGUE_2 = "… dropped for …";
+export const STARTER_METRIC_1 = "by x%";
+export const STARTER_METRIC_2 = "from x% to y%";
+// Content-grounded starters (user decision 2026-11-03): each suggestion is a
+// real answer to the part's question, predicted from the ORIGINAL bullet's
+// own words ({core} = the problem-area phrase taken from the bullet).
+export const STARTER_GROUND_NEED_1 = "Users faced {core}.";
+export const STARTER_GROUND_NEED_2 = "Users struggled with {core} because … .";
+export const STARTER_GROUND_FEATURE_1 = "the {core}";
+export const STARTER_GROUND_FEATURE_2 = "the {core} — the part you improved";
+export const STARTER_GROUND_ACTION_1 = "I redesigned the {core}.";
+export const STARTER_GROUND_ACTION_2 = "I built a fix for the {core}.";
+export const STARTER_GROUND_RESULT_1 = "{Core} dropped for users.";
+export const STARTER_GROUND_RESULT_2 = "Users no longer face {core}.";
 export const PART_LABEL_NEED = "User need or problem";
-export const PART_LABEL_FEATURE = "Product feature";
-export const PART_LABEL_ACTION = "Action";
+export const PART_LABEL_FEATURE = "Feature name";
+export const PART_LABEL_ACTION = "Specific action";
 export const PART_LABEL_RESULT = "Result";
 export const PART_LABEL_METRIC = "Metric";
 export const PART_NAME_NEED = "Need";

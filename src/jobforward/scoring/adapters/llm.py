@@ -18,6 +18,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Optional
 
+from ...rubric import RUBRIC_VERSION
 from ..evaluator import (
     BulletEvaluator,
     BulletRatingRequest,
@@ -40,7 +41,7 @@ class LlmHeuristicAdapter(BulletEvaluator):
     def __init__(
         self,
         endpoint: str,
-        rubric_version: str = "rubric-3.0.0",
+        rubric_version: str = RUBRIC_VERSION,
         api_key: Optional[str] = None,
     ) -> None:
         super().__init__(rubric_version=rubric_version)

@@ -5,15 +5,16 @@ import {
   checkInputLimit,
 } from "../../src/lib/byok/client";
 import { BYOK_MAX_INPUT_CHARS } from "../../src/lib/byok/providers.config";
+import { DEFAULT_RUBRIC_VERSION } from "../../src/engine/types";
 
 test("ratings schema rejects out-of-range values and wrong shapes", () => {
   const good = {
-    rubric_version: "rubric-3.0.0",
+    rubric_version: DEFAULT_RUBRIC_VERSION,
     ratings: [{ bullet_index: 0, context: 2, role_action_clarity: 1, result: 0 }],
   };
   assert.equal(BYOK_RATINGS_SCHEMA.safeParse(good).success, true);
   const badValues = {
-    rubric_version: "rubric-3.0.0",
+    rubric_version: DEFAULT_RUBRIC_VERSION,
     ratings: [{ bullet_index: 0, context: 5, role_action_clarity: 1, result: 0 }],
   };
   assert.equal(BYOK_RATINGS_SCHEMA.safeParse(badValues).success, false);

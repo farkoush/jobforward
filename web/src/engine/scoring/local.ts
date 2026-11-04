@@ -19,18 +19,18 @@ const GENERIC_CONTEXT =
 
 // --- Specific action (rubric-3.0.0) ---
 const ACTION_VERB_ANY =
-  /\b(led|built|designed|created|managed|launched|ran|owned|organized|coordinated|analyzed|improved|developed|delivered|wrote|planned|tested|researched|prototyped|automated|negotiated)\b/i;
+  /\b(led|built|designed|created|managed|launched|ran|owned|organized|coordinated|analyzed|improved|developed|delivered|wrote|planned|tested|researched|prototyped|automated|negotiated|rebuilt|redesigned|implemented|introduced|shipped|migrated|established|spearheaded|fixed|simplified|scoped)\b/i;
 const GENERIC_ACTION =
   /\b(worked|working)\s+(on|with)\b|\b(helped|helping)\s+with\b|\bresponsible for\b|\bin charge of\b|\binvolved in\b|\bpart of\b|\bassisted with\b|\btasked with\b|\bdid research\b|\bmade improvements\b|\bdid analysis\b/i;
 const CONCRETE_OBJECT =
-  /\b(dashboard|roadmap|survey|prototype|prd|spec|user stories|backlog|report|deck|presentation|pricing|onboarding|funnel|checkout|signup|retention|activation|churn|conversion|launch plan|test plan|database|query|sql|figma)\b|\ba\/b\s*tests?\b/i;
+  /\b(dashboard|roadmap|survey|prototype|prd|spec|user stories|backlog|report|deck|presentation|pricing|onboarding|funnel|checkout|signup|retention|activation|churn|conversion|launch plan|test plan|database|query|sql|figma|flows?)\b|\ba\/b\s*tests?\b/i;
 const QUANTIFIED_SCOPE =
   /\b(team|group)\s+of\s+\d+\b|\b\d+\s+(users?|customers?|people|interviews?|participants?|teams?|analysts?|weeks?|sprints?|sessions?)\b/i;
 
 // --- Result heuristics ---
 const QUANTIFIED = /(\d+(\.\d+)?\s*%|\b\d+(\.\d+)?\b)/;
 const SPECIFIC_RESULT =
-  /\b(which resulted|resulting in|so that|enabling|leading to|which increased|which reduced|adopted by|used by|raised|cut|grew|doubled|halved|coming back|came back|more users|returned)\b/i;
+  /\b(which resulted|resulting in|so that|enabling|leading to|which increased|which reduced|adopted by|used by|raised|cut|grew|doubled|halved|coming back|came back|more users|returned|no longer)\b/i;
 const VAGUE_RESULT =
   /\b(improved|reduced|increased|optimized|enhanced|better|faster)\b/i;
 const OUTPUT_ONLY = /\b(built|created|made|produced|wrote|designed)\b/i;
@@ -124,6 +124,12 @@ export function localEvaluate(request: RatingRequest): BulletRating[] {
       resultText = text;
     }
     let result = rateResult(resultText);
+    if (part && part.result.trim() && result === 0) {
+      // rubric-3.1.0, specs/001-experience-improvement-flow/few-shot/parser-prompt Problem 6: a present result
+      // part is at least a vague result (1); 0 is reserved for a missing
+      // result.
+      result = 1;
+    }
     if (part) {
       const bareNumber =
         (part.result ? BARE_NUMBER_RESULT.exec(part.result) : null) ??

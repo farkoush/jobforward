@@ -135,3 +135,67 @@ JSON object with an ISO-8601 `ts` and a `type` from the event enum
 `posting_analyzed`, `match_action_assigned`, `evaluator_invalid_output`,
 `evaluator_retry`). A missing event type for an executed flow means the
 feature is treated as incomplete.
+
+---
+
+## Addendum: rubric-3.1.0 validation (Phase 11, 2026-11-04)
+
+End-to-end validation for the Phase 11 behavior (spec §2.1, §3, §3.1, §5.1,
+§6.1). All repo-root commands unless noted.
+
+### Engine tests
+
+```bash
+python -m pytest          # 216 green
+```
+
+Key suites: `tests/unit/test_part_extraction.py` (research verbs → need,
+intention carve, lookbehinds, multi-line, `flows`, feature-in-intention
+skipped), `tests/unit/test_part_scoring.py` (present-but-vague result = 1,
+missing = 0, improved bullet 2/2/2), plus the contract/integration/storage
+suites that pin `rubric-3.1.0`.
+
+### Web↔Python parity gate
+
+```bash
+cd web && npx tsx scripts/parity.mts    # PARITY OK for rubric-3.1.0
+```
+
+### Web unit tests + security scan
+
+```bash
+cd web && npm run test:byok   # 24 tests; live-Ollama test may time out under machine load (environmental)
+cd web && npm run scan:byok   # green
+```
+
+### Browser walkthrough (http://localhost:3100)
+
+`cd web && npm run dev` (dev, port 3100) or `npm run build && npm run start`.
+Then:
+
+1. Unlock, add an experience, paste the Upwork-style research bullet
+   ("Benchmarked 7 competitors and mapped … to uncover friction in hiring and
+   project-assignment flows.").
+2. Bullet gate: ONE sentence — opens "Research into", feature segment "and
+   research into [feature name – missing]", result ", resulting in [result:
+   … – vague]".
+3. Fill a part via a grounded suggestion (or type over it), Confirm — the
+   part turns emerald, stays editable with "(filled)", and an "Improved
+   phrasing" note appears when the text was repaired.
+4. Copy — clipboard holds the improved bullet as plain prose + "Copied"
+   tooltip.
+5. Submit ("1) Yes") with ≥1 confirmed answer — score screen shows
+   before/after from the same pipeline (33.33 → 100 for the fully improved
+   bullet).
+6. BYOK on (key + model set): the amber "Model in use on this screen: …"
+   banner appears on entry_bullets/score/bullet_list/merge and never on
+   matcher screens; off → never.
+7. After engine-file changes with a running `next start` server: rebuild +
+   restart + "Restart session" (localStorage holds old parts); `next dev`
+   applies on save — still "Restart session" if a session is open.
+
+### External-model contract spot check
+
+Paste "Scope of Execution" → Examples 1–6 of `specs/001-experience-improvement-flow/few-shot/parser-prompt.md`
+into any model, send one test bullet (T1–T10) at a time, compare with the
+answer key. The engine must agree with the same examples (spec §2.1, §9).

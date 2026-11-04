@@ -27,7 +27,7 @@ export type DraftReason = "no_bullets" | "user_saved";
 
 export type EntrySource = "manual";
 
-export const DEFAULT_RUBRIC_VERSION = "rubric-3.0.0";
+export const DEFAULT_RUBRIC_VERSION = "rubric-3.1.0";
 
 /** Three per-dimension scores, each int in {0,1,2} (rubric-3.0.0). */
 export interface Ratings {

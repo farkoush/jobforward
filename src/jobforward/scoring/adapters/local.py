@@ -38,11 +38,14 @@ _GENERIC_CONTEXT = re.compile(
     re.IGNORECASE,
 )
 
-# --- Specific action (rubric-3.0.0) ----------------------------------------
+# --- Specific action (rubric-3.0.0; rubric-3.1.0 adds the delivery verbs
+# the improved bullets use: rebuilt, redesigned, implemented, …) -----------
 _ACTION_VERB_ANY = re.compile(
     r"\b(led|built|designed|created|managed|launched|ran|owned|organized|"
     r"coordinated|analyzed|improved|developed|delivered|wrote|planned|"
-    r"tested|researched|prototyped|automated|negotiated)\b",
+    r"tested|researched|prototyped|automated|negotiated|"
+    r"rebuilt|redesigned|implemented|introduced|shipped|migrated|"
+    r"established|spearheaded|fixed|simplified|scoped)\b",
     re.IGNORECASE,
 )
 # Generic-involvement phrasing: something was done, but vaguely.
@@ -58,7 +61,7 @@ _CONCRETE_OBJECT = re.compile(
     r"\b(dashboard|roadmap|survey|prototype|prd|spec|user stories|backlog|"
     r"report|deck|presentation|pricing|onboarding|funnel|checkout|signup|"
     r"retention|activation|churn|conversion|launch plan|test plan|database|"
-    r"query|sql|figma)\b|\ba/b\s*tests?\b",
+    r"query|sql|figma|flows?)\b|\ba/b\s*tests?\b",
     re.IGNORECASE,
 )
 # Quantified scope ("team of 3", "12 users", "4-week beta" style).
@@ -75,7 +78,8 @@ _QUANTIFIED = re.compile(r"(\d+(\.\d+)?\s*%|\b\d+(\.\d+)?\b)")
 _SPECIFIC_RESULT = re.compile(
     r"\b(which resulted|resulting in|so that|enabling|leading to|"
     r"which increased|which reduced|adopted by|used by|raised|"
-    r"cut|grew|doubled|halved|coming back|came back|more users|returned)\b",
+    r"cut|grew|doubled|halved|coming back|came back|more users|returned|"
+    r"no longer)\b",
     re.IGNORECASE,
 )
 # Vague-result markers (PRD §4.3: improved/reduced without a what).
@@ -204,6 +208,11 @@ class LocalHeuristicAdapter(BulletEvaluator):
                 action_text = text
                 result_text = text
             result = _rate_result(result_text)
+            if part is not None and part.result.strip() and result == 0:
+                # rubric-3.1.0, specs/001-experience-improvement-flow/few-shot/parser-prompt Problem 6: a present
+                # result part is at least a vague result (1); 0 is reserved
+                # for a missing result.
+                result = 1
             if part is not None:
                 bare_number = (
                     (_BARE_NUMBER_RESULT.match(part.result) if part.result else None)

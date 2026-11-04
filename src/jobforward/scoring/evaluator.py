@@ -14,6 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
+from ..rubric import RUBRIC_VERSION
+
 if TYPE_CHECKING:  # pragma: no cover - type-only import
     from ..models.entities import BulletParts
 
@@ -40,7 +42,7 @@ class BulletRatingRequest:
 
     texts: list[str]
     answers: Optional[list[str]] = None
-    rubric_version: str = "rubric-3.0.0"
+    rubric_version: str = RUBRIC_VERSION
     parts: Optional[list["BulletParts"]] = None
 
 
@@ -133,7 +135,7 @@ class BulletEvaluator:
     same request/response schema and validity check.
     """
 
-    rubric_version: str = "rubric-3.0.0"
+    rubric_version: str = RUBRIC_VERSION
 
     def evaluate(self, request: BulletRatingRequest) -> BulletRatingResponse:
         """Evaluate one or more bullets and return structured ratings."""

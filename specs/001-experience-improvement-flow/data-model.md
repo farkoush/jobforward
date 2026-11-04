@@ -194,3 +194,46 @@ has zero effect on any score (P3/P6) and never mutates entry/bullet text.
 - VR-9: matcher output must satisfy the matcher contract exactly (one action
   per entry, allowed action enum, reason cites skill_type + priority);
   invalid output is rejected, retried once, then reported (FR-021/FR-022).
+
+---
+
+## Addendum: rubric-3.1.0 (2026-11-04) — display & improvement-loop state
+
+No new persisted entities; Phase 11 refines the states below (spec §3, §5.1,
+§6.1).
+
+### BulletRating — result floor + version string
+
+- result dimension: a PRESENT but vague result part scores ≥1 (rubric-3.1.0);
+  0 is reserved for a MISSING result. Missing result still scores 0.
+- `rubric_version`: the semver string stored with every score; new scores
+  carry `rubric-3.1.0` (constitution v3.1.0 P4). Older scores keep their
+  stored version and are never rewritten.
+
+### PartDisplayState (per part, transient — web display layer)
+
+| State | Meaning | Web rendering |
+|---|---|---|
+| filled | non-empty extracted or confirmed words | emerald bracket "[label: words]" |
+| vague | non-empty words rated < 2 | amber bracket "[label: words – vague]" |
+| missing | empty words (ALWAYS, regardless of rating) | red bracket "[label – missing]" |
+
+Validation: vague requires non-empty words — an empty part is never vague
+(frameworkRows fix, T073).
+
+### ImprovedBullet record (extends the existing history/proposals records)
+
+- improved text: assembled ONLY from confirmed/typed answers as plain prose
+  ("need, so action, and result metric."); feature used only if the action is
+  missing; metric appended to the result segment; fallback = verbatim
+  original.
+- status: `edited` (existing value), with before/after scores where the
+  after-score comes from the SAME first-time pipeline (fresh extraction +
+  ratings), stored with `rubric-3.1.0`.
+
+### BYOK state (browser, opt-in — drives §3.1 and the disclosure banner)
+
+- providerId / model / useForScoring / key-presence: the banner
+  "Model in use on this screen: {provider}: {model}" renders only when
+  useForScoring AND key AND model are set AND the screen can call a model;
+  the key itself never leaves the browser (masked display only).

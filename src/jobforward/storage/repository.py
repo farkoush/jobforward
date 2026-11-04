@@ -33,12 +33,14 @@ from ..models.entities import (
     MatchPriority,
     SkillType,
 )
+from ..rubric import RUBRIC_VERSION as DEFAULT_RUBRIC_VERSION
 
 DOCUMENT_VERSION = 2
 # rubric-3.0.0: the Specific Action checklist (Phase 9,
 # specs/001-experience-improvement-flow/checklists/specific-action.md).
-# Stored ratings keep the rubric version they were scored under.
-DEFAULT_RUBRIC_VERSION = "rubric-3.0.0"
+# Stored ratings keep the rubric version they were scored under. The version
+# itself lives in ONE place: jobforward/rubric.py — re-exported here under
+# the historic name for all existing importers.
 
 
 class Repository:

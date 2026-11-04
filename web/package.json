@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3100",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3100",
     "test": "node --experimental-vm-modules scripts/run-engine-tests.mjs",
     "test:byok": "tsx --test tests/byok/*.test.ts",
     "scan:byok": "node scripts/byok-security-scan.mjs"

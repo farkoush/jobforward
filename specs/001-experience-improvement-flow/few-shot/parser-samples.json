@@ -1,0 +1,517 @@
+{
+  "version": "1.3.0",
+  "description": "Machine-readable samples for the five-part bullet parser prompt (parser-prompt.md next to this file). Use with any model: send the rules plus the acceptance examples, then one entry's 'original' at a time, and compare the model's brackets with 'expected'. 'status': ok = filled with exact words, vague = filled with the words but marked vague, missing = empty brackets. v1.1.0: rules updated 2026-11-03 with research-verb classification (Problem 2), third-party features and intention-clause phrases (Problem 1), and display/score consistency (Problem 6); no sample outputs changed. v1.2.0: display format is now ONE continuous sentence with in-sentence brackets (see display_frame); section data and statuses unchanged. v1.3.0: moved with the prompt to specs/001-experience-improvement-flow/few-shot/ (single source of truth beside the spec); no sample changes.",
+  "acceptance_examples": [
+    {
+      "id": "E1",
+      "experience_title": "Product Analyst Intern",
+      "achievement": "1 of 1",
+      "original": "Analyzed job seekers’ needs and the absence of a talent pool and job postings, and collaborated with the product team to define the MVP scope (resume analysis and resume-to-job matching) through 6 job-seeker interviews and a 30-respondent questionnaire, aiming to deliver value without depending on employers",
+      "expected": {
+        "user_need": {
+          "text": "Analyzed job seekers’ needs and the absence of a talent pool and job postings",
+          "status": "vague"
+        },
+        "product_feature": {
+          "text": "the MVP scope (resume analysis and resume-to-job matching)",
+          "status": "ok"
+        },
+        "action": {
+          "text": "collaborated with the product team to define the MVP scope (resume analysis and resume-to-job matching) through 6 job-seeker interviews and a 30-respondent questionnaire",
+          "status": "ok"
+        },
+        "result": {
+          "text": "aiming to deliver value without depending on employers",
+          "status": "vague"
+        },
+        "metric": {
+          "text": "",
+          "status": "missing"
+        }
+      },
+      "needs_to_be_filled": [
+        "User need or problem (vague): “Analyzed job seekers’ needs” says what you studied, but not who had which problem. “The absence of a talent pool and job postings” describes a limit of the product, not a problem of the job seeker.",
+        "Result (vague): “aiming to deliver value” is a goal. It does not say what changed after your work or who it helped.",
+        "Metric (missing, optional): “6 job-seeker interviews” and “a 30-respondent questionnaire” describe your research, so they stay in Action."
+      ],
+      "first_question_after_yes": "Achievement 1 of 1 – User need or problem: Who had a problem? What was the problem?"
+    },
+    {
+      "id": "E2",
+      "experience_title": "UX Designer",
+      "achievement": "2 of 3",
+      "original": "Worked on the onboarding flow and made it better, which reduced drop-off by 18% in the first week",
+      "expected": {
+        "user_need": {
+          "text": "",
+          "status": "missing"
+        },
+        "product_feature": {
+          "text": "the onboarding flow",
+          "status": "ok"
+        },
+        "action": {
+          "text": "Worked on the onboarding flow and made it better",
+          "status": "vague"
+        },
+        "result": {
+          "text": "reduced drop-off",
+          "status": "ok"
+        },
+        "metric": {
+          "text": "by 18% in the first week",
+          "status": "ok"
+        }
+      },
+      "needs_to_be_filled": [
+        "User need or problem (missing): The bullet does not say who struggled or what went wrong.",
+        "Action (vague): “Worked on” and “made it better” do not say what you did or what your role was."
+      ],
+      "first_question_after_yes": "Achievement 2 of 3 – User need or problem: Who had a problem? What was the problem?"
+    },
+    {
+      "id": "E3",
+      "experience_title": "Product Manager",
+      "achievement": "1 of 3",
+      "original": "New users could not find the items they saved, so I wrote the requirements and worked with the design team to rebuild the saved items page, and return visits grew by 15%",
+      "expected": {
+        "user_need": {
+          "text": "New users could not find the items they saved",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the saved items page",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I wrote the requirements and worked with the design team to rebuild the saved items page",
+          "status": "ok"
+        },
+        "result": {
+          "text": "return visits grew",
+          "status": "ok"
+        },
+        "metric": {
+          "text": "by 15%",
+          "status": "ok"
+        }
+      },
+      "needs_to_be_filled": [],
+      "first_question_after_yes": null
+    },
+    {
+      "id": "E4",
+      "experience_title": "Frontend Engineer",
+      "achievement": "1 of 2",
+      "original": "Candidates could not upload their portfolios on mobile, so I rebuilt the upload page for small screens, and completion rose from 41% to 68%",
+      "expected": {
+        "user_need": {
+          "text": "Candidates could not upload their portfolios on mobile",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the upload page",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I rebuilt the upload page for small screens",
+          "status": "ok"
+        },
+        "result": {
+          "text": "completion rose",
+          "status": "ok"
+        },
+        "metric": {
+          "text": "from 41% to 68%",
+          "status": "ok"
+        }
+      },
+      "needs_to_be_filled": [],
+      "first_question_after_yes": null,
+      "notes": "Feature appears inside the action sentence; the permitted overlap applies. Metric uses a from-X-to-Y range."
+    },
+    {
+      "id": "E5",
+      "experience_title": "Backend Developer",
+      "achievement": "2 of 3",
+      "original": "Hiring managers spent hours screening resumes by hand, and I built (with one backend engineer) the screening filter, a rule-based resume ranking tool",
+      "expected": {
+        "user_need": {
+          "text": "Hiring managers spent hours screening resumes by hand",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the screening filter, a rule-based resume ranking tool",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I built (with one backend engineer) the screening filter, a rule-based resume ranking tool",
+          "status": "ok"
+        },
+        "result": {
+          "text": "",
+          "status": "missing"
+        },
+        "metric": {
+          "text": "",
+          "status": "missing"
+        }
+      },
+      "needs_to_be_filled": [
+        "Result (missing): The bullet does not say what changed after the filter was built or who it helped.",
+        "Metric (missing, optional): “one backend engineer” describes the team, not the impact of the work."
+      ],
+      "first_question_after_yes": "Achievement 2 of 3 – Result: What changed after your work? Who did it help?",
+      "notes": "A feature may be a description in an appositive, not only a page name. A team-size number is not a metric."
+    },
+    {
+      "id": "E6",
+      "experience_title": "Product Designer",
+      "achievement": "1 of 2",
+      "original": "Job seekers needed a one-page resume, so I designed the print layout, delivering a one-page PDF export",
+      "expected": {
+        "user_need": {
+          "text": "Job seekers needed a one-page resume",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the print layout",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I designed the print layout",
+          "status": "ok"
+        },
+        "result": {
+          "text": "delivering a one-page PDF export",
+          "status": "vague"
+        },
+        "metric": {
+          "text": "",
+          "status": "missing"
+        }
+      },
+      "needs_to_be_filled": [
+        "Result (vague): “delivering a one-page PDF export” describes what you produced, not what changed for the job seeker or who benefited.",
+        "Metric (missing, optional): The bullet contains no number that demonstrates the impact of the work."
+      ],
+      "first_question_after_yes": "Achievement 1 of 2 – Result: What changed after your work? Who did it help?",
+      "notes": "An output-only result (what was produced, not what changed) is vague."
+    }
+  ],
+  "test_bullets": [
+    {
+      "id": "T1",
+      "purpose": "positive control: a complete bullet",
+      "suggested_title": "Growth PM",
+      "original": "New visitors abandoned the sign-up form halfway, so I simplified the sign-up form to three fields, and sign-ups grew by 25%",
+      "expected": {
+        "user_need": {
+          "text": "New visitors abandoned the sign-up form halfway",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the sign-up form",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I simplified the sign-up form to three fields",
+          "status": "ok"
+        },
+        "result": {
+          "text": "sign-ups grew",
+          "status": "ok"
+        },
+        "metric": {
+          "text": "by 25%",
+          "status": "ok"
+        }
+      },
+      "first_question_after_yes": null
+    },
+    {
+      "id": "T2",
+      "purpose": "missing need and vague action (Example 2 pattern)",
+      "suggested_title": "UX Designer",
+      "original": "Worked on the search filters and improved them, which increased searches by 9%",
+      "expected": {
+        "user_need": {
+          "text": "",
+          "status": "missing"
+        },
+        "product_feature": {
+          "text": "the search filters",
+          "status": "ok"
+        },
+        "action": {
+          "text": "Worked on the search filters and improved them",
+          "status": "vague"
+        },
+        "result": {
+          "text": "increased searches",
+          "status": "ok"
+        },
+        "metric": {
+          "text": "by 9%",
+          "status": "ok"
+        }
+      },
+      "questions_after_yes": [
+        "Achievement n – User need or problem: Who had a problem? What was the problem?",
+        "Achievement n – Action: What exactly did you do? What was your role?"
+      ]
+    },
+    {
+      "id": "T3",
+      "purpose": "goal instead of result (Example 1 pattern)",
+      "suggested_title": "Content Lead",
+      "original": "Noticed employers were ignoring long resumes, so I led the rewrite of the resume summary section to make resumes easier to scan",
+      "expected": {
+        "user_need": {
+          "text": "Noticed employers were ignoring long resumes",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the resume summary section",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I led the rewrite of the resume summary section",
+          "status": "ok"
+        },
+        "result": {
+          "text": "to make resumes easier to scan",
+          "status": "vague"
+        },
+        "metric": {
+          "text": "",
+          "status": "missing"
+        }
+      },
+      "questions_after_yes": [
+        "Achievement n – Result: What changed after your work? Who did it help?",
+        "Achievement n – Metric: Do you have a real number? If not, you can skip this."
+      ]
+    },
+    {
+      "id": "T4",
+      "purpose": "research number stays in Action; feature includes the parenthetical; complete bullet",
+      "suggested_title": "Learning PM",
+      "original": "Students were dropping out of long courses, so I defined the course progress bar (milestones and badges) through 5 interviews, and course completions grew by 15%",
+      "expected": {
+        "user_need": {
+          "text": "Students were dropping out of long courses",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the course progress bar (milestones and badges)",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I defined the course progress bar (milestones and badges) through 5 interviews",
+          "status": "ok"
+        },
+        "result": {
+          "text": "course completions grew",
+          "status": "ok"
+        },
+        "metric": {
+          "text": "by 15%",
+          "status": "ok"
+        }
+      },
+      "first_question_after_yes": null
+    },
+    {
+      "id": "T5",
+      "purpose": "only a discovery verb; everything except the need is missing",
+      "suggested_title": "People Researcher",
+      "original": "Researched why new hires quit within their first year",
+      "expected": {
+        "user_need": {
+          "text": "Researched why new hires quit within their first year",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "",
+          "status": "missing"
+        },
+        "action": {
+          "text": "",
+          "status": "missing"
+        },
+        "result": {
+          "text": "",
+          "status": "missing"
+        },
+        "metric": {
+          "text": "",
+          "status": "missing"
+        }
+      },
+      "notes": "The discovery verb belongs in the need (Problem 2); the need is filled because it names who (new hires) and the problem (quitting in the first year).",
+      "questions_after_yes": [
+        "Achievement n – Product feature: What was the feature or product part you worked on?",
+        "Achievement n – Action: What exactly did you do? What was your role?",
+        "Achievement n – Result: What changed after your work? Who did it help?",
+        "Achievement n – Metric: Do you have a real number? If not, you can skip this."
+      ]
+    },
+    {
+      "id": "T6",
+      "purpose": "trap: a number in the need must not become the metric; the feature must not share words with the need",
+      "suggested_title": "Mobile Engineer",
+      "original": "2,000 job seekers complained the app kept crashing, so I fixed the upload flow, and support tickets about uploads fell by 40%",
+      "expected": {
+        "user_need": {
+          "text": "2,000 job seekers complained the app kept crashing",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the upload flow",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I fixed the upload flow",
+          "status": "ok"
+        },
+        "result": {
+          "text": "support tickets about uploads fell",
+          "status": "ok"
+        },
+        "metric": {
+          "text": "by 40%",
+          "status": "ok"
+        }
+      },
+      "notes": "“2,000” stays inside the need (it sizes the problem, not the impact). “The app” from the need must not be reused as the feature; the feature comes from the action sentence through the permitted overlap.",
+      "first_question_after_yes": null
+    },
+    {
+      "id": "T7",
+      "purpose": "a capability/scope counts as a feature (Problem 1); complete bullet",
+      "suggested_title": "Marketplace PM",
+      "original": "Small shop owners could not sell outside their city, so I scoped and launched the marketplace listings tool (bulk upload and pricing rules), and seller signups grew by 22%",
+      "expected": {
+        "user_need": {
+          "text": "Small shop owners could not sell outside their city",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the marketplace listings tool (bulk upload and pricing rules)",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I scoped and launched the marketplace listings tool (bulk upload and pricing rules)",
+          "status": "ok"
+        },
+        "result": {
+          "text": "seller signups grew",
+          "status": "ok"
+        },
+        "metric": {
+          "text": "by 22%",
+          "status": "ok"
+        }
+      },
+      "first_question_after_yes": null
+    },
+    {
+      "id": "T8",
+      "purpose": "a metric without “by” (complete bullet)",
+      "suggested_title": "Full-stack Engineer",
+      "original": "Job seekers could not see where their resumes stood, so I built the application tracker, and weekly active users rose 30%",
+      "expected": {
+        "user_need": {
+          "text": "Job seekers could not see where their resumes stood",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the application tracker",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I built the application tracker",
+          "status": "ok"
+        },
+        "result": {
+          "text": "weekly active users rose",
+          "status": "ok"
+        },
+        "metric": {
+          "text": "30%",
+          "status": "ok"
+        }
+      },
+      "notes": "A model that writes “rose 30%” entirely in Result and leaves Metric missing fails this test.",
+      "first_question_after_yes": null
+    },
+    {
+      "id": "T9",
+      "purpose": "trap: intention phrasing in the result (Problem 4)",
+      "suggested_title": "Recruiting Tools PM",
+      "original": "Employers took too long to pick candidates, so I worked on the review queue so that picking would take minutes instead of hours",
+      "expected": {
+        "user_need": {
+          "text": "Employers took too long to pick candidates",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the review queue",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I worked on the review queue",
+          "status": "vague"
+        },
+        "result": {
+          "text": "picking would take minutes instead of hours",
+          "status": "vague"
+        },
+        "metric": {
+          "text": "",
+          "status": "missing"
+        }
+      },
+      "notes": "The second “so that” phrase is an intention, so the result is vague; presenting it as a complete result fails this test. A model that is unsure must ask a short question about the result instead of guessing.",
+      "questions_after_yes": [
+        "Achievement n – Action: What exactly did you do? What was your role?",
+        "Achievement n – Result: What changed after your work? Who did it help?",
+        "Achievement n – Metric: Do you have a real number? If not, you can skip this."
+      ]
+    },
+    {
+      "id": "T10",
+      "purpose": "question discipline: only the metric question, once, at the very end",
+      "suggested_title": "Web Developer",
+      "original": "Users could not find their past orders, so I designed the order history page, which made reordering easy",
+      "expected": {
+        "user_need": {
+          "text": "Users could not find their past orders",
+          "status": "ok"
+        },
+        "product_feature": {
+          "text": "the order history page",
+          "status": "ok"
+        },
+        "action": {
+          "text": "I designed the order history page",
+          "status": "ok"
+        },
+        "result": {
+          "text": "made reordering easy",
+          "status": "ok"
+        },
+        "metric": {
+          "text": "",
+          "status": "missing"
+        }
+      },
+      "notes": "The only question is the Metric question, asked once, at the very end. Asking about any other section fails this test.",
+      "questions_after_yes": [
+        "Achievement n – Metric: Do you have a real number? If not, you can skip this."
+      ]
+    }
+  ],
+  "display_frame": "Analysis of [user need or problem] and collaboration with the product team on designing [feature name] through [specific action], resulting in [result] and [metric]. — inside brackets only the job seeker's verbatim words; empty = '[label - missing]', ambiguous = '[label: words - vague]'; always 'resulting in [result: ...]', even for vague results."
+}
