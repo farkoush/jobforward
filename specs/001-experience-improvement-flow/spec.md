@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-23
 
-**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning)
+**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning)
 
 **Input**: User description: "A text-flow prototype (no graphical interface) that guides an entry-level product manager job seeker through one complete path for improving a single experience entry. The user adds an experience entry (type: job, project, course, side work), a title, and 1–6 free‑text English bullets. The tool scores each bullet on three dimensions (Context, Specific Action, Result) and rewrites bullets using a five‑part framework (User Need → Product Feature → Action → Result → Metric)."
 
@@ -23,12 +23,17 @@ web + parser-doc scope only — the terminal's display (§5) and flow (§4.1) ar
 unchanged. Evidence: 216 pytest green, web↔Python parity gate PARITY OK, BYOK
 tests green.
 
-Phase 12 (chunk attribution, §2.2) is specified 2026-11-04 and NOT yet
-implemented: the three §2.2 clarifications were resolved the same day
-(diagnostic-only scope; orphaned = unclaimed remainder spans; separate gray
-web block under the sentence). Next: plan and tasks (T093+; T091/T092 remain
-open). Until it lands, statuses continue to be assigned from part
-presence/scores without the coverage record.
+Phase 12 (chunk attribution, §2.2) is IMPLEMENTED 2026-11-04 (T095–T105;
+pytest 227 green, parity PARITY OK incl. the orphan case, terminal display
+untouched) and committed as 4b1b5be.
+
+Phase 13 (hybrid entry — paste-and-split, §4.2) is specified 2026-11-04 and
+NOT yet implemented; the three §4.2 clarifications were resolved the same day
+(WEB-ONLY scope — terminal entry flow and display unchanged; new fields
+stored+displayed with no analysis effect, dates as one free-text field;
+non-achievement flag = no action verb + no parser marker + responsibility
+opening, wrap continuations merge). Next: plan and tasks (T106+; T091/T092
+remain open). Until it lands, the entry flow is unchanged.
 
 ## 1. Goal
 
@@ -178,6 +183,7 @@ deterministic code (constitution P4); the model returns only 0/1/2 ratings.
 - `follow_up_questions` (0–5)
 - `user_answers`, `rewrite_proposal`
 - `rewrite_status`: Unanswered, draft, proposed, approved, or rejected.
+- Entry-level (Phase 13, §4.2): `company`, `dates`, `product_domain` — short separate fields collected on the entry screen; optional and additive so old documents load unchanged.
 
 ## 4.1 Workflow
 
@@ -199,6 +205,60 @@ Web prototype rendering: steps 5–10 are replaced by the single-screen
 improvement loop (§6.1) with the same decisions — the user confirms every
 replacement and zero answers means no rewrite. The terminal keeps steps 5–10
 as written.
+
+### 4.2 Entry recording — paste-and-split (Phase 13, 2026-11-04)
+
+The entry screen collects one job's whole experience at once; the five-part
+analysis then runs bullet by bullet. This stage PRECEDES the §4.1 workflow
+and produces its bullet list.
+[RESOLVED 2026-11-04, product-owner answer]: Phase 13 is WEB-PROTOTYPE scope
+only — the terminal's entry flow and display are unchanged (the same pattern
+as Phases 11–12; `messages.py` untouched). The terminal keeps its
+bullet-by-bullet entry.
+
+Entry fields (each a short separate input):
+
+- **Job title**, **company**, **dates** — collected for role level and
+  context. [RESOLVED 2026-11-04, product-owner answer]: stored AND displayed,
+  with no effect on any analysis or suggestion logic in this phase ("do not
+  change the five-part analysis logic" holds; using them in suggestions is a
+  future decision); "dates" is a single free-text field (e.g. "2022–2024").
+- **Product domain** (for example fintech, healthcare, e-commerce) — so
+  suggestions align with the user's actual work.
+- **Achievement text** — one large text box with the instruction "Write each
+  achievement on a separate line, starting with - or •"; a short example of
+  a good bullet below the box; and a SOFT limit: when the text exceeds 8
+  lines the tool shows "Put your best achievements first; you can add the
+  rest later." and NEVER blocks longer input.
+
+Split stage (segmentation only — the tool never rewrites or invents text,
+constitution P1):
+
+1. The user pastes the entire work experience for one job, exactly as it
+   appears in their resume.
+2. The tool splits the pasted text into candidate bullets and shows the list:
+   "I found 4 achievements. Is that correct?"
+3. Lines that are not achievements (such as "Responsible for weekly
+   meetings") are flagged and the user chooses keep or discard per line.
+   [RESOLVED 2026-11-04, product-owner answer]: a line is flagged as "not an
+   achievement" when it has NO action verb, NO marker from the existing
+   parser lists (need / feature / result / metric / number), AND opens with
+   a responsibility-style phrase ("Responsible for…", "Duties included…") —
+   the user then chooses keep or discard. Marker-less lines that are natural
+   wrap continuations of the previous line (they do not match the flag rule)
+   merge into the previous bullet instead of being flagged.
+4. A line that contains two achievements (for example joined by "and also")
+   is suggested for splitting into two; the user decides.
+5. The user can merge two bullets, split one bullet into two, or delete a
+   bullet; every edit is the user's action (P2) and text is only moved or
+   re-joined, never rewritten.
+6. After the user confirms the list, the confirmed bullets enter the §4.1
+   workflow unchanged — extraction, scoring, questions, rewrite, and the
+   coverage record (§2.2) are untouched by this phase ("Achievement 2 of 4"
+   style progress stays with the bullet).
+
+During each bullet's analysis the user's original pasted text stays visible
+at the top of the page, so the user never feels their text was lost.
 
 ## 5. Framework Display
 
@@ -344,6 +404,9 @@ These rules apply only during the rewriting stage; when displaying the framework
 - Coverage (§2.2): the coverage record lists, per part, its exact extracted words with status and reason, and every word of the bullet that no part claims appears in exactly one orphaned span with a reason; no word is claimed by two parts (the §2.1 feature-inside-action overlap excepted — such words are claimed by the action and never orphaned) and orphaned spans never change scores, questions, or statuses.
 - The coverage record (§4) carries quotation, status, and reason for all five parts and every orphaned chunk; a missing part's quotation is empty and its reason states why the part is missing.
 - The statuses shown for the five parts are exactly the statuses derivable from the coverage record (the record is the input to status assignment, §2.2), and the web display of the record (§5.1) matches it.
+- Paste-and-split (§4.2): a pasted experience is split into candidate bullets, the count is confirmed with the user ("I found 4 achievements. Is that correct?"), and every keep/discard, merge, split, and delete decision is the user's; splitting never rewrites text — every confirmed bullet is a verbatim line from the paste or a verbatim re-join of lines.
+- The confirmed bullet list feeds the §4.1 workflow unchanged; analyzing a bullet through paste-and-split produces exactly the same analysis, scores, questions, and coverage as entering the same text bullet by bullet.
+- The new entry fields (`company`, `dates`, `product_domain`) are optional and additive — documents saved before Phase 13 load unchanged — and text beyond 8 lines shows the soft-limit message without ever blocking input; the original pasted text stays visible during every bullet's analysis.
 
 ## 10. Open Items for Planning
 
@@ -352,4 +415,5 @@ These rules apply only during the rewriting stage; when displaying the framework
 - Review dimension weights after pilot data; any change creates a new rubric version.
 - ~~Correct the five-part parsing (research verbs → need; intention clause → vague result; no shared words; `flow(s)`; multi-line normalization) and align the result score (present-but-vague = 1)~~ — **DONE 2026-11-03** as rubric-3.1.0 (Phase 11, T063–T092; 216 pytest green, parity OK; constitution amended to v3.1.0 on 2026-11-04).
 - ~~Web prototype: in-sentence display, inline improvement loop with grounded suggestions, copy, model disclosure banner, BYOK prompt calibration~~ — **DONE 2026-11-03** (Phase 11; web + parser-doc scope only; terminal display unchanged). Open follow-ups remain in tasks.md Phase 11 (doc answer-key alignment; OpenRouter CORS retry).
-- Chunk attribution before status assignment (§2.2, Phase 12) — spec'd and clarified 2026-11-04 (diagnostic-only scope; orphaned = unclaimed remainder spans; separate gray web block under the sentence); then plan and tasks from T093 (T091/T092 remain open).
+- Chunk attribution before status assignment (§2.2, Phase 12) — spec'd and clarified 2026-11-04 (diagnostic-only scope; orphaned = unclaimed remainder spans; separate gray web block under the sentence); then plan and tasks from T093 (T091/T092 remain open). **DONE 2026-11-04** — implemented and gated (T095–T105; pytest 227 green, PARITY OK, terminal untouched).
+- Hybrid entry — paste-and-split bullet shaping (§4.2, Phase 13) — spec'd and clarified 2026-11-04 (WEB-ONLY scope, terminal unchanged; fields stored+displayed, dates free-text; combined flag rule + wrap-merge); then plan and tasks from T106 (T091/T092 remain open).

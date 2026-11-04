@@ -302,3 +302,89 @@ P9 (coverage tests written first, failing before implementation), P10
 pytest green (new coverage tests included) · parity PARITY OK on the extended
 corpus (a bullet with leftover connector/greeting text → orphaned span with
 reason) · tsc clean · existing web tests green.
+
+---
+
+## Phase 13 Addendum (hybrid entry — paste-and-split, 2026-11-04)
+
+Spec §4.2 (clarified 2026-11-04). WEB-ONLY: the terminal entry flow, display
+and `messages.py` are UNTOUCHED; the Python engine is untouched; tasks start
+at **T106** (T091/T092 remain open).
+
+### Design additions
+
+- **Split engine (`web/src/engine/flow/entry_split.ts`, NEW)** — deterministic
+  `splitBullets(pasted)` → `SplitCandidate { text, flagged, splitSuggested }`:
+  lines starting with `-`/`•` become candidates (the list marker itself is
+  formatting and is stripped — segmentation, not rewriting, P1); marker-less
+  lines that do not match the flag rule are wrap continuations and join the
+  previous candidate with a single space; a candidate is FLAGGED ("not an
+  achievement — keep or discard?") when it has NO action verb AND no parser
+  signal AND opens with a responsibility-style phrase ("Responsible for…",
+  "Duties included…"); a line containing " and also " gets a SPLIT
+  suggestion (the split point is at that connector) — every decision is the
+  user's (P2).
+- **Parser-signal reuse (`web/src/engine/flow/parts.ts`)** — export one
+  helper (`lineHasParserSignal`) that reuses the EXISTING marker lists (need
+  / feature / result / metric / number) — single source of truth; no marker
+  or rule change (the five-part analysis logic is untouched).
+- **Entry fields** — `company`, `dates` (single free-text field, e.g.
+  "2022–2024"), `product_domain`: stored + displayed, NO effect on any
+  analysis/suggestion logic this phase; additive optional fields so old
+  documents/sessions load unchanged. The entry screen also carries the
+  instruction "Write each achievement on a separate line, starting with - or
+  •", a short example below the box, and the SOFT limit: past 8 lines show
+  "Put your best achievements first; you can add the rest later." and never
+  block. The example is PINNED (analyze F2): "New users could not find the
+  items they saved, so I rebuilt the saved items page, resulting in more
+  users coming back." The English-only boundary (P10/VR-8) EXTENDS to the
+  three new fields (analyze F1) — validated in `addEntry` and the UI with
+  the existing `ERR_NON_ENGLISH_INPUT` message.
+- **Flow** — `entry_type` → NEW `entry_details` (fields + big textarea) →
+  NEW `entry_split` ("I found N achievements. Is that correct?" + flag
+  keep/discard + split suggestion + merge/split/delete — text only moved or
+  re-joined, never rewritten) → Confirm → the EXISTING `/api/entry` +
+  per-bullet pipeline (§4.1/§6.1) with "Achievement n of total" progress and
+  the ORIGINAL pasted text visible at the top of the analysis screens.
+- **VR-1 stays (assumption A1)** — the confirmed list still respects the
+  1–6-bullets cap (FR-002 unchanged, "do not change the analysis logic"):
+  when the split produces more than 6 candidates the split screen asks the
+  user to keep the best 6 (delete/merge to fit) — consistent with the
+  soft-limit wording "you can add the rest later"; the TEXTAREA itself is
+  never blocked at any length.
+
+### Files to modify (complete list — user requirement: file list before coding)
+
+| # | File | Change |
+|---|---|---|
+| 1 | `web/src/engine/flow/entry_split.ts` | NEW — deterministic split engine (`splitBullets`) |
+| 2 | `web/src/engine/flow/parts.ts` | export `lineHasParserSignal` (reuses existing markers; no rule change) |
+| 3 | `web/src/engine/types.ts` | optional `company`/`dates`/`product_domain` on ExperienceEntry |
+| 4 | `web/src/engine/flow/pathService.ts` | `addEntry` passes the three optional fields through (VR-1/VR-8 untouched) |
+| 5 | `web/src/lib/schemas.ts` | `AddEntryRequestSchema` optional fields |
+| 6 | `web/src/app/api/entry/route.ts` | pass the fields through |
+| 7 | `web/src/lib/client.ts` | StoredEntry optional fields; session keeps the original pasted text (`sourceText?`) |
+| 8 | `web/src/app/page.tsx` | entry flow rewrite: `entry_details` + `entry_split` screens, soft limit, flags, merge/split/delete, confirm, paste visible during analysis |
+| 9 | `web/src/engine/messages.ts` | new English B1 strings (instruction, example, found-count, flags, soft limit, buttons) |
+| 10 | `web/package.json` | `test:engine` script for the new engine tests |
+| 11 | `web/tests/engine/entry_split.test.ts` | NEW — tests-first for the split rules (P9) |
+| 12 | docs: plan/research/data-model/quickstart/tasks (+ spec already amended) | Phase 13 records |
+
+Python engine, terminal display, parity harnesses: UNTOUCHED (parity must
+stay green as-is).
+
+### Constitution check (Phase 13)
+
+No violations. P1 (segmentation only — markers are formatting; text is never
+rewritten or invented), P2 (every keep/discard/merge/split/delete is the
+user's action), P4 (no scoring change → no rubric bump), P8 (web-only, no new
+dependencies), P9 (split tests written first, failing), P10 (English B1
+strings in messages.ts; English-only boundary unchanged).
+
+### Expected gates
+
+`tsc --noEmit` clean · engine split tests green (`npm run test:engine`) ·
+parity PARITY OK (unchanged corpus) · `npm run test:byok` 23/24 baseline ·
+`npm run scan:byok` passed · manual walkthrough: paste a 9-line experience →
+soft-limit message, split list with one flagged line, merge two, confirm,
+analysis shows "Achievement 2 of 4" with the paste visible on top.

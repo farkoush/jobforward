@@ -40,6 +40,11 @@ export const AddEntryRequestSchema = z.object({
   type: ExperienceEntryTypeSchema,
   title: z.string(),
   bullets: z.array(z.string()).max(60),
+  // Phase 13 (spec §4.2): optional entry context fields (stored + displayed
+  // only — no analysis effect; research D15).
+  company: z.string().optional(),
+  dates: z.string().optional(),
+  product_domain: z.string().optional(),
 });
 
 // --- /api/score ---

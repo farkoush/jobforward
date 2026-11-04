@@ -991,3 +991,127 @@ later without a rubric change. Tasks start at T095 (T091/T092 remain open).
   (COVERAGE_TITLE), `web/src/app/page.tsx` (applyScoreToEntry wiring +
   gray block in BulletGate), parity harnesses (orphan case +
   coverage_edge).
+
+## Phase 13: Hybrid Entry — Paste-and-Split (spec §4.2, clarified 2026-11-04)
+
+**Purpose**: the user pastes one job's whole work experience at once; a
+deterministic split engine shapes the candidate bullet list (flag "not an
+achievement" lines, suggest splits at " and also ", wrap-merge continuation
+lines); the user merges/splits/deletes and confirms ("I found 4 achievements.
+Is that correct?"); the EXISTING per-bullet five-part pipeline then runs with
+"Achievement n of total" progress and the original pasted text visible on
+top. WEB-ONLY (D14): the terminal entry flow, display and `messages.py` are
+untouched; the Python engine is untouched; the parity corpus is unchanged
+(PARITY OK as-is). New optional entry fields company/dates(free-text)/
+product_domain are stored + displayed with NO analysis effect (D15); VR-1
+(1–6 confirmed bullets) stays (D17); the textarea is never blocked (soft
+8-line limit). Tasks start at T106 (T091/T092 remain open).
+
+### Setup & Foundational
+
+- [X] T106 Record the product-owner decisions governing this phase
+  (2026-11-04): WEB-ONLY scope (terminal entry flow/display + messages.py +
+  Python engine untouched); fields stored+displayed with no analysis effect,
+  dates = one free-text field; flag rule = no action verb + no parser signal
+  + responsibility-style opening, wrap continuations merge into the previous
+  bullet; VR-1 stays (confirmed list 1–6, textarea never blocked) —
+  evidence: spec §4.2 resolved blocks + §4 entry fields + §9 criteria,
+  research D14–D17, plan Phase 13 Addendum (incl. the 12-file list),
+  data-model Phase 13 addendum, quickstart Phase 13 validation
+
+### Tests First (P9 — failing before implementation)
+
+- [X] T107 [P] Add the `test:engine` script to `web/package.json`
+  (`tsx --test tests/engine/*.test.ts`) and write the failing split tests in
+  `web/tests/engine/entry_split.test.ts`: `-`/`•` lines become candidates
+  with the marker stripped; a wrap continuation (no marker, no flag match)
+  joins the previous candidate with a single space; "Responsible for weekly
+  meetings" is flagged while an action-bearing line is not; "…, and also …"
+  sets splitSuggested; every candidate text is verbatim from the paste
+  (modulo marker strip and line joins — text never rewritten, P1); >6
+  candidates still split (the cap is the UI's job, D17)
+
+### Engine (deterministic, web-only)
+
+- [X] T108 Export `lineHasParserSignal(text)` from `web/src/engine/flow/
+  parts.ts`: true when any existing marker list matches (need / feature /
+  action / result-connector / intention / number+measure) — single source of
+  truth, no marker or rule change (the five-part analysis logic untouched)
+- [X] T109 Implement `splitBullets(pasted)` in NEW
+  `web/src/engine/flow/entry_split.ts` returning
+  `SplitCandidate { text, flagged, splitSuggested }[]` per research D16:
+  normalize line endings, trim, drop empty lines; `-`/`•` lines are
+  candidates (marker stripped); non-matching marker-less lines join the
+  previous candidate with one space; flag rule = no action verb AND no
+  parser signal AND /^(responsibilities?|responsible|duties|tasked|in charge
+  of)\b/i opening; " and also " (word-boundary, case-insensitive) →
+  splitSuggested; leading text before the first bullet becomes its own
+  unflagged candidate
+- [X] T110 [P] Fields pass-through: `web/src/engine/types.ts` ExperienceEntry
+  gains optional `company`/`dates`/`product_domain` (null default; old
+  entries unchanged); `web/src/lib/schemas.ts` AddEntryRequestSchema accepts
+  them as optional strings; `web/src/engine/flow/pathService.ts` addEntry
+  passes them through (VR-1 untouched); VR-8 EXTENDS to the three new fields
+  (analyze F1 — P10 covers ALL user input): addEntry validates them with the
+  existing `containsNonEnglish` boundary → `ERR_NON_ENGLISH_INPUT`;
+  `web/src/app/api/entry/route.ts` forwards them
+- [X] T111 [P] `web/src/lib/client.ts`: StoredEntry gains the three optional
+  fields; the session keeps the original pasted text (`sourceText?`,
+  display-only, never persisted into the stored entry)
+
+### UI (entry flow rewrite)
+
+- [X] T112 Add the English B1 strings to `web/src/engine/messages.ts`:
+  field labels (company, dates, product domain), the instruction "Write each
+  achievement on a separate line, starting with - or •", the PINNED example
+  bullet (analyze F2): "New users could not find the items they saved, so I
+  rebuilt the saved items page, resulting in more users coming back.", the
+  found-count question "I found {n} achievements. Is that correct?", the
+  flag prompt ("This line does not look like an achievement — keep it or
+  discard it?"), the split suggestion, merge/split/delete labels, the
+  soft-limit message "Put your best achievements first; you can add the
+  rest later.", the >6 guidance to keep the best 6, and the confirm button
+- [X] T113 Rewrite the web entry flow in `web/src/app/page.tsx`: replace
+  entry_title/entry_bullets with `entry_details` (type shown, title +
+  company + dates + product-domain fields — each validated with the existing
+  `containsNonEnglish` boundary, analyze F1 — big achievement textarea with
+  the instruction + example + soft-limit message past 8 lines) and
+  `entry_split` (found-count question, flagged lines with Keep/Discard,
+  split-suggested lines with Split/Keep-as-one, per-pair Merge,
+  per-candidate Delete, >6 keep-best-6 guidance, Confirm) — every edit is
+  the user's action and text is only moved or re-joined, never rewritten;
+  per-candidate English check at SPLIT time with the existing
+  `ERR_NON_ENGLISH_INPUT` message (analyze F4 — the server keeps enforcing
+  VR-8 at Confirm); confirming with ZERO candidates takes the EXISTING draft
+  path (entry saved as a draft with the new fields, analyze F3); on Confirm
+  POST the confirmed bullets (+ optional fields) to /api/entry and enter the
+  EXISTING per-bullet pipeline with "Achievement n of total" progress and
+  the ORIGINAL pasted text visible at the top of the analysis screens
+  (session sourceText)
+
+### Verification (gates as-run)
+
+- [X] T114 Run all gates and record evidence (as-run 2026-11-04):
+  TDD red-first confirmed (module-missing fail, then the import bug
+  `ACTION_VERB.test is undefined` caught by the tests and fixed by exporting
+  the shared list from parts.ts); `tsc --noEmit` clean (after fixing the
+  last `setDraftBullets` leftover in the Menu onAdd reset);
+  `npm run test:engine` **11/11 green** (marker strip, wrap-merge,
+  responsibility flag incl. the marked variant, leading unmarked text,
+  action-bearing join, " and also " suggestion, CRLF + empty lines, >6
+  candidates, bare-marker candidates dropped); parity **PARITY OK**
+  (corpus unchanged — Python untouched); `npm run test:byok` **23/24**
+  (live-Ollama environmental, unchanged); `npm run scan:byok` passed;
+  `python -m pytest` **227 green** (Python engine untouched); terminal and
+  `messages.py` untouched. Implementation notes: `addEntry` gained a
+  trailing optional `context` param (company/dates/product_domain) with the
+  VR-8 English boundary EXTENDED to the three fields (analyze F1) — VR-1
+  and the bullet/title checks byte-identical; split-time per-candidate
+  English check (F4); confirm with ZERO candidates takes the existing draft
+  path with the new fields (F3); the " and also " connector is dropped as a
+  join word and a manual split takes the typed first-words-of-the-second
+  needle (both segmentation — text never rewritten); ModelBanner's active
+  screen list updated 1:1 (`entry_bullets` → `entry_split`), preserving the
+  Phase 11 disclosure set (score/bullet_list/merge unchanged).
+  Changed files: the plan's 12-file list
+  exactly (entry_split.ts and tests/engine/entry_split.test.ts NEW).

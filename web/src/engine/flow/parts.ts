@@ -38,6 +38,9 @@ const FEATURE_MARKER =
 // the action part (specs/001-experience-improvement-flow/few-shot/parser-prompt Problem 2). ---
 const ACTION_VERB =
   /\b(led|built|designed|created|managed|launched|ran|owned|organized|coordinated|improved|developed|delivered|wrote|planned|tested|prototyped|automated|negotiated|rebuilt|redesigned|implemented|introduced|shipped|migrated|established|spearheaded)\b/i;
+// Phase 13 (spec §4.2): the entry split's flag rule reuses the SAME action
+// list (single source of truth — no rule change).
+export { ACTION_VERB };
 
 // --- Metric: a number together with a measurement word ---
 const NUMBER = /\d+(?:[.,]\d+)?%?|\b\d+\+/g;
@@ -171,6 +174,22 @@ export function extractParts(text: string): BulletParts {
     result: findResult(parts, intentionFromNeed),
     metric: findMetric(parts),
   };
+}
+
+/** Phase 13 (spec §4.2): true when any existing parser marker list matches
+ * this text — reused by the entry split's "not an achievement" flag rule
+ * (single source of truth; no marker list or extraction rule changes, so
+ * the five-part analysis logic is untouched). Covers the need, feature,
+ * action, result-connector, intention, and number+measure lists. */
+export function lineHasParserSignal(text: string): boolean {
+  return (
+    NEED_MARKER.test(text) ||
+    new RegExp(FEATURE_MARKER.source, "i").test(text) ||
+    ACTION_VERB.test(text) ||
+    RESULT_CONNECTOR.test(text) ||
+    INTENTION_MARKER.test(text) ||
+    (new RegExp(NUMBER.source).test(text) && MEASURE.test(text))
+  );
 }
 
 // --- Coverage record (Phase 12, spec §2.2): diagnostic only ------------------

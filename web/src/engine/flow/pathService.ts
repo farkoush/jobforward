@@ -59,12 +59,21 @@ export interface EntryResult {
 let nextEntryIdCounter = 1;
 
 /** Create an experience entry object after terminal validations (US1).
- * Returns { entry, error } — never throws for validation failures. */
+ * Returns { entry, error } — never throws for validation failures.
+ * Phase 13 (spec §4.2): optional `context` fields (company / dates /
+ * product_domain) are stored + displayed only — VR-1 is untouched and the
+ * VR-8 English boundary now ALSO covers them (analyze F1: P10 applies to
+ * ALL user input). */
 export function addEntry(
   entryType: ExperienceEntryType,
   title: string,
   bullets: string[],
-  nextEntryId?: () => number
+  nextEntryId?: () => number,
+  context?: {
+    company?: string | null;
+    dates?: string | null;
+    product_domain?: string | null;
+  }
 ): EntryResult {
   // VR-1: more than 6 bullets -> explicit rejection (FR-002)
   if (bullets.length > 6) {
@@ -73,6 +82,16 @@ export function addEntry(
   // English-only boundary (VR-8): bullets and the title must be English.
   for (const text of [title, ...bullets]) {
     if (containsNonEnglish(text)) {
+      return { entry: null, error: "ERR_NON_ENGLISH_INPUT", is_draft: false };
+    }
+  }
+  // VR-8 for the Phase 13 context fields (analyze F1).
+  for (const text of [
+    context?.company ?? "",
+    context?.dates ?? "",
+    context?.product_domain ?? "",
+  ]) {
+    if (text && containsNonEnglish(text)) {
       return { entry: null, error: "ERR_NON_ENGLISH_INPUT", is_draft: false };
     }
   }
@@ -87,6 +106,9 @@ export function addEntry(
     entry_score: null,
     rubric_version: null,
     deleted: false,
+    company: context?.company?.trim() || null,
+    dates: context?.dates?.trim() || null,
+    product_domain: context?.product_domain?.trim() || null,
   };
   return { entry, error: null, is_draft: isDraft(entry) };
 }

@@ -350,3 +350,60 @@ each with its rationale and rejected alternatives.
 - **Alternatives rejected**: a fourth in-sentence color (clutter, weakens the
   closed-sentence contract); rendering orphans inside the "Still needs to be
   filled" list (orphans are not to-fill items).
+
+## Addendum: Phase 13 entry-flow decisions (2026-11-04)
+
+### D14 — Web-only scope; terminal untouched
+
+- **Decision**: the hybrid paste-and-split entry is implemented in the web
+  prototype only; the terminal keeps its bullet-by-bullet entry flow and
+  display; `messages.py` and the Python engine are untouched (Phases 11–12
+  pattern).
+- **Rationale**: product-owner answer 2026-11-04 — "فقط وب". The user flow
+  (text box, list editing) is inherently graphical; the terminal flow is a
+  frozen surface.
+- **Alternatives rejected**: port the flow to the terminal too (double work,
+  breaks the frozen-terminal constraint); defer terminal to a later phase
+  (recorded as possible future work, not in this phase).
+
+### D15 — New fields stored + displayed; dates free-text
+
+- **Decision**: `company`, `dates` (ONE free-text field, e.g. "2022–2024"),
+  and `product_domain` are collected on the entry screen, stored and
+  displayed — with NO effect on any analysis, scoring, or suggestion logic
+  this phase. Using them in suggestions is a future decision.
+- **Rationale**: product-owner answer 2026-11-04 — "ذخیره+نمایش؛ dates آزاد".
+  Honors the brief's hard constraint "do not change the five-part analysis
+  logic" while capturing the context fields for role level/domain later.
+- **Alternatives rejected**: feed them into suggestions now (violates the
+  constraint); structured start/end dates (more schema, no consumer yet).
+
+### D16 — Deterministic flag rule + wrap-merge
+
+- **Decision**: a candidate line is flagged "not an achievement" iff it has
+  NO action verb AND no parser signal (the existing need/feature/result/
+  metric/number marker lists, reused via one exported helper) AND opens with
+  a responsibility-style phrase ("Responsible for…", "Duties included…") —
+  the user then chooses keep or discard. Marker-less lines NOT matching the
+  flag rule are wrap continuations and join the previous candidate with one
+  space. Lines containing " and also " get a split suggestion at that
+  connector. The list marker (`-`/`•`) is stripped as formatting.
+- **Rationale**: product-owner answer 2026-11-04 — "قاعدهٔ ترکیبی +
+  wrap-merge". Reusing the parser's marker lists keeps one source of truth
+  and avoids a second heuristic vocabulary.
+- **Alternatives rejected**: flag every action-verb-less line (noise:
+  context lines like "Team of 3" get flagged); no auto-flagging (loses the
+  brief's "Responsible for weekly meetings" requirement).
+
+### D17 — VR-1 unchanged; the confirmed list caps at six (assumption)
+
+- **Decision**: FR-002's 1–6-bullets cap stays. The pasted TEXT is never
+  blocked (soft limit only); when the split produces more than six
+  candidates, the split screen asks the user to keep the best six
+  (delete/merge to fit) — matching the soft-limit message "you can add the
+  rest later" (a second entry can hold the rest).
+- **Rationale**: "do not change the five-part analysis logic" includes its
+  validation contract; the score API and VR-1 both assume ≤ 6 bullets.
+- **Alternatives rejected**: raise the cap for paste flow (changes a locked
+  rule and the score route's 1–6 bound); silently truncate (violates P2 —
+  the user decides what to keep).

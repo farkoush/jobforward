@@ -19,7 +19,17 @@ export async function POST(request: NextRequest) {
   if (!body.success) {
     return NextResponse.json({ ok: false, error: "ERR_INVALID_CHOICE" }, { status: 400 });
   }
-  const result = addEntry(body.data.type, body.data.title, body.data.bullets);
+  const result = addEntry(
+    body.data.type,
+    body.data.title,
+    body.data.bullets,
+    undefined,
+    {
+      company: body.data.company ?? null,
+      dates: body.data.dates ?? null,
+      product_domain: body.data.product_domain ?? null,
+    }
+  );
   if (result.error) {
     return NextResponse.json({ ok: false, error: result.error });
   }

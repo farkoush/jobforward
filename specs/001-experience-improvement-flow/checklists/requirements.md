@@ -13,11 +13,11 @@
 
 ## Requirement Completeness
 
-- [x] No [NEEDS CLARIFICATION] markers remain — **Phase 12 (2026-11-04): 3 of 3 markers raised and resolved the same day**
-- [x] Requirements are testable and unambiguous — coverage (§2.2) is diagnostic-only, unclaimed-remainder granularity, testable via the record
+- [x] No [NEEDS CLARIFICATION] markers remain — **Phase 13 (2026-11-04): 3 of 3 markers raised and resolved the same day**
+- [x] Requirements are testable and unambiguous — §4.2 rules are deterministic (flag rule, wrap-merge, user-decided edits)
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
-- [x] All acceptance scenarios are defined — coverage criteria added to §9
+- [x] All acceptance scenarios are defined — paste-and-split criteria added to §9
 - [x] Edge cases are identified
 - [x] Scope is clearly bounded
 - [x] Dependencies and assumptions identified
@@ -40,12 +40,12 @@
 - The Persian UI-message requirement («اگر عدد واقعی داری، همان را اضافه کن»)
   and Persian-first interface are anchored to the constitution (Principle 10).
 - Ready for `/speckit.clarify` or `/speckit.plan`.
-- **Phase 12 amendment (2026-11-04, chunk attribution §2.2)**: 3 NEEDS
-  CLARIFICATION markers raised and resolved same day by the product owner —
-  (1) coverage scope: diagnostic only, no effect on scores/questions/
-  completeness, rubric stays rubric-3.1.0; (2) chunk granularity: only the
-  unclaimed words (no re-segmentation — orphaned = maximal unclaimed spans);
-  (3) orphan presentation: separate gray "Not attributed to the framework"
-  block under the sentence, terminal unchanged. All checklist items pass.
-  Ready for `/speckit-plan` (then `/speckit-tasks` from T093; T091/T092
-  remain open).
+- **Phase 13 amendment (2026-11-04, hybrid entry paste-and-split §4.2)**:
+  3 NEEDS CLARIFICATION markers raised and resolved same day by the product
+  owner — (1) scope: WEB-ONLY (terminal entry flow/display and messages.py
+  unchanged, Phases 11–12 pattern); (2) new fields stored+displayed with no
+  analysis effect this phase, dates = single free-text field; (3) flag rule
+  = no action verb + no parser marker + responsibility-style opening, and
+  wrap continuations merge into the previous bullet. All checklist items
+  pass. Ready for `/speckit-plan` (then `/speckit-tasks` from T106;
+  T091/T092 remain open).

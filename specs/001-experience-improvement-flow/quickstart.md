@@ -225,3 +225,37 @@ Analyze a bullet with leftover text: under the one-sentence framework a gray
 "Not attributed to the framework" block lists each orphaned span with its
 quotation and reason; a fully covered bullet shows no block. The terminal CLI
 display is byte-identical to before Phase 12.
+
+## Addendum: Phase 13 validation (2026-11-04, spec §4.2)
+
+### Engine tests
+
+`cd web && npm run test:engine` — new split tests prove: `-`/`•` lines become
+candidates with the marker stripped; a wrap continuation (no marker, no flag
+match) joins the previous candidate with a single space; "Responsible for
+weekly meetings" is flagged (no action verb, no parser signal, responsibility
+opening); an action-bearing line is NOT flagged; "…, and also …" gets a split
+suggestion; the paste text is never rewritten (every candidate is a verbatim
+substring modulo marker strip and line joins).
+
+### Browser walkthrough (http://localhost:3100)
+
+1. Add an experience: fill title/company/dates ("2022–2024")/product domain,
+   then paste a 9-line experience in the big box → the soft-limit message
+   "Put your best achievements first; you can add the rest later." appears
+   and input is NOT blocked.
+2. Split: "I found 6 achievements. Is that correct?" with one line flagged
+   ("Responsible for weekly meetings") → Discard it; one line offers a split
+   at " and also " → accept; merge two short bullets; delete one → exactly 6
+   remain → Confirm.
+3. Analysis runs per bullet ("Achievement 2 of 6" in the header) with the
+   ORIGINAL pasted text visible at the top of the analysis screens; scores
+   and the improvement loop behave exactly as before (Phase 11/§6.1).
+4. The stored entry shows company/dates/domain; old sessions (saved before
+   Phase 13) still load.
+
+### Gates
+
+`tsc --noEmit` clean · `npm run test:engine` green · parity PARITY OK
+(unchanged) · `npm run test:byok` 23/24 baseline · `npm run scan:byok`
+passed. The terminal CLI is untouched.

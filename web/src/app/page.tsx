@@ -43,6 +43,7 @@ import {
   buildEvaluatorUserPrompt,
 } from "@/lib/byok/prompts";
 import { buildCoverage, extractParts } from "@/engine/flow/parts";
+import { splitBullets, type SplitCandidate } from "@/engine/flow/entry_split";
 import {
   EvaluatorOutputError,
   validateResponse,
@@ -56,8 +57,8 @@ type Screen =
   | "menu"
   | "byok_settings"
   | "entry_type"
-  | "entry_title"
-  | "entry_bullets"
+  | "entry_details"
+  | "entry_split"
   | "score"
   | "bullet_list"
   | "bullet_gate"
@@ -125,11 +126,16 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  // Entry collection
+  // Entry collection (Phase 13 hybrid: paste-and-split, spec §4.2)
   const [entryType, setEntryType] = useState<string>("");
   const [title, setTitle] = useState<string>("");
-  const [draftBullets, setDraftBullets] = useState<string[]>([]);
-  const [bulletInput, setBulletInput] = useState<string>("");
+  const [company, setCompany] = useState<string>("");
+  const [dates, setDates] = useState<string>("");
+  const [domain, setDomain] = useState<string>("");
+  const [pasted, setPasted] = useState<string>("");
+  const [splitList, setSplitList] = useState<SplitCandidate[]>([]);
+  const [splitInputFor, setSplitInputFor] = useState<number | null>(null);
+  const [splitInputValue, setSplitInputValue] = useState<string>("");
 
   // Bullet improvement flow
   const [askedThisRun, setAskedThisRun] = useState<Set<number>>(new Set());
@@ -191,9 +197,14 @@ export default function Home() {
     logEvent("session_restart", null, null);
     clearSession();
     setSession(null);
-    setDraftBullets([]);
     setEntryType("");
     setTitle("");
+    setCompany("");
+    setDates("");
+    setDomain("");
+    setPasted("");
+    setSplitList([]);
+    setSplitInputFor(null);
     setAskedThisRun(new Set());
     setMatch(null);
     setPostingText("");
@@ -356,49 +367,126 @@ export default function Home() {
   function chooseType(t: string) {
     setEntryType(t);
     logEvent("entry_type", t, null);
-    go("entry_title");
+    go("entry_details");
   }
 
-  function submitTitle() {
-    const trimmed = title.trim();
-    if (!trimmed) {
+  /** Phase 13 (spec §4.2): run the deterministic split on the pasted
+   * experience and move to the list-editing screen. Text is never rewritten
+   * (P1); the per-candidate English boundary fires here (analyze F4). */
+  function splitPaste() {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
       setError(msg.ERR_INVALID_TITLE);
       return;
     }
-    logEvent("entry_title", null, { title: trimmed });
-    go("entry_bullets");
-  }
-
-  async function addBulletLine() {
-    const line = bulletInput.trim();
-    setBulletInput("");
-    if (!line) {
-      // Empty input finishes the list (terminal: Enter on empty line).
-      await finishBullets();
+    const text = pasted.trim();
+    if (!text) {
+      setError(msg.ADD_PASTE_EMPTY);
       return;
     }
-    if (containsNonEnglish(line)) {
+    logEvent("entry_title", null, { title: trimmedTitle });
+    const candidates = splitBullets(text);
+    if (candidates.some((c) => containsNonEnglish(c.text))) {
       setError(msg.ERR_NON_ENGLISH_INPUT);
       return;
     }
-    if (draftBullets.length >= 6) {
-      setError(msg.ERR_TOO_MANY_BULLETS);
-      return;
-    }
     setError(null);
-    const next = [...draftBullets, line];
-    setDraftBullets(next);
-    logEvent("bullet_added", null, { n: next.length });
-    if (next.length === 6) await finishBullets();
+    setSplitList(candidates);
+    setSplitInputFor(null);
+    setSplitInputValue("");
+    go("entry_split");
   }
 
-  async function finishBullets() {
-    if (draftBullets.length === 0) {
-      // Terminal: an empty first line saves the entry as a draft (FR-003).
+  function updateCandidateAt(i: number, patch: Partial<SplitCandidate>) {
+    setSplitList((list) =>
+      list.map((c, idx) => (idx === i ? { ...c, ...patch } : c))
+    );
+  }
+
+  function removeCandidateAt(i: number) {
+    setSplitList((list) => list.filter((_, idx) => idx !== i));
+    setSplitInputFor(null);
+  }
+
+  function mergeWithNext(i: number) {
+    setSplitList((list) => {
+      if (i >= list.length - 1) return list;
+      const joinedText = `${list[i].text} ${list[i + 1].text}`;
+      const joined: SplitCandidate = {
+        ...list[i],
+        text: joinedText,
+        splitSuggested: /\band also\b/i.test(joinedText),
+      };
+      return [...list.slice(0, i), joined, ...list.slice(i + 2)];
+    });
+  }
+
+  /** Split ONE candidate into TWO at a verbatim point (spec §4.2 step 5):
+   * the user types the first words of the second achievement; the words are
+   * only moved, never rewritten (P2). */
+  function splitCandidateAt(i: number) {
+    const target = splitList[i];
+    const needle = splitInputValue.trim();
+    if (!target || !needle) return;
+    const idx = target.text.indexOf(needle);
+    if (idx <= 0) {
+      setError(msg.SPLIT_NOT_FOUND);
+      return;
+    }
+    const first = target.text.slice(0, idx).trim();
+    const second = target.text.slice(idx).trim();
+    if (!first || !second) return;
+    setSplitList((list) => [
+      ...list.slice(0, i),
+      { text: first, flagged: false, splitSuggested: /\band also\b/i.test(first) },
+      { text: second, flagged: false, splitSuggested: /\band also\b/i.test(second) },
+      ...list.slice(i + 1),
+    ]);
+    setSplitInputFor(null);
+    setSplitInputValue("");
+    setError(null);
+  }
+
+  /** Split at the suggested " and also " connector (the connector itself is
+   * dropped as a join word — segmentation, not rewriting). */
+  function splitAtAlso(i: number) {
+    const target = splitList[i];
+    if (!target) return;
+    const m = target.text.match(/\s*and also\s*/i);
+    if (!m || m.index === undefined) return;
+    const first = target.text.slice(0, m.index).trim();
+    const second = target.text.slice(m.index + m[0].length).trim();
+    if (!first || !second) return;
+    setSplitList((list) => [
+      ...list.slice(0, i),
+      { text: first, flagged: false, splitSuggested: false },
+      { text: second, flagged: false, splitSuggested: /\band also\b/i.test(second) },
+      ...list.slice(i + 1),
+    ]);
+  }
+
+  async function confirmSplit() {
+    const bullets = splitList.map((c) => c.text);
+    const trimmedTitle = title.trim();
+    if (bullets.length > 6) {
+      // VR-1 stays (research D17): the confirmed list caps at six — the user
+      // decides what to keep; the textarea itself is never blocked.
+      setError(msg.SPLIT_TOO_MANY);
+      return;
+    }
+    if (bullets.length === 0) {
+      // Existing draft path: an entry with no bullets is a draft (FR-003).
       setBusy(true);
       const draft = await apiPost<{ entry: StoredEntry; is_draft: boolean }>(
         "/api/entry",
-        { type: entryType, title: title.trim(), bullets: [] }
+        {
+          type: entryType,
+          title: trimmedTitle,
+          bullets: [],
+          company: company.trim() || undefined,
+          dates: dates.trim() || undefined,
+          product_domain: domain.trim() || undefined,
+        }
       );
       setBusy(false);
       if (draft.ok) {
@@ -412,11 +500,18 @@ export default function Home() {
       go("menu");
       return;
     }
+    if (bullets.some((b) => containsNonEnglish(b))) {
+      setError(msg.ERR_NON_ENGLISH_INPUT);
+      return;
+    }
     setBusy(true);
     const result = await apiPost<{ entry: StoredEntry; is_draft: boolean }>("/api/entry", {
       type: entryType,
-      title: title.trim(),
-      bullets: draftBullets,
+      title: trimmedTitle,
+      bullets,
+      company: company.trim() || undefined,
+      dates: dates.trim() || undefined,
+      product_domain: domain.trim() || undefined,
     });
     setBusy(false);
     if (!result.ok) {
@@ -432,6 +527,7 @@ export default function Home() {
     const stored = result.entry;
     updateSession((s) => {
       s.entry = stored;
+      s.sourceText = pasted.trim();
     });
     setSession(getSession());
     logEvent("entry_saved", null, { bullets: stored.bullets.length, draft: result.is_draft });
@@ -844,7 +940,7 @@ export default function Home() {
             the model in use on the same screen; hidden when the deterministic
             engine runs or BYOK is off. */}
         <ModelBanner
-          active={["entry_bullets", "score", "bullet_list", "merge"].includes(
+          active={["entry_split", "score", "bullet_list", "merge"].includes(
             screen
           )}
         />
@@ -877,9 +973,14 @@ export default function Home() {
             entry={entry}
             onAdd={() => {
               logEvent("menu_choice", "add_experience");
-              setDraftBullets([]);
               setEntryType("");
               setTitle("");
+              setCompany("");
+              setDates("");
+              setDomain("");
+              setPasted("");
+              setSplitList([]);
+              setSplitInputFor(null);
               go("entry_type");
             }}
             onMatch={() => {
@@ -909,54 +1010,203 @@ export default function Home() {
             onPick={chooseType}
           />
         )}
-        {screen === "entry_title" && (
+        {screen === "entry_details" && (
           <div>
-            <h1 className="mb-4 text-2xl font-semibold">{msg.ADD_TITLE}</h1>
-            <input
-              className="text-input mb-6"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              autoFocus
-            />
-            <button className="btn-primary" onClick={submitTitle}>
-              Continue
+            <h1 className="mb-4 text-2xl font-semibold">{msg.ADD_FIELDS_TITLE}</h1>
+            <label className="mb-3 block">
+              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                {msg.ADD_TITLE}
+              </span>
+              <input
+                className="text-input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                autoFocus
+              />
+            </label>
+            <label className="mb-3 block">
+              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                {msg.ADD_FIELD_COMPANY}
+              </span>
+              <input
+                className="text-input"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              />
+            </label>
+            <label className="mb-3 block">
+              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                {msg.ADD_FIELD_DATES}
+              </span>
+              <input
+                className="text-input"
+                value={dates}
+                onChange={(e) => setDates(e.target.value)}
+              />
+            </label>
+            <label className="mb-6 block">
+              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                {msg.ADD_FIELD_DOMAIN}
+              </span>
+              <input
+                className="text-input"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+              />
+            </label>
+            <label className="mb-2 block">
+              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                {msg.ADD_PASTE_LABEL}
+              </span>
+              <p className="mb-2 text-[14px] text-neutral-700">
+                {msg.ADD_PASTE_INSTRUCTION}
+              </p>
+              <textarea
+                className="text-input"
+                rows={10}
+                value={pasted}
+                onChange={(e) => setPasted(e.target.value)}
+                placeholder="Paste in English"
+              />
+              <p className="mt-2 text-[13px] text-neutral-600">
+                {msg.ADD_PASTE_EXAMPLE}
+              </p>
+              {pasted.split("\n").filter((l) => l.trim().length > 0).length > 8 && (
+                <p className="mt-2 text-[14px] font-medium text-amber-700">
+                  {msg.SOFT_LIMIT_NOTE}
+                </p>
+              )}
+            </label>
+            <button className="btn-primary" onClick={splitPaste}>
+              {msg.ADD_PASTE_SPLIT}
             </button>
           </div>
         )}
-        {screen === "entry_bullets" && (
+        {screen === "entry_split" && (
           <div>
-            <h1 className="mb-2 text-2xl font-semibold">{msg.ADD_BULLET_PROMPT}</h1>
-            <p className="mb-4 text-neutral-700">
-              {fmt(msg.ADD_BULLET_INPUT, { n: draftBullets.length + 1 })}
-            </p>
-            <ul className="mb-4 space-y-2">
-              {draftBullets.map((b, i) => (
-                <li key={i} className="card text-[16px]">
-                  {b}
+            <h1 className="mb-4 text-2xl font-semibold">
+              {fmt(msg.SPLIT_FOUND, { n: splitList.length })}
+            </h1>
+            {splitList.length > 6 && (
+              <p className="mb-4 text-[14px] font-medium text-amber-700">
+                {msg.SPLIT_TOO_MANY}
+              </p>
+            )}
+            <ol className="mb-6 space-y-3">
+              {splitList.map((c, i) => (
+                <li key={i} className="card">
+                  <p className="text-[16px]">{c.text}</p>
+                  {c.flagged && (
+                    <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-2">
+                      <p className="text-[14px] text-neutral-800">
+                        {msg.SPLIT_FLAG_PROMPT}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          className="btn-secondary"
+                          onClick={() => updateCandidateAt(i, { flagged: false })}
+                        >
+                          {msg.SPLIT_KEEP}
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          onClick={() => removeCandidateAt(i)}
+                        >
+                          {msg.SPLIT_DISCARD}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {c.splitSuggested && (
+                    <div className="mt-2 rounded-md border border-sky-300 bg-sky-50 p-2">
+                      <p className="text-[14px] text-neutral-800">
+                        {msg.SPLIT_SUGGESTION}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          className="btn-secondary"
+                          onClick={() => splitAtAlso(i)}
+                        >
+                          {msg.SPLIT_ACCEPT}
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          onClick={() => updateCandidateAt(i, { splitSuggested: false })}
+                        >
+                          {msg.SPLIT_KEEP_ONE}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {i < splitList.length - 1 && (
+                      <button
+                        className="btn-secondary"
+                        onClick={() => mergeWithNext(i)}
+                      >
+                        {msg.SPLIT_MERGE}
+                      </button>
+                    )}
+                    <button
+                      className="btn-secondary"
+                      onClick={() => {
+                        setSplitInputFor(i);
+                        setSplitInputValue("");
+                      }}
+                    >
+                      {msg.SPLIT_ACCEPT}
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => removeCandidateAt(i)}
+                    >
+                      {msg.SPLIT_DELETE}
+                    </button>
+                  </div>
+                  {splitInputFor === i && (
+                    <div className="mt-2">
+                      <p className="text-[14px] text-neutral-800">{msg.SPLIT_WHERE}</p>
+                      <input
+                        className="text-input mt-1"
+                        value={splitInputValue}
+                        onChange={(e) => setSplitInputValue(e.target.value)}
+                        autoFocus
+                      />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          className="btn-primary"
+                          onClick={() => splitCandidateAt(i)}
+                        >
+                          {msg.SPLIT_ACCEPT}
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          onClick={() => setSplitInputFor(null)}
+                        >
+                          {msg.SPLIT_KEEP_ONE}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
-            </ul>
-            <textarea
-              className="text-input mb-4"
-              rows={3}
-              value={bulletInput}
-              onChange={(e) => setBulletInput(e.target.value)}
-              placeholder="Write in English"
-              autoFocus
-            />
-            <div className="flex flex-wrap gap-3">
-              <button className="btn-primary" onClick={() => void addBulletLine()}>
-                Add bullet
-              </button>
-              <button
-                className="btn-secondary"
-                onClick={() => void finishBullets()}
-              >
-                Finish bullets
-              </button>
-            </div>
+            </ol>
+            <button className="btn-primary" onClick={() => void confirmSplit()}>
+              {msg.SPLIT_CONFIRM}
+            </button>
           </div>
         )}
+        {(screen === "score" || screen === "bullet_list" || screen === "bullet_gate") &&
+          session?.sourceText && (
+            <details className="mb-4 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+              <summary className="cursor-pointer text-[13px] font-medium text-neutral-600">
+                {msg.SOURCE_PASTE_TITLE}
+              </summary>
+              <pre className="mt-2 whitespace-pre-wrap text-[13px] text-neutral-700">
+                {session.sourceText}
+              </pre>
+            </details>
+          )}
         {screen === "score" && entry && (
           <ScoreView entry={entry} onContinue={() => go("bullet_list")} />
         )}

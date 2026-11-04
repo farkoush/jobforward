@@ -21,6 +21,41 @@ export const ADD_TITLE = "Enter the experience title:";
 export const ADD_BULLET_PROMPT = "Write a bullet for this experience (1 to 6 items).";
 export const ADD_BULLET_INPUT = "Bullet {n} (press Enter on an empty line to finish):";
 export const ADD_BULLET_DONE = "Empty line: bullets finished.";
+
+// --- Phase 13 (spec §4.2): hybrid entry — paste-and-split (web-only; the
+// terminal's ADD_* texts above stay as they are) ---
+export const ADD_FIELDS_TITLE = "Enter the experience details:";
+export const ADD_FIELD_COMPANY = "Company:";
+export const ADD_FIELD_DATES = "Dates (e.g. 2022-2024):";
+export const ADD_FIELD_DOMAIN =
+  "Product domain (e.g. fintech, healthcare, e-commerce):";
+export const ADD_PASTE_LABEL = "Achievement text:";
+export const ADD_PASTE_INSTRUCTION =
+  "Write each achievement on a separate line, starting with - or •";
+export const ADD_PASTE_EXAMPLE =
+  "Example: New users could not find the items they saved, so I rebuilt the saved items page, resulting in more users coming back.";
+export const ADD_PASTE_EMPTY = "Paste your experience text first.";
+export const ADD_PASTE_SPLIT = "Split into achievements";
+export const SOFT_LIMIT_NOTE =
+  "Put your best achievements first; you can add the rest later.";
+export const SPLIT_FOUND = "I found {n} achievements. Is that correct?";
+export const SPLIT_FLAG_PROMPT =
+  "This line does not look like an achievement — keep it or discard it?";
+export const SPLIT_SUGGESTION =
+  "This line may hold two achievements — split it into two?";
+export const SPLIT_WHERE = "Type the first words of the second achievement:";
+export const SPLIT_NOT_FOUND =
+  "Those words are not in this line — check and try again.";
+export const SPLIT_KEEP = "Keep";
+export const SPLIT_DISCARD = "Discard";
+export const SPLIT_ACCEPT = "Split";
+export const SPLIT_KEEP_ONE = "Keep as one";
+export const SPLIT_MERGE = "Merge with next";
+export const SPLIT_DELETE = "Delete";
+export const SPLIT_TOO_MANY =
+  "Keep your best 6 achievements — delete or merge the rest.";
+export const SPLIT_CONFIRM = "Confirm and analyze";
+export const SOURCE_PASTE_TITLE = "Your original text";
 export const DRAFT_NOTICE = "The experience was saved as a draft (no bullets).";
 export const DRAFT_SUGGESTION = "Suggestion: add at least one description bullet so this experience can be scored.";
 export const ENTRY_SAVED_AS_DRAFT = "The whole experience was saved as a draft. You can finish it later.";

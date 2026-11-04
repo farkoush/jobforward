@@ -147,6 +147,12 @@ export interface ExperienceEntry {
   entry_score: number | null;
   rubric_version: string | null;
   deleted: boolean;
+  /** Phase 13 (spec §4.2): entry context fields — stored + displayed only,
+   * NO effect on any analysis logic (research D15); optional so old entries
+   * load unchanged. */
+  company?: string | null;
+  dates?: string | null;
+  product_domain?: string | null;
 }
 
 /** Draft iff no bullets (FR-003) or the user saved it as a draft. */

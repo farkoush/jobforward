@@ -266,3 +266,38 @@ Invariants (validated by tests, not enforced at parse time):
   record is derived output recomputed on every analysis of that bullet;
 - `coverage` may be removed in a later change without a document migration
   (self-contained optional field).
+
+## Addendum: Phase 13 hybrid entry (2026-11-04, web-only)
+
+Spec §4.2. The web entry gains three optional entry fields; everything else
+about persisted shapes is unchanged. Old documents and old localStorage
+sessions load unchanged (fields absent by default; never backfilled — P5).
+
+### ExperienceEntry (web engine) — new optional fields
+
+| Field | Type | Rules |
+|---|---|---|
+| company | str \| null | displayed only; no analysis effect this phase (D15) |
+| dates | str \| null | ONE free-text field (e.g. "2022–2024"); displayed only |
+| product_domain | str \| null | e.g. fintech / healthcare / e-commerce; displayed only |
+
+`AddEntryRequestSchema` accepts them as optional strings; `addEntry` passes
+them through (VR-1 1–6 bullets and VR-8 English boundary UNCHANGED — D17).
+
+### Session-only (not persisted to the entry)
+
+- `sourceText` (session): the user's original pasted text, kept verbatim so
+  it stays visible at the top of every analysis screen (§4.2). Display-only;
+  it is not written to the stored entry and never parsed after the split.
+
+### SplitCandidate (transient UI stage — not persisted)
+
+| Field | Type | Rules |
+|---|---|---|
+| text | str | verbatim line(s) from the paste; the leading `-`/`•` marker is stripped as formatting; wrap continuations re-join with a single space — text is never rewritten (P1) |
+| flagged | bool | flag rule (D16): no action verb AND no parser signal AND responsibility-style opening |
+| splitSuggested | bool | the line contains " and also " (split point at the connector; the user decides) |
+
+Confirm produces the final `bullets: string[]` (1–6, VR-1) which enters the
+EXISTING per-bullet pipeline unchanged; analysis output for a given bullet
+text is identical whether it came from paste-and-split or one-by-one entry.

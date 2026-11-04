@@ -93,6 +93,10 @@ export interface StoredEntry {
   draft_reason: string | null;
   entry_score: number | null;
   rubric_version: string | null;
+  /** Phase 13 (spec §4.2): entry context fields — stored + displayed only. */
+  company?: string | null;
+  dates?: string | null;
+  product_domain?: string | null;
 }
 
 export interface SessionState {
@@ -100,6 +104,10 @@ export interface SessionState {
   startedAt: string;
   consentAt: string | null;
   entry: StoredEntry | null;
+  /** Phase 13 (spec §4.2): the user's ORIGINAL pasted text, kept verbatim so
+   * it stays visible at the top of every analysis screen — display-only,
+   * never parsed after the split and never persisted into the entry. */
+  sourceText?: string | null;
 }
 
 export function getSession(): SessionState | null {
