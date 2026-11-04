@@ -22,13 +22,13 @@ Prompt-id categories (contracts/interface-contracts.md):
 MENU_IDLE = "What would you like to do today? 1) Add an experience 2) Match a job posting 3) Finish for now"
 
 # --- Entry collection (ADD_*) ---
-ADD_TYPE = "Select experience type: 1) Job 2) Project 3) Course 4) Side work"
-ADD_TITLE = "Enter the experience title:"
-ADD_BULLET_PROMPT = "Write a bullet for this experience (1 to 6 items)."
-ADD_BULLET_INPUT = "Bullet {n} (press Enter on an empty line to finish):"
-ADD_BULLET_DONE = "Empty line: bullets finished."
-DRAFT_NOTICE = "The experience was saved as a draft (no bullets)."
-DRAFT_SUGGESTION = "Suggestion: add at least one description bullet so this experience can be scored."
+ADD_TYPE = "What kind of experience is this? 1) Job 2) Project 3) Course 4) Side work"
+ADD_TITLE = "Give this experience a short title:"
+ADD_BULLET_PROMPT = "Now your achievements - write 1 to 6 bullets for this experience."
+ADD_BULLET_INPUT = "Bullet {n} (press Enter on an empty line when you're done):"
+ADD_BULLET_DONE = "Got it - your bullets are in."
+DRAFT_NOTICE = "Saved as a draft for now (no bullets) - you can finish it anytime."
+DRAFT_SUGGESTION = "Add at least one bullet and I can score this experience."
 ENTRY_SAVED_AS_DRAFT = "The whole experience was saved as a draft. You can finish it later."
 
 # --- Rewrite gate + questions (ASK_*, FR-009; finalized framework §6) ---
@@ -201,7 +201,7 @@ SCORE_MERGE_LINE = "Overlap warning active for this experience."
 # --- Edit bullet (SCORE_SHOWN menu) ---
 EDIT_BULLET_PROMPT = "Which bullet do you want to edit? Enter the bullet number:"
 EDIT_BULLET_TEXT = "Write the new text for this bullet (English only):"
-EDIT_BULLET_DONE = "Bullet updated. It is marked 'edited' and will be re-analyzed."
+EDIT_BULLET_DONE = "Bullet updated - I'll re-analyze it now."
 
 # --- SCORE_SHOWN menu ---
 MENU_SCORE_SHOWN = (
@@ -210,26 +210,28 @@ MENU_SCORE_SHOWN = (
 )
 
 # --- Exit / session ---
-GOODBYE = "Session ended. All data stays on this computer."
+GOODBYE = "That's it for now. All your data stays on this computer."
 PROMPT_CONTINUE = ">"
 
 # --- Errors (ERR_*, FR-014/FR-002/FR-017) ---
 ERR_TOO_MANY_BULLETS = (
-    "An experience can have at most 6 bullets. Please reduce or combine them."
+    "An experience can hold up to 6 bullets. Keep your best ones - delete or combine the rest."
 )
 ERR_NON_ENGLISH_INPUT = (
-    "Only English text is accepted here. Please write your bullet or answer in English."
+    "This part works in English only - write your answer in English and we'll keep going."
 )
 ERR_INVALID_EVALUATOR = (
-    "The analysis returned an invalid result. Your data is safe; the tool will retry once."
+    "Something went wrong on my side. Your data is safe - let me try once more."
 )
 ERR_EVALUATOR_FAILURE = (
-    "The analysis failed after one retry. Your data is unchanged. Please try again later."
+    "I tried twice, but the analysis didn't go through. "
+    "Your data is unchanged - please try again a bit later."
 )
 ERR_MATCHER_FAILURE = (
-    "The job description analysis failed after one retry. Your data is unchanged."
+    "I couldn't finish the job-posting analysis this time. "
+    "Your data is unchanged - please try again later."
 )
-ERR_INVALID_TITLE = "The title cannot be empty."
+ERR_INVALID_TITLE = "Looks like the title is missing - add a short title and we'll continue."
 ERR_ENV = "Environment error (for example, PYTHONUTF8 is disabled)."
-ERR_NO_ENTRY = "There is no experience to work with yet."
-ERR_INVALID_CHOICE = "That was not a valid choice. Please pick one of the numbers shown."
+ERR_NO_ENTRY = "We don't have an experience yet - let's add your first one."
+ERR_INVALID_CHOICE = "That didn't match one of the options - pick one of the numbers shown."

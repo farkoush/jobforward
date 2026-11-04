@@ -16,11 +16,11 @@ export function fmt(template: string, params: Record<string, string | number>): 
 export const MENU_IDLE = "What would you like to do today? 1) Add an experience 2) Match a job posting 3) Finish for now";
 
 // --- Entry collection (ADD_*) ---
-export const ADD_TYPE = "Select experience type: 1) Job 2) Project 3) Course 4) Side work";
-export const ADD_TITLE = "Enter the experience title:";
-export const ADD_BULLET_PROMPT = "Write a bullet for this experience (1 to 6 items).";
-export const ADD_BULLET_INPUT = "Bullet {n} (press Enter on an empty line to finish):";
-export const ADD_BULLET_DONE = "Empty line: bullets finished.";
+export const ADD_TYPE = "What kind of experience is this? 1) Job 2) Project 3) Course 4) Side work";
+export const ADD_TITLE = "Give this experience a short title:";
+export const ADD_BULLET_PROMPT = "Now your achievements - write 1 to 6 bullets for this experience.";
+export const ADD_BULLET_INPUT = "Bullet {n} (press Enter on an empty line when you're done):";
+export const ADD_BULLET_DONE = "Got it - your bullets are in.";
 
 // --- Phase 13 (spec §4.2): hybrid entry — paste-and-split (web-only; the
 // terminal's ADD_* texts above stay as they are) ---
@@ -34,7 +34,7 @@ export const ADD_PASTE_INSTRUCTION =
   "Write each achievement on a separate line, starting with - or •";
 export const ADD_PASTE_EXAMPLE =
   "Example: New users could not find the items they saved, so I rebuilt the saved items page, resulting in more users coming back.";
-export const ADD_PASTE_EMPTY = "Paste your experience text first.";
+export const ADD_PASTE_EMPTY = "Looks like the text box is still empty - paste your experience and we'll take it from there.";
 export const ADD_PASTE_SPLIT = "Split into achievements";
 export const SOFT_LIMIT_NOTE =
   "Put your best achievements first; you can add the rest later.";
@@ -54,10 +54,10 @@ export const SPLIT_MERGE = "Merge with next";
 export const SPLIT_DELETE = "Delete";
 export const SPLIT_TOO_MANY =
   "Keep your best 6 achievements — delete or merge the rest.";
-export const SPLIT_CONFIRM = "Confirm and analyze";
+export const SPLIT_CONFIRM = "Let's see what we get";
 export const SOURCE_PASTE_TITLE = "Your original text";
-export const DRAFT_NOTICE = "The experience was saved as a draft (no bullets).";
-export const DRAFT_SUGGESTION = "Suggestion: add at least one description bullet so this experience can be scored.";
+export const DRAFT_NOTICE = "Saved as a draft for now (no bullets) - you can finish it anytime.";
+export const DRAFT_SUGGESTION = "Add at least one bullet and I can score this experience.";
 export const ENTRY_SAVED_AS_DRAFT = "The whole experience was saved as a draft. You can finish it later.";
 
 // --- Rewrite gate + questions (ASK_*, FR-009; finalized framework §6) ---
@@ -315,29 +315,29 @@ export const SCORE_MERGE_LINE = "Overlap warning active for this experience.";
 // --- Edit bullet (SCORE_SHOWN menu) ---
 export const EDIT_BULLET_PROMPT = "Which bullet do you want to edit? Enter the bullet number:";
 export const EDIT_BULLET_TEXT = "Write the new text for this bullet (English only):";
-export const EDIT_BULLET_DONE = "Bullet updated. It is marked 'edited' and will be re-analyzed.";
+export const EDIT_BULLET_DONE = "Bullet updated - I'll re-analyze it now.";
 
 // --- SCORE_SHOWN menu ---
 export const MENU_SCORE_SHOWN =
   "What next? 1) Edit a bullet 2) Delete a bullet 3) Delete this experience 4) Copy this experience 5) Continue (finish this experience)";
 
 // --- Exit / session ---
-export const GOODBYE = "Session ended. All data stays on this computer.";
+export const GOODBYE = "That's it for now. All your data stays on this computer.";
 export const PROMPT_CONTINUE = ">";
 
 // --- Errors (ERR_*, FR-014/FR-002/FR-017) ---
 export const ERR_TOO_MANY_BULLETS =
-  "An experience can have at most 6 bullets. Please reduce or combine them.";
+  "An experience can hold up to 6 bullets. Keep your best ones - delete or combine the rest.";
 export const ERR_NON_ENGLISH_INPUT =
-  "Only English text is accepted here. Please write your bullet or answer in English.";
+  "This part works in English only - write your answer in English and we'll keep going.";
 export const ERR_INVALID_EVALUATOR =
-  "The analysis returned an invalid result. Your data is safe; the tool will retry once.";
+  "Something went wrong on my side. Your data is safe - let me try once more.";
 export const ERR_EVALUATOR_FAILURE =
-  "The analysis failed after one retry. Your data is unchanged. Please try again later.";
+  "I tried twice, but the analysis didn't go through. Your data is unchanged - please try again a bit later.";
 export const ERR_MATCHER_FAILURE =
-  "The job description analysis failed after one retry. Your data is unchanged.";
-export const ERR_INVALID_TITLE = "The title cannot be empty.";
+  "I couldn't finish the job-posting analysis this time. Your data is unchanged - please try again later.";
+export const ERR_INVALID_TITLE = "Looks like the title is missing - add a short title and we'll continue.";
 export const ERR_ENV = "Environment error (for example, PYTHONUTF8 is disabled).";
-export const ERR_NO_ENTRY = "There is no experience to work with yet.";
+export const ERR_NO_ENTRY = "We don't have an experience yet - let's add your first one.";
 export const ERR_INVALID_CHOICE =
-  "That was not a valid choice. Please pick one of the numbers shown.";
+  "That didn't match one of the options - pick one of the numbers shown.";
