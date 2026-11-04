@@ -943,9 +943,9 @@ export default function Home() {
 
         {needsGate && (
           <div>
-            <h1 className="mb-2 text-2xl font-semibold">Access code</h1>
+            <h1 className="mb-2 text-2xl font-semibold">Hi there!</h1>
             <p className="mb-4 text-neutral-700">
-              Please enter the shared password to start the session.
+              Enter the access code you were given, and we'll get started.
             </p>
             <input
               className="text-input mb-4"
@@ -958,7 +958,7 @@ export default function Home() {
               autoFocus
             />
             <button className="btn-primary" onClick={() => void submitGate()}>
-              Continue
+              Let's go
             </button>
           </div>
         )}
@@ -1550,14 +1550,13 @@ function errorText(
 function Welcome({ onAccept }: { onAccept: () => void }) {
   return (
     <div>
-      <h1 className="mb-4 text-3xl font-semibold">Welcome to Job Forward</h1>
+      <h1 className="mb-4 text-3xl font-semibold">Let's make your experience shine.</h1>
       <div className="card mb-6 text-[16px]">
         <p className="mb-3">
-          This tool helps you improve one experience entry for your resume and
-          see the skills in a job posting.
+          I'll help you turn one of your experiences into clear, strong resume bullets — and show you which skills a job posting is really asking for.
         </p>
         <p className="mb-3">
-          Before we start, please agree to these points:
+          Before we begin, a quick heads-up:
         </p>
         <ul className="mb-3 list-disc space-y-2 pl-5">
           <li>I take part in a usability test of this tool.</li>
@@ -1569,7 +1568,7 @@ function Welcome({ onAccept }: { onAccept: () => void }) {
         </p>
       </div>
       <button className="btn-primary" onClick={onAccept}>
-        I agree — Start
+        Sounds good — Let's Start
       </button>
     </div>
   );
@@ -1602,7 +1601,7 @@ function Menu({
           2) Match a job posting
         </button>
         <button className="btn-secondary" onClick={onExit}>
-          3) Exit
+          3) Finish for now
         </button>
         <button className="btn-secondary !border-neutral-400 text-[15px] text-neutral-600" onClick={onByok}>
           Model settings (advanced — use your own API key)

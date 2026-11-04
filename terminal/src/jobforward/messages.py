@@ -19,7 +19,7 @@ Prompt-id categories (contracts/interface-contracts.md):
 """
 
 # --- Idle menu ---
-MENU_IDLE = "What do you want to do? 1) Add an experience 2) Match a job posting 3) Exit"
+MENU_IDLE = "What would you like to do today? 1) Add an experience 2) Match a job posting 3) Finish for now"
 
 # --- Entry collection (ADD_*) ---
 ADD_TYPE = "Select experience type: 1) Job 2) Project 3) Course 4) Side work"
