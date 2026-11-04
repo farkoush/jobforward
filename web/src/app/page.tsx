@@ -916,11 +916,9 @@ export default function Home() {
         </header>
 
         {busy && (
-          <div
-            role="status"
-            className="msg-info mb-6"
-          >
-            Working…
+          <div role="status" className="msg-info mb-6 flex items-center gap-2">
+            <span className="pulse-dot" aria-hidden="true" />
+            Analyzing…
           </div>
         )}
         {error && errorText(error, matchParams) && (
@@ -1402,7 +1400,7 @@ export default function Home() {
                       {rows.map((row, i) => (
                         <tr key={i} className="border-b border-neutral-200 align-top">
                           <td className="py-2 pr-3 font-medium">
-                            {row.name}
+                            <span className="tech-tag">{row.name}</span>
                             {row.default_priority && !row.is_one_of ? " (default)" : ""}
                           </td>
                           <td className="py-2 pr-3">
@@ -1470,7 +1468,9 @@ export default function Home() {
                 )}
                 {match.report.soft_rows.map((row, i) => (
                   <tr key={i} className="border-b border-neutral-200 align-top">
-                    <td className="py-2 pr-3 font-medium">{row.label_en}</td>
+                    <td className="py-2 pr-3 font-medium">
+                      <span className="tech-tag">{row.label_en}</span>
+                    </td>
                     <td className="py-2 pr-3">{row.group_code}</td>
                     <td className="py-2 pr-3 text-neutral-700">{row.evidence}</td>
                     <td className="py-2 pr-3">{priorityLabel(row.priority)}</td>
@@ -1621,12 +1621,14 @@ function EntryPanel({ entry }: { entry: StoredEntry }) {
       <p className="mb-1 font-medium">
         {entry.title || "(no title)"} — {entry.bullets.length} bullet
         {entry.bullets.length === 1 ? "" : "s"}
-        {entry.entry_score !== null && !isDraft
-          ? ` — ${fmt(msg.SCORE_EXPERIENCE, {
+        {entry.entry_score !== null && !isDraft && (
+          <span className="font-mono">
+            {` — ${fmt(msg.SCORE_EXPERIENCE, {
               value: round2(entry.entry_score),
               rubric: DEFAULT_RUBRIC_VERSION,
-            })}`
-          : ""}
+            })}`}
+          </span>
+        )}
       </p>
       {isDraft && (
         <p className="text-[15px] text-neutral-700">
@@ -1679,7 +1681,7 @@ function ScoreView({ entry, onContinue }: { entry: StoredEntry; onContinue: () =
             {fmt(msg.SCORE_BULLET_LINE, { n: i + 1, text: bullet.text })}
           </p>
           {bullet.ratings && (
-            <ul className="mb-2 text-[16px] text-neutral-800">
+            <ul className="mb-2 font-mono text-[15px] text-neutral-800">
               <li>{fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_CONTEXT, value: bullet.ratings.context })}</li>
               <li>{fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_ACTION, value: bullet.ratings.role_action_clarity })}</li>
               <li>{fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_RESULT, value: bullet.ratings.result })}</li>
@@ -1691,7 +1693,7 @@ function ScoreView({ entry, onContinue }: { entry: StoredEntry; onContinue: () =
         </div>
       ))}
       {entry.entry_score !== null && (
-        <p className="mb-2 font-medium">
+        <p className="mb-2 font-mono font-medium">
           {fmt(msg.SCORE_EXPERIENCE, {
             value: round2(entry.entry_score),
             rubric: DEFAULT_RUBRIC_VERSION,
@@ -1699,7 +1701,7 @@ function ScoreView({ entry, onContinue }: { entry: StoredEntry; onContinue: () =
         </p>
       )}
       {entry.bullets.length > 0 && !entry.draft_reason ? (
-        <p className="mb-6 font-medium">
+        <p className="mb-6 font-mono font-medium">
           {fmt(msg.SCORE_OVERALL, {
             value: entry.entry_score === null ? 0 : round2(entry.entry_score),
             rubric: DEFAULT_RUBRIC_VERSION,
