@@ -13,7 +13,7 @@ documented reason.
 | Provider | Preflight | GET model list | POST chat | Verdict | Date |
 |---|---|---|---|---|---|
 | Google AI Studio (Gemini) | **PASS** (real 401 response received in-browser with a fake key — preflight allowed) | UNVERIFIED (blocked on the invalid key) | UNVERIFIED | enabled; model-list/chat pending a real key | 2026-11-02 (preflight only) |
-| OpenRouter | UNVERIFIED | UNVERIFIED | UNVERIFIED | enabled, pending test | — |
+| OpenRouter | **FAIL** (both OPTIONS preflight and plain GET /models return 403 "Access denied by security policy" from Cloudflare, no CORS headers — the edge rejects the client IP before CORS; CF-RAY terminates in FRA, i.e. the VPN exit IP is blocked). App-side CSP allows the origin; nothing to fix in code. | UNVERIFIED (blocked at the edge) | UNVERIFIED | enabled, pending retry from another VPN exit — disable if it persists | 2026-11-03 (curl + browser-origin probes) |
 | Ollama (local, localhost) | **PASS** (GET /api/tags from browser origin succeeded — "Detected") | **PASS** (live list rendered: qwen3:8b, size shown) | **PASS** (live rating run headlessly through the same adapter + prompt; output matched the terminal contract and passed validation) | enabled, verified | 2026-11-02 |
 | Groq | UNVERIFIED | UNVERIFIED | UNVERIFIED | **disabled** (CORS unverified) | — |
 | Mistral | UNVERIFIED | UNVERIFIED | UNVERIFIED | **disabled** (CORS unverified) | — |
