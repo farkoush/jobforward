@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-23
 
-**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning)
+**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning); amended 2026-11-05 — platform theme and voice (Phase 14, cross-cutting; complete web adoption, Tailwind-variant-only, clarified 2026-11-05 — ready for planning)
 
 **Input**: User description: "A text-flow prototype (no graphical interface) that guides an entry-level product manager job seeker through one complete path for improving a single experience entry. The user adds an experience entry (type: job, project, course, side work), a title, and 1–6 free‑text English bullets. The tool scores each bullet on three dimensions (Context, Specific Action, Result) and rewrites bullets using a five‑part framework (User Need → Product Feature → Action → Result → Metric)."
 
@@ -34,6 +34,11 @@ stored+displayed with no analysis effect, dates as one free-text field;
 non-achievement flag = no action verb + no parser marker + responsibility
 opening, wrap continuations merge). Next: plan and tasks (T106+; T091/T092
 remain open). Until it lands, the entry flow is unchanged.
+
+Phase 14 (platform theme and voice, §11) is specified 2026-11-05 and NOT yet
+implemented; the three fonts are already vendored (web/src/fonts/, with OFL
+licenses). It is pending the two §11 clarifications, then plan and tasks
+(T115+; T091/T092 remain open). Until it lands, the current look stands.
 
 ## 1. Goal
 
@@ -401,6 +406,7 @@ These rules apply only during the rewriting stage; when displaying the framework
 - The web display renders the one-sentence format of §5.1 with the closed connector set, and the sentence never contradicts the score.
 - Every submitted improvement yields a before/after score pair computed by the same pipeline as first-time scoring.
 - The model disclosure banner appears exactly on the screens where a model call can happen while model scoring is active, and never otherwise.
+- The platform theme (§11) renders on every web screen with the three vendored fonts and no external font requests, and the tone guard test passes (no emoji in message strings; key tokens present).
 - Coverage (§2.2): the coverage record lists, per part, its exact extracted words with status and reason, and every word of the bullet that no part claims appears in exactly one orphaned span with a reason; no word is claimed by two parts (the §2.1 feature-inside-action overlap excepted — such words are claimed by the action and never orphaned) and orphaned spans never change scores, questions, or statuses.
 - The coverage record (§4) carries quotation, status, and reason for all five parts and every orphaned chunk; a missing part's quotation is empty and its reason states why the part is missing.
 - The statuses shown for the five parts are exactly the statuses derivable from the coverage record (the record is the input to status assignment, §2.2), and the web display of the record (§5.1) matches it.
@@ -416,4 +422,94 @@ These rules apply only during the rewriting stage; when displaying the framework
 - ~~Correct the five-part parsing (research verbs → need; intention clause → vague result; no shared words; `flow(s)`; multi-line normalization) and align the result score (present-but-vague = 1)~~ — **DONE 2026-11-03** as rubric-3.1.0 (Phase 11, T063–T092; 216 pytest green, parity OK; constitution amended to v3.1.0 on 2026-11-04).
 - ~~Web prototype: in-sentence display, inline improvement loop with grounded suggestions, copy, model disclosure banner, BYOK prompt calibration~~ — **DONE 2026-11-03** (Phase 11; web + parser-doc scope only; terminal display unchanged). Open follow-ups remain in tasks.md Phase 11 (doc answer-key alignment; OpenRouter CORS retry).
 - Chunk attribution before status assignment (§2.2, Phase 12) — spec'd and clarified 2026-11-04 (diagnostic-only scope; orphaned = unclaimed remainder spans; separate gray web block under the sentence); then plan and tasks from T093 (T091/T092 remain open). **DONE 2026-11-04** — implemented and gated (T095–T105; pytest 227 green, PARITY OK, terminal untouched).
-- Hybrid entry — paste-and-split bullet shaping (§4.2, Phase 13) — spec'd and clarified 2026-11-04 (WEB-ONLY scope, terminal unchanged; fields stored+displayed, dates free-text; combined flag rule + wrap-merge); then plan and tasks from T106 (T091/T092 remain open).
+- Hybrid entry — paste-and-split bullet shaping (§4.2, Phase 13) — spec'd and clarified 2026-11-04 (WEB-ONLY scope, terminal unchanged; fields stored+displayed, dates free-text; combined flag rule + wrap-merge); then plan and tasks from T106 (T091/T092 remain open). **DONE 2026-11-04** — implemented and gated (T106–T114; test:engine 11/11, PARITY OK, terminal untouched), committed as c56e574.
+- Platform theme and voice (§11, Phase 14) — spec'd and clarified 2026-11-05 (COMPLETE web adoption; Tailwind-variant-only — raw pack stays outside the repo; fonts vendored locally); then plan and tasks from T115 (T091/T092 remain open).
+
+## 11. Platform Theme and Voice (Phase 14, 2026-11-05)
+
+The product owner delivered a theme pack ("Job Forward — Warm Theme",
+reviewed 2026-11-04): warm palette, typography, shape, layout, and component
+styling, plus four VOICE/TONE rules. The theme is a CROSS-CUTTING concern:
+the tone rules bind every project surface; the visual implementation lives
+on the web prototype, the only graphical surface. The terminal already
+complies with the tone rules (English B1, ASCII — no emoji possible) and its
+display is FROZEN — this phase never touches it. The five-part analysis
+logic (§2–§3, §6), the entry flow (§4.2), and all flow behavior are
+untouched: theme is presentation only (P1/P2 hold unchanged).
+
+### 11.1 Voice and tone rules (all surfaces)
+
+1. No colored icons or emoji anywhere, buttons included — text only.
+2. Brand red is for primary buttons and emphasis, never for long text.
+3. Errors use the warm orange-red, never the brand red (an error must never
+   read as emphasis).
+4. Body text stays at 18px for readability.
+
+All tool text stays English at B1 (P10). The emoji-free rule is enforced by
+an automated guard (§11.3).
+
+### 11.2 Theme tokens (web prototype)
+
+Adopted from the pack's Tailwind variant, whose component class names
+already match the app (btn-primary, btn-secondary, text-input, card,
+tech-tag, pulse-dot):
+
+- Colors (oklch tokens; hex references): brand #942B2B (hover #7A2020),
+  background cream #FAF9F5, card #FEFDFB, secondary #F0EEE5, text #141413,
+  muted #59554E, input border #CBC3B6, error #C33C00 with its lighter
+  background/text pair, success #5E713C with its pair, accent #FBE2D9, a
+  warm neutral ramp, and a chart palette.
+- Typography: body Source Sans 3, 18px, line height 1.65; headings Fraunces
+  (500/600); mono JetBrains Mono for small tech touches only (version tags,
+  step numbers, code). All three fonts are VENDORED in the repository with
+  their OFL licenses (product-owner decision 2026-11-05 — no external font
+  requests at runtime, P8).
+- Shape: 14px base radius (10px small, 18px large, pill-shaped buttons) and
+  a soft warm shadow. Layout: one 680px content column.
+- The tokens live in exactly ONE file — the global stylesheet is the single
+  source of truth; screens consume them via the shared component classes
+  and the themed utility scale. No screen defines its own colors.
+- Light mode only: the pack defines a dark-variant hook but no dark values
+  (ASSUMPTION — dark mode is out of scope unless the product owner says
+  otherwise).
+
+The current monochrome look (black buttons, default sans font, 17px body,
+square-ish corners) transitions to the warm theme; every screen keeps its
+layout, content, and texts unchanged — only colors, type, radii, shadows,
+and message styling change.
+
+### 11.3 Theme guard (automated)
+
+A new engine test enforces the enforceable tone rules: (a) no emoji
+codepoints in any user-facing message string; (b) the token file still
+defines the theme's key tokens (a guard against silent drift). The
+visual-only rules (brand red usage, error color separation) are documented
+here and reviewed by walkthrough.
+
+### 11.4 Acceptance criteria (theme)
+
+- Every web screen renders with the warm tokens: cream background, brand
+  red-brown pill primary buttons, Fraunces headings, Source Sans 3 18px
+  body (adoption depth pending the clarification below).
+- Errors render in the warm orange-red pair and never in the brand red;
+  success renders in the olive-green pair.
+- No runtime request reaches any font service: the three fonts load from
+  the vendored files only, and no external font link exists.
+- The theme guard test passes: zero emoji in the message strings; the key
+  tokens are present.
+- Layout, flow, and analysis behavior are unchanged: the same screens and
+  texts, and all standing gates stay green (tsc, test:engine including the
+  new guard, PARITY OK on the unchanged corpus, test:byok 23/24 baseline,
+  scan, pytest 227).
+
+[RESOLVED 2026-11-05, product-owner answer]: adoption depth — COMPLETE
+replacement: every web screen renders with the warm tokens (cream
+background, brand red-brown pill primary buttons, Fraunces headings, Source
+Sans 3 18px body); no web surface stays monochrome. Consistent with the
+product owner's "apply the theme to the whole project".
+
+[RESOLVED 2026-11-05, product-owner answer]: raw pack files — the repository
+adopts ONLY the Tailwind variant into the global stylesheet; the raw
+standalone files (jobforward-theme.css jbf-*, preview.html, fonts.html)
+stay outside the repo with the product owner. The global stylesheet remains
+the single source of truth (no duplicate token sets to keep in sync).

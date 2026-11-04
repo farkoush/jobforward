@@ -407,3 +407,54 @@ each with its rationale and rejected alternatives.
 - **Alternatives rejected**: raise the cap for paste flow (changes a locked
   rule and the score route's 1–6 bound); silently truncate (violates P2 —
   the user decides what to keep).
+
+## Addendum: Phase 14 theme decisions (2026-11-05)
+
+### D18 — Complete adoption on every web screen
+
+- **Decision**: the warm theme replaces the monochrome look COMPLETELY —
+  cream background, brand red-brown pill primary buttons, Fraunces
+  headings, Source Sans 3 18px body — on every web screen (welcome through
+  matcher); no surface stays monochrome.
+- **Rationale**: product-owner answer 2026-11-05 — "جایگزینی کامل",
+  consistent with "apply the theme to the whole project"; a mixed look
+  would read as two products.
+- **Alternatives rejected**: partial adoption (inconsistent surfaces);
+  colors-only (leaves the vendored fonts unused).
+
+### D19 — Tailwind-variant-only; one token source
+
+- **Decision**: the repository adopts ONLY the pack's Tailwind variant into
+  the global stylesheet; the raw standalone files (jbf-*.css, preview.html,
+  fonts.html) stay outside the repo with the product owner.
+- **Rationale**: product-owner answer 2026-11-05 — "فقط نسخهٔ Tailwind".
+  One token source means no duplicate color sets to keep in sync.
+- **Alternatives rejected**: archiving the raw pack in the repo (a second,
+  drifting copy of every token).
+
+### D20 — Fonts vendored via next/font/local
+
+- **Decision**: the three variable fonts are loaded from the vendored
+  `web/src/fonts/` files (SourceSans3, Fraunces, JetBrainsMono + OFL
+  licenses, downloaded from the official google/fonts repo, verified signed
+  TTFs) through next/font/local; the Inter default is removed. Bundling
+  happens at build time — the running app makes ZERO external font
+  requests (P8; product-owner decision 2026-11-05: "لینک خارجی نباشد").
+- **Rationale**: local fonts with proper licensing (OFL), no runtime
+  external dependency, deterministic rendering everywhere.
+- **Alternatives rejected**: Google Fonts <link> (runtime external
+  requests — against the owner's decision and the spirit of P8);
+  next/font/google (build-time fetch still hits the network on every clean
+  build — vendored files are strictly better offline).
+
+### D21 — Enforceable tone rules get an automated guard
+
+- **Decision**: a new engine test (runs under the existing test:engine glob)
+  enforces what is mechanically checkable: no emoji codepoints in any
+  user-facing message string, and the presence of the theme's key tokens in
+  the global stylesheet. The visual-only rules (brand red never for long
+  text; error color separation) stay spec-documented and walkthrough-checked.
+- **Rationale**: the tone rules are part of the product contract (§11.1);
+  the enforceable half belongs in the test suite (P9), the rest in review.
+- **Alternatives rejected**: no guard (rules decay silently); a full visual
+  regression harness (out of proportion for the prototype — P8).

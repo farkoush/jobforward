@@ -388,3 +388,69 @@ parity PARITY OK (unchanged corpus) · `npm run test:byok` 23/24 baseline ·
 `npm run scan:byok` passed · manual walkthrough: paste a 9-line experience →
 soft-limit message, split list with one flagged line, merge two, confirm,
 analysis shows "Achievement 2 of 4" with the paste visible on top.
+
+---
+
+## Phase 14 Addendum (platform theme and voice, 2026-11-05)
+
+Spec §11 (clarified 2026-11-05). Cross-cutting TONE rules; COMPLETE warm
+adoption on every web screen; Tailwind-variant-only (raw pack stays outside
+the repo); fonts already vendored in `web/src/fonts/` (SourceSans3 /
+Fraunces / JetBrainsMono variable TTFs + OFL). Python engine, terminal,
+`messages.py`, parity corpus: UNTOUCHED. Tasks start at **T115**.
+
+### Design additions
+
+- **Single token source (`web/src/app/globals.css`, REWRITE)** — the pack's
+  Tailwind variant adapted: `@theme inline` semantic map + `:root` oklch
+  tokens (brand #942B2B / hover / cream surfaces / warm text pair /
+  input border / error #C33C00 pair / success #5E713C pair / accent) + warm
+  neutral ramp + themed red/emerald scale + component classes with the SAME
+  names as today (btn-primary → red pill, btn-secondary, text-input, card,
+  tech-tag, pulse-dot) + NEW `.msg-error/.msg-success/.msg-info` message
+  classes. No other file defines colors (spec §11.2).
+- **Fonts (`web/src/app/layout.tsx`)** — `next/font/local` with the three
+  vendored variable fonts (weight ranges, not Inter), exposed as
+  `--font-sans/--font-display/--font-mono`; build-time bundling, zero
+  runtime external font requests (P8; product-owner decision 2026-11-05).
+- **Literal-color sweep (`web/src/app/page.tsx`, `web/src/components/`)**
+  — remaining literal whites/monochrome utilities move to the semantic
+  tokens (bg-white → bg-card, text-white on primary surfaces →
+  text-primary-foreground); message blocks adopt the `msg-*` classes. NO
+  structural, text, or flow changes (P1/P2 untouched — styling only). The
+  amber model-banner keeps its amber (the theme deliberately does not
+  redefine amber — §5.1's vague color stays).
+- **Theme guard (`web/tests/engine/theme.test.ts`, NEW)** — runs under the
+  existing `test:engine` glob: (a) zero emoji codepoints in any
+  `messages.ts` export; (b) the key tokens exist in globals.css. Written
+  FIRST (P9).
+- **Light mode only** (assumption); dark hook unused.
+
+### Files to modify (complete list — user rule: file list before coding)
+
+| # | File | Change |
+|---|---|---|
+| 1 | `web/tests/engine/theme.test.ts` | NEW — theme guard tests (first) |
+| 2 | `web/src/app/globals.css` | REWRITE — warm tokens + component classes (single source) |
+| 3 | `web/src/app/layout.tsx` | next/font/local with the three vendored fonts; Inter removed |
+| 4 | `web/src/app/page.tsx` | literal-color sweep onto semantic tokens + msg-* classes |
+| 5 | `web/src/components/*.tsx` | only if they carry literal whites (checked at implement; ModelBanner's amber stays) |
+| 6 | docs: plan/research/quickstart/tasks (+ spec already amended) | Phase 14 records |
+
+`web/src/fonts/*` (3 TTFs + 3 OFL) are already vendored and get committed
+with this phase. Python engine, terminal, parity harnesses: UNTOUCHED.
+
+### Constitution check (Phase 14)
+
+No violations. P8 (fonts self-hosted — build-time only; no new dependency),
+P10 (no text changes — English B1 strings byte-identical), P4 (no scoring
+change), P1/P2 (presentation only), P9 (guard test first).
+
+### Expected gates
+
+theme guard tests green (`test:engine` incl. new file) · `tsc --noEmit`
+clean · parity PARITY OK (unchanged corpus) · `npm run test:byok` 23/24
+baseline · `npm run scan:byok` passed · `python -m pytest` 227 green ·
+walkthrough: cream background, red pill primary buttons, Fraunces headings,
+18px body, warm error/success pairs, network tab shows no font request to
+any external origin.

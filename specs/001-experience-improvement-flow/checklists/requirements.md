@@ -13,11 +13,11 @@
 
 ## Requirement Completeness
 
-- [x] No [NEEDS CLARIFICATION] markers remain — **Phase 13 (2026-11-04): 3 of 3 markers raised and resolved the same day**
-- [x] Requirements are testable and unambiguous — §4.2 rules are deterministic (flag rule, wrap-merge, user-decided edits)
+- [x] No [NEEDS CLARIFICATION] markers remain — **Phase 14 (2026-11-05): 2 of 2 markers raised and resolved the same day**
+- [x] Requirements are testable and unambiguous — §11 scope is complete-replacement, tokens single-source, guard test defined
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
-- [x] All acceptance scenarios are defined — paste-and-split criteria added to §9
+- [x] All acceptance scenarios are defined — §11.4 complete
 - [x] Edge cases are identified
 - [x] Scope is clearly bounded
 - [x] Dependencies and assumptions identified
@@ -49,3 +49,11 @@
   wrap continuations merge into the previous bullet. All checklist items
   pass. Ready for `/speckit-plan` (then `/speckit-tasks` from T106;
   T091/T092 remain open).
+- **Phase 14 amendment (2026-11-05, platform theme and voice §11)**:
+  2 NEEDS CLARIFICATION markers raised and resolved same day by the product
+  owner — (1) adoption depth: COMPLETE replacement on every web screen;
+  (2) raw pack files stay OUT of the repo (Tailwind-variant-only adoption;
+  the global stylesheet is the single token source). Fonts vendored
+  (web/src/fonts/ + OFL; local, no runtime external requests). All
+  checklist items pass. Ready for `/speckit-plan` (then `/speckit-tasks`
+  from T115; T091/T092 remain open).

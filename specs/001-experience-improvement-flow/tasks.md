@@ -1115,3 +1115,81 @@ product_domain are stored + displayed with NO analysis effect (D15); VR-1
   Phase 11 disclosure set (score/bullet_list/merge unchanged).
   Changed files: the plan's 12-file list
   exactly (entry_split.ts and tests/engine/entry_split.test.ts NEW).
+
+## Phase 14: Platform Theme and Voice (spec §11, clarified 2026-11-05)
+
+**Purpose**: the warm platform theme (product-owner pack) and its four
+voice/tone rules become the project-wide look and contract — COMPLETE
+adoption on every web screen (cream background, brand red-brown pill
+primary buttons, Fraunces headings, Source Sans 3 18px body), Tailwind-
+variant-only (raw pack stays outside the repo), the global stylesheet as
+the SINGLE token source, three fonts VENDORED in `web/src/fonts/` loaded
+via next/font/local (zero runtime external font requests, P8), an automated
+theme guard (no emoji in message strings; key tokens present), light mode
+only. Cross-cutting tone rules; the terminal already complies (B1, ASCII,
+frozen) and is NEVER touched. Python engine, `messages.py`, parity corpus:
+UNTOUCHED. Presentation only — no analysis/flow/text changes (P1/P2/P4).
+Tasks start at T115 (T091/T092 remain open).
+
+### Setup & Foundational
+
+- [X] T115 Record the product-owner decisions governing this phase
+  (2026-11-04/05): theme pack delivered and reviewed; COMPLETE web adoption
+  (D18); Tailwind-variant-only, raw files outside the repo (D19); fonts
+  VENDORED locally in `web/src/fonts/` (3 variable TTFs + 3 OFL licenses,
+  downloaded from the official google/fonts repo, verified signed) loaded
+  via next/font/local — no external font links (D20); enforceable tone
+  rules get an automated guard, visual-only rules stay walkthrough-checked
+  (D21); light mode only (assumption) — evidence: spec §11 resolved blocks
+  + §9 theme criterion, research D18–D21, plan Phase 14 Addendum (incl. the
+  file list), quickstart Phase 14 validation
+
+### Tests First (P9 — failing before implementation)
+
+- [ ] T116 Write the failing theme guard tests in NEW
+  `web/tests/engine/theme.test.ts` (runs under the existing
+  `npm run test:engine` glob): (a) scan EVERY exported string constant of
+  `web/src/engine/messages.ts` — zero emoji codepoints (Unicode
+  Extended_Pictographic / surrogate emoji ranges); (b) `web/src/app/globals.css`
+  defines the key tokens — brand + hover, background/card/secondary,
+  foreground/muted, input border, the error pair, the success pair, accent,
+  the 14px radius family and pill, the 680px content width, the three font
+  families, and the msg-error/msg-success/msg-info classes; red first
+  (globals.css is still monochrome)
+
+### Implementation (styling only — no structural/text/flow change)
+
+- [ ] T117 Rewrite `web/src/app/globals.css` as the SINGLE token source
+  (plan Phase 14 Addendum): the pack's Tailwind variant adapted — @theme
+  inline semantic map + :root oklch tokens (brand #942B2B, hover #7A2020,
+  background #FAF9F5, card #FEFDFB, secondary #F0EEE5, text #141413,
+  muted #59554E, input #CBC3B6, error #C33C00 with bg/text pair, success
+  #5E713C with pair, accent #FBE2D9, warm neutral ramp, themed
+  red/emerald scales), component classes with today's names (btn-primary →
+  brand-red pill with soft shadow, btn-secondary, text-input, card,
+  tech-tag, pulse-dot) and NEW msg-error/msg-success/msg-info classes;
+  body 18px/1.65, Fraunces headings, 680px column, 14px/18px radii
+- [ ] T118 [P] Switch `web/src/app/layout.tsx` to next/font/local with the
+  three VENDORED variable fonts (`web/src/fonts/SourceSans3[wght].ttf`,
+  `Fraunces[SOFT,WONK,opsz,wght].ttf`, `JetBrainsMono[wght].ttf` — weight
+  ranges), exposing the sans/display/mono CSS variables the stylesheet
+  consumes; REMOVE the Inter import; body/background classes use the
+  semantic tokens
+- [ ] T119 Sweep `web/src/app/page.tsx` (and `web/src/components/*.tsx`
+  where they carry literal whites): remaining monochrome utilities move to
+  the semantic tokens (bg-white → bg-card, text-white on primary surfaces →
+  text-primary-foreground, literal border colors → border tokens), message
+  blocks adopt the msg-* classes; the amber model-banner KEEPS its amber
+  (§5.1's vague color — deliberately not redefined by the theme); NO
+  structural, text, or flow changes
+
+### Verification (gates as-run)
+
+- [ ] T120 Run all gates and record evidence: `npm run test:engine` green
+  incl. the theme guard (T116 red-first), `tsc --noEmit` clean, parity
+  PARITY OK (corpus unchanged), `npm run test:byok` 23/24 baseline,
+  `npm run scan:byok` passed, `python -m pytest` 227 green (Python
+  untouched); walkthrough per quickstart Phase 14: every screen warm (cream
+  bg, red pill buttons, Fraunces headings, 18px body), warm error/success
+  pairs, DevTools Network shows ZERO external font requests; mark
+  T116–T119 [X] with evidence

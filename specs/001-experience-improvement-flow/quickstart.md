@@ -259,3 +259,33 @@ substring modulo marker strip and line joins).
 `tsc --noEmit` clean · `npm run test:engine` green · parity PARITY OK
 (unchanged) · `npm run test:byok` 23/24 baseline · `npm run scan:byok`
 passed. The terminal CLI is untouched.
+
+## Addendum: Phase 14 theme validation (2026-11-05, spec §11)
+
+### Theme guard tests
+
+`cd web && npm run test:engine` — the new theme tests prove: zero emoji
+codepoints in any `messages.ts` export; the key tokens (brand, background,
+card, secondary, foreground, muted, input, error pair, success pair,
+accent, radius, content width, the three font families) are present in
+`web/src/app/globals.css`.
+
+### Browser walkthrough (http://localhost:3100)
+
+1. Every screen (welcome, entry_details, entry_split, score, bullet_list,
+   bullet_gate, matcher screens): cream background, brand red-brown pill
+   primary button, Fraunces headings, Source Sans 3 18px body — no surface
+   left monochrome.
+2. Trigger an error (empty paste) → warm orange-red message pair, never the
+   brand red; complete an entry → olive-green success pair where shown.
+3. DevTools → Network → filter "font": ZERO requests to external origins
+   (fonts bundled from web/src/fonts/ at build).
+4. Flow unchanged: the same texts, the same screens, scores identical to
+   before (pytest 227 / PARITY OK as proof the engines did not move).
+
+### Gates
+
+`tsc --noEmit` clean · `npm run test:engine` green (incl. theme guard) ·
+parity PARITY OK (unchanged) · `npm run test:byok` 23/24 baseline ·
+`npm run scan:byok` passed · `python -m pytest` 227 green. The terminal CLI
+is untouched.
