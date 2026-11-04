@@ -1146,7 +1146,7 @@ Tasks start at T115 (T091/T092 remain open).
 
 ### Tests First (P9 — failing before implementation)
 
-- [ ] T116 Write the failing theme guard tests in NEW
+- [X] T116 Write the failing theme guard tests in NEW
   `web/tests/engine/theme.test.ts` (runs under the existing
   `npm run test:engine` glob): (a) scan EVERY exported string constant of
   `web/src/engine/messages.ts` — zero emoji codepoints (Unicode
@@ -1159,7 +1159,7 @@ Tasks start at T115 (T091/T092 remain open).
 
 ### Implementation (styling only — no structural/text/flow change)
 
-- [ ] T117 Rewrite `web/src/app/globals.css` as the SINGLE token source
+- [X] T117 Rewrite `web/src/app/globals.css` as the SINGLE token source
   (plan Phase 14 Addendum): the pack's Tailwind variant adapted — @theme
   inline semantic map + :root oklch tokens (brand #942B2B, hover #7A2020,
   background #FAF9F5, card #FEFDFB, secondary #F0EEE5, text #141413,
@@ -1169,13 +1169,13 @@ Tasks start at T115 (T091/T092 remain open).
   brand-red pill with soft shadow, btn-secondary, text-input, card,
   tech-tag, pulse-dot) and NEW msg-error/msg-success/msg-info classes;
   body 18px/1.65, Fraunces headings, 680px column, 14px/18px radii
-- [ ] T118 [P] Switch `web/src/app/layout.tsx` to next/font/local with the
+- [X] T118 [P] Switch `web/src/app/layout.tsx` to next/font/local with the
   three VENDORED variable fonts (`web/src/fonts/SourceSans3[wght].ttf`,
   `Fraunces[SOFT,WONK,opsz,wght].ttf`, `JetBrainsMono[wght].ttf` — weight
   ranges), exposing the sans/display/mono CSS variables the stylesheet
   consumes; REMOVE the Inter import; body/background classes use the
   semantic tokens
-- [ ] T119 Sweep `web/src/app/page.tsx` (and `web/src/components/*.tsx`
+- [X] T119 Sweep `web/src/app/page.tsx` (and `web/src/components/*.tsx`
   where they carry literal whites): remaining monochrome utilities move to
   the semantic tokens (bg-white → bg-card, text-white on primary surfaces →
   text-primary-foreground, literal border colors → border tokens), message
@@ -1185,11 +1185,24 @@ Tasks start at T115 (T091/T092 remain open).
 
 ### Verification (gates as-run)
 
-- [ ] T120 Run all gates and record evidence: `npm run test:engine` green
-  incl. the theme guard (T116 red-first), `tsc --noEmit` clean, parity
-  PARITY OK (corpus unchanged), `npm run test:byok` 23/24 baseline,
-  `npm run scan:byok` passed, `python -m pytest` 227 green (Python
-  untouched); walkthrough per quickstart Phase 14: every screen warm (cream
-  bg, red pill buttons, Fraunces headings, 18px body), warm error/success
-  pairs, DevTools Network shows ZERO external font requests; mark
-  T116–T119 [X] with evidence
+- [X] T120 Run all gates and record evidence (as-run 2026-11-05):
+  TDD red-first confirmed (4 theme-guard fails: tokens missing, fonts not
+  in layout, Inter present); then all green — `npm run test:engine`
+  **17/17** (11 split + 6 theme guard: emoji scan, key tokens, font
+  variables, message/component classes, no-external-font-origin scan,
+  layout loads the three vendored TTFs + no next/font/google);
+  `tsc --noEmit` clean; **`next build` exit 0** — next/font/local bundles
+  the bracket-named vendored TTFs; parity **PARITY OK** (corpus unchanged);
+  `npm run test:byok` 23/24 (live-Ollama environmental, unchanged);
+  `npm run scan:byok` passed; `python -m pytest` **227 green**. Sweep was
+  small: the Working…/error/success blocks now use msg-info/msg-error/
+  msg-success; the copy tooltip uses bg-foreground/text-background; the
+  themed neutral/red/emerald scales carry the rest — ModelBanner and
+  ByokSettings needed NO change (no literal whites; amber untouched, §5.1).
+  Guard deviation noted (T116): the three font FAMILY names do not appear
+  in globals.css by design (next/font injects hashed family names), so the
+  guard asserts the font CSS VARIABLE mappings + the vendored-file loads in
+  layout.tsx + the no-external-origin scan — the thing §11.4 actually
+  requires. Light-mode-only held. Changed files: theme.test.ts (NEW),
+  globals.css (REWRITE), layout.tsx (fonts), page.tsx (msg-* + tooltip) —
+  the plan's list exactly.

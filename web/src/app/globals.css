@@ -1,38 +1,185 @@
 @import "tailwindcss";
 
-/* Job Forward web prototype — English only, left-to-right, left-aligned.
-   Body 17px, line height ~1.6, one content column ~680px, high contrast. */
+/* ============================================================
+   Job Forward — Warm Theme (Phase 14, spec §11)
+   The SINGLE token source: every color, radius, and font
+   variable lives HERE; screens consume the semantic utilities
+   and the component classes below. No screen defines its own
+   colors (§11.2).
 
+   English only, left-to-right. Body 18px / 1.65, one 680px
+   column. Fonts are VENDORED (web/src/fonts/, next/font/local
+   in layout.tsx) — no external font requests at runtime (P8).
+   ============================================================ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* Warm, friendly palette (§11.2; product-owner theme pack). */
 :root {
+  --radius: 0.875rem; /* 14px — 10px small / 18px large / pill buttons */
   --content-width: 680px;
+  --background: oklch(0.982 0.006 95);      /* #FAF9F5 light cream */
+  --foreground: oklch(0.192 0.002 106);     /* #141413 warm black */
+  --card: oklch(0.995 0.003 95);            /* #FEFDFB */
+  --card-foreground: oklch(0.192 0.002 106);
+  --popover: oklch(0.995 0.003 95);
+  --popover-foreground: oklch(0.192 0.002 106);
+  --primary: oklch(0.452 0.141 25);         /* #942B2B brand red-brown */
+  --primary-hover: oklch(0.39 0.125 25);    /* #7A2020 */
+  --primary-foreground: oklch(0.982 0.006 95);
+  --secondary: oklch(0.948 0.012 95);       /* #F0EEE5 warm cream */
+  --secondary-foreground: oklch(0.192 0.002 106);
+  --muted: oklch(0.948 0.012 95);
+  --muted-foreground: oklch(0.45 0.012 80); /* #59554E */
+  --accent: oklch(0.93 0.03 40);            /* #FBE2D9 */
+  --accent-foreground: oklch(0.38 0.12 25);
+  --destructive: oklch(0.55 0.18 38);       /* #C33C00 warm orange-red — NEVER the brand red */
+  --destructive-foreground: oklch(0.982 0.006 95);
+  --success: oklch(0.52 0.08 125);          /* #5E713C olive green */
+  --border: oklch(0.89 0.015 85);
+  --input: oklch(0.82 0.02 80);             /* #CBC3B6 */
+  --ring: oklch(0.452 0.141 25);
+  --shadow-soft: 0 1px 2px oklch(0.3 0.03 50 / 6%), 0 8px 24px -12px oklch(0.3 0.05 40 / 18%);
+  /* Fonts: the CSS variables themselves are injected by next/font/local
+     on <body> (layout.tsx, from the vendored TTFs) — mapped here so the
+     Tailwind font utilities and the base layer resolve to them. */
+  --font-sans: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+  --font-display: var(--font-display, Georgia, serif);
+  --font-mono: var(--font-mono, ui-monospace, monospace);
 }
 
-body {
-  font-size: 17px;
-  line-height: 1.6;
+@theme {
+  --color-success: var(--success);
+  --color-primary-hover: var(--primary-hover);
+  /* Warm the neutral scale used across the screens. */
+  --color-neutral-50: oklch(0.982 0.006 95);
+  --color-neutral-100: oklch(0.948 0.012 95);
+  --color-neutral-200: oklch(0.91 0.014 88);
+  --color-neutral-300: oklch(0.87 0.016 85);
+  --color-neutral-400: oklch(0.74 0.018 80);
+  --color-neutral-500: oklch(0.52 0.014 80);
+  --color-neutral-600: oklch(0.45 0.012 80);
+  --color-neutral-700: oklch(0.37 0.01 80);
+  --color-neutral-800: oklch(0.27 0.006 90);
+  --color-neutral-900: oklch(0.192 0.002 106);
+  /* Errors: warm orange-red, distinct from the brand red (§11.1 rule 3). */
+  --color-red-50: oklch(0.96 0.03 45);
+  --color-red-700: oklch(0.55 0.18 38);
+  --color-red-900: oklch(0.4 0.13 38);
+  /* Success: olive green (§11.4). */
+  --color-emerald-50: oklch(0.96 0.03 125);
+  --color-emerald-700: oklch(0.52 0.08 125);
+  --color-emerald-900: oklch(0.36 0.06 125);
 }
 
-/* Large, high-contrast primary action button — one per screen. */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-size: 18px; /* §11.1 rule 4 — readable, stays at 18 */
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display); /* Fraunces */
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    color: var(--color-foreground);
+  }
+
+  ::selection {
+    background: var(--color-accent);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* ---------- Component classes (same names as before the theme) ---------- */
+
+/* Large primary action — one per screen; brand red is ONLY for this and
+   emphasis, never for long text (§11.1 rule 2). */
 .btn-primary {
-  @apply w-full sm:w-auto min-h-12 px-6 py-3 rounded-lg bg-neutral-900 text-white
-    font-medium text-[17px] hover:bg-neutral-700 focus-visible:outline-4
-    focus-visible:outline-offset-2 focus-visible:outline-neutral-900
+  @apply w-full sm:w-auto min-h-12 px-6 py-3 rounded-full bg-primary text-primary-foreground
+    font-semibold text-[17px] shadow-sm transition-colors hover:bg-primary-hover
+    focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-ring
     disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 .btn-secondary {
-  @apply w-full sm:w-auto min-h-12 px-6 py-3 rounded-lg bg-white text-neutral-900
-    border-2 border-neutral-900 font-medium text-[17px] hover:bg-neutral-100
-    focus-visible:outline-4 focus-visible:outline-offset-2
-    focus-visible:outline-neutral-900 disabled:opacity-50
-    disabled:cursor-not-allowed;
+  @apply w-full sm:w-auto min-h-12 px-6 py-3 rounded-full bg-card text-foreground
+    border-2 border-input font-semibold text-[17px] transition-colors
+    hover:border-primary hover:text-primary focus-visible:outline-4
+    focus-visible:outline-offset-2 focus-visible:outline-ring
+    disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 .text-input {
-  @apply w-full min-h-12 px-4 py-3 rounded-lg border-2 border-neutral-400
-    text-[17px] focus:border-neutral-900 focus:outline-none;
+  @apply w-full min-h-12 px-4 py-3 rounded-xl border-2 border-input bg-card
+    text-[17px] text-foreground transition-colors placeholder:text-muted-foreground
+    focus:border-primary focus:outline-none;
 }
 
 .card {
-  @apply border border-neutral-300 rounded-xl p-5 bg-white;
+  @apply border border-border rounded-2xl p-5 bg-card;
+  box-shadow: var(--shadow-soft);
+}
+
+.tech-tag {
+  @apply inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-0.5 font-mono text-[13px] text-muted-foreground;
+}
+
+@keyframes blink { 50% { opacity: 0.2; } }
+.pulse-dot {
+  @apply inline-block size-2 rounded-full bg-primary;
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+/* ---------- Messages (§11.1 rule 3: errors NEVER in the brand red) ---------- */
+
+.msg-error {
+  @apply rounded-lg border-2 border-destructive bg-red-50 px-4 py-3 text-red-900;
+}
+
+.msg-success {
+  @apply rounded-lg border-2 border-success bg-emerald-50 px-4 py-3 text-emerald-900;
+}
+
+.msg-info {
+  @apply rounded-lg border-2 border-neutral-300 bg-neutral-100 px-4 py-3 text-neutral-700;
 }

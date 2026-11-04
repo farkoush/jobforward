@@ -917,23 +917,18 @@ export default function Home() {
         {busy && (
           <div
             role="status"
-            className="mb-6 rounded-lg border border-neutral-300 bg-neutral-100 px-4 py-3 text-neutral-700"
+            className="msg-info mb-6"
           >
             Working…
           </div>
         )}
         {error && errorText(error, matchParams) && (
-          <div
-            role="alert"
-            className="mb-6 rounded-lg border-2 border-red-700 bg-red-50 px-4 py-3 text-red-900"
-          >
+          <div role="alert" className="msg-error mb-6">
             {errorText(error, matchParams)}
           </div>
         )}
         {message && (
-          <div className="mb-6 rounded-lg border-2 border-emerald-700 bg-emerald-50 px-4 py-3 text-emerald-900">
-            {message}
-          </div>
+          <div className="msg-success mb-6">{message}</div>
         )}
 
         {/* Screens where a model call can happen (scoring flows): announce
@@ -2178,7 +2173,7 @@ function BulletGate({
           {copied && (
             <span
               role="status"
-              className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded bg-neutral-900 px-2 py-1 text-[12px] text-white"
+              className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded bg-foreground px-2 py-1 text-[12px] text-background"
             >
               {msg.COPY_TOOLTIP}
             </span>
