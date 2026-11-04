@@ -65,6 +65,12 @@ if (py.status !== 0) {
   throw new Error("python harness failed");
 }
 const expected = JSON.parse(py.stdout);
+// Phase 16 (spec §12): optional-skip — without the terminal edition the
+// gate reports the skip and exits 0; the web gates never fail because of it.
+if (expected.parity === "skipped") {
+  console.log("PARITY SKIPPED — terminal engine not present");
+  process.exit(0);
+}
 
 // --- cleaning ---
 const cleaned = cleanPosting(POSTING);

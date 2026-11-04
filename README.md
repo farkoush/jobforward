@@ -1,20 +1,41 @@
 # JobForward — narrate your experience, match it, improve it
 
-A text-based terminal prototype that helps an entry-level product-manager job
-seeker narrate one experience entry, score it transparently, improve it
-through a guided rewrite flow, and match it against a pasted job description.
+JobForward is a resume-improvement tool for entry-level product-manager job
+seekers. It has **two view editions of one engine**, plus one shared
+governance root:
+
+## Repository map
+
+| Folder | What it is | Status |
+|---|---|---|
+| `terminal/` | **Terminal edition (Python v1)** — the original rule/test baseline: interactive CLI, the reference five-part engine and scoring, the pytest suite | FROZEN — no further product updates (see `terminal/README.md`) |
+| `web/` | **Web edition (Next.js + TypeScript)** — the product's continuation: the same engine as a verbatim TS port, warm theme, inline improvement loop, BYOK opt-in | ACTIVE — all current spec phases target this edition |
+| `specs/` | Spec-kit records (001 experience flow, 002 jd-matcher): spec, plan, research, data-model, quickstart, tasks | Shared governance |
+| `.specify/` | Project constitution (v3.1.0) and templates | Shared governance |
+| `docs/` | PRD, spec-original, soft-skills taxonomy source-of-record, BYOK CORS results | Shared governance |
+
+The two editions are **independent**: removing `terminal/` never breaks
+`web/` (spec §12). The parity gate (`web/scripts/parity.mts`) proves the
+two engines still agree byte-for-byte while the terminal baseline exists;
+it skips gracefully if the terminal edition is ever removed.
+
+## The terminal edition (v1)
+
+A text-based flow that helps the job seeker narrate one experience entry,
+score it transparently, improve it through a guided rewrite flow, and match
+it against a pasted job description.
 
 - **Version 1 scope**: one complete improvement path for a single experience
   entry + one job-description match (see
   `specs/001-experience-improvement-flow/spec.md`).
-- **Local-only promise (FR-018)**: all data stays in `data/` on this machine.
-  No login, no upload, no network calls in the default run. PDF upload and
-  email sign-in are deferred to a later version.
+- **Local-only promise (FR-018)**: all data stays in `terminal/data/` on this
+  machine. No login, no upload, no network calls in the default run. PDF
+  upload and email sign-in are deferred to a later version.
 - **Language**: all tool text is English (B1 level); bullets and answers must
   be English. Pasted job postings must be English too (the JD Matcher rejects
   a posting with more than 10% Persian/Arabic-script letters).
 - **Scoring**: three dimensions (Context, Role and Action Clarity, Result),
-  each 0/1/2, under rubric version `rubric-2.0.0`. All arithmetic is
+  each 0/1/2, under rubric version `rubric-3.1.0`. All arithmetic is
   deterministic code — never the language model.
 
 ## JD Matcher (v1)
@@ -32,11 +53,10 @@ pasted job posting and never touches your resume.
 3. **Hard skills** in three tables — Must / Should / Nice — with a fixed
    priority cascade, verbatim evidence for every row, real-total counts and
    a display limit of 5 rows per table.
-4. **Soft skills** drawn strictly from the 56-skill taxonomy in
-   `docs/soft-skills-taxonomy.json` (skill names shown exactly as
-   `label_en`; ESCO ids stored, never shown), with Explicit/Inferred
-   certainty and a "No taxonomy match" line for concepts without an
-   equivalent.
+4. **Soft skills** drawn strictly from the 56-skill taxonomy (the normative
+   source-of-record is `docs/soft-skills-taxonomy.json`; the terminal edition
+   reads its own copy in `terminal/data/`) with Explicit/Inferred certainty
+   and a "No taxonomy match" line for concepts without an equivalent.
 
 There is no free-form "matches / does not match" verdict: the output is only
 the tables, their counts, and stage messages. Analysis errors (not a job
@@ -46,41 +66,24 @@ version `matcher-rules-1.0.0`. This replaces the 001 per-entry matcher
 output (Highlight / No change / Not relevant), which is retired as product
 behavior.
 
-## Run
+## Run (terminal edition — from the `terminal/` folder)
 
 Requires Python 3.12+.
 
 ```bash
-pip install -e .            # once (src layout)
-PYTHONUTF8=1 python -m jobforward
+PYTHONUTF8=1 python -m pytest -q     # tests
+PYTHONUTF8=1 python -m jobforward    # the CLI
 ```
 
-or without installing:
-
-```bash
-PYTHONUTF8=1 PYTHONPATH=src python -m jobforward
-```
-
-PowerShell: `$env:PYTHONUTF8="1"; python -m jobforward`
-
-## Tests
-
-```bash
-PYTHONUTF8=1 python -m pytest -v
-```
-
-The permanent reference fixture: two bullets rated role_action_clarity (2,2),
-result (2,1), context (2,1) → entry score 250/3 ≈ 83.33
-(`tests/unit/test_metrics.py`).
-
-## Where your data lives
+## Where your data lives (terminal edition)
 
 | File | Content |
 |---|---|
-| `data/resume.json` | Your experience entries, bullets, histories, statuses, match actions (written atomically) |
-| `data/events.log.jsonl` | Append-only event log with ISO-8601 timestamps (measurement requirement) |
+| `terminal/data/resume.json` | Your experience entries, bullets, histories, statuses, match actions (written atomically) |
+| `terminal/data/events.log.jsonl` | Append-only event log with ISO-8601 timestamps (measurement requirement) |
 
-Both are git-ignored. Delete the `data/` directory to reset to a fresh state.
+Both are git-ignored. Delete the `terminal/data/` directory to reset to a
+fresh state (keep `resume.json.bak` — the owner's preserved backup).
 
 ## The improvement path
 

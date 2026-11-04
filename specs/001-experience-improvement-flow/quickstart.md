@@ -8,28 +8,26 @@ posting text may be Persian or English). Rubric version: `rubric-3.0.0`
 ## Prerequisites
 
 - Python 3.12+
-- Repository root: `E:\_ai_projects\jobforward`
-- Data directory `data/` is created at first run (git-ignored; delete it to
-  reset to a fresh state)
+- Terminal edition folder: `terminal/` (Phase 16 layout, spec §12) — the
+  CLI and its pytest suite live there; `terminal/data/` is created at first
+  run (git-ignored; delete it to reset to a fresh state)
 
 ## Run
 
 ```bash
-# from the repository root
-pip install -e .          # once (src layout)
+# from the terminal/ folder
 PYTHONUTF8=1 python -m jobforward
-# or without installing:
-PYTHONUTF8=1 PYTHONPATH=src python -m jobforward
 ```
 
 ```powershell
-$env:PYTHONUTF8="1"; python -m jobforward   # PowerShell
+cd terminal; $env:PYTHONUTF8="1"; python -m jobforward   # PowerShell
 ```
 
 ## Tests
 
 ```bash
-PYTHONUTF8=1 python -m pytest -v
+# from the terminal/ folder
+PYTHONUTF8=1 python -m pytest -q
 ```
 
 The permanent reference fixture test (Scenario A, step 3) must exist and pass
@@ -325,3 +323,34 @@ empty is last, never first).
 `tsc --noEmit` clean · parity PARITY OK (unchanged) · `npm run test:byok`
 23/24 baseline · `npm run scan:byok` passed · `python -m pytest` 227 green.
 The terminal CLI is untouched.
+
+## Addendum: Phase 16 validation (2026-11-05, spec §12) — run/test FROM THE NEW LOCATIONS
+
+### Terminal edition (from `terminal/`)
+
+- Tests: `PYTHONUTF8=1 python -m pytest -q` from `terminal/` — green at the
+  recorded count (227 minus the two deleted legacy matcher test files).
+- CLI: `PYTHONUTF8=1 python -m jobforward` from `terminal/` — starts, reads
+  `terminal/data/` (the live files moved intact), and the taxonomy loads
+  from `terminal/data/soft-skills-taxonomy.json`.
+- `terminal/README.md` states the frozen-baseline status.
+
+### Web edition (from `web/`) — unchanged commands
+
+- `npm run dev` (port 3100), `npm run test:engine`, `npm run build`,
+  `npm run test:byok`, `npm run scan:byok` — all as before.
+
+### Parity gate
+
+- With `terminal/` present: `cd web && npx tsx scripts/parity.mts` →
+  PARITY OK (same corpus as always).
+- Skip simulation (acceptance): temporarily rename `terminal/` → run parity
+  → "PARITY SKIPPED — terminal engine not present", exit 0 → rename back.
+  Web gates must not fail during the simulation.
+
+### Repo-map check
+
+Repository root contains only the edition folders (`terminal/`, `web/`),
+shared governance (`specs/`, `.specify/`, `docs/`), and repo meta;
+`git log --follow` on a moved file proves history followed the rename; the
+live data files are byte-identical after the move.

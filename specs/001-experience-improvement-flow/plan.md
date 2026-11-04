@@ -99,8 +99,14 @@ specs/001-experience-improvement-flow/
 
 ### Source Code (repository root)
 
+**Phase 16 (spec §12): the Python side moved to the `terminal/` edition**
+(`terminal/pyproject.toml`, `terminal/src/jobforward/**`,
+`terminal/tests/**`, `terminal/data/**`); `web/` is unchanged at the root;
+`specs/`, `.specify/`, `docs/` are shared governance. The tree below shows
+the terminal edition's internals (paths are relative to `terminal/`):
+
 ```text
-src/jobforward/
+terminal/src/jobforward/
 ├── cli.py                  # English B1 text-flow session loop (entry point)
 ├── messages.py             # Single source of truth for all English B1 strings
 ├── models/                 # entry, bullet, suggestion, matcher entities, rubric version
@@ -530,3 +536,95 @@ walkthrough: five-cell row with text+weight states, bracket-free sentence
 with colored underlines + dotted slots, one question open at a time in
 missing→vague→metric order, Next/fragment-click navigation, live sentence
 update while typing, needs list gone, terminal byte-identical.
+
+---
+
+## Phase 16 Addendum (repository layout — terminal/web separation, 2026-11-05)
+
+Spec §12 (clarified 2026-11-05: root siblings; optional-skip parity;
+matcher/ deleted). Refactor/move-only — zero behavior change in either
+edition. **Executes BEFORE the pending Phase 15 implementation (owner
+priority).** Tasks start at **T127**.
+
+### Verified ground facts (2026-11-05)
+
+- Root items: `README.md`, `data/` (holds `events.log.jsonl` +
+  `resume.json.bak` — no `resume.json` right now; BOTH files move as-is),
+  `docs/`, `pyproject.toml`, `pytest.ini` (`testpaths = tests`),
+  `specs/`, `src/`, `tests/`, `web/`; no root conftest — the tests rely on
+  `python -m pytest` cwd sys.path, so they work from `terminal/` unchanged.
+- `.gitignore` `data/` pattern matches at any depth → `terminal/data/`
+  stays ignored without changes.
+- **Cross-dependency found**: `src/jobforward/matcher2/soft_skills.py`
+  reads `docs/soft-skills-taxonomy.json` cwd-relative — running the CLI
+  from `terminal/` would fail. Fix: copy the taxonomy into `terminal/data/`
+  and change the default path to `data/soft-skills-taxonomy.json` (same
+  content; root `docs/` file stays as the normative 002 contract; web keeps
+  its own `web/data/` copy — three self-contained copies, sync rule: the
+  root docs file is the source of record, editions' copies change only via
+  a deliberate re-copy).
+- Web runtime imports NOTHING from the Python side (verified); the only
+  coupling is `web/scripts/parity_python.py`.
+
+### Migration map (git mv — history follows)
+
+| From (root) | To | Notes |
+|---|---|---|
+| `pyproject.toml` | `terminal/pyproject.toml` | testpaths relative → works from terminal/ |
+| `pytest.ini` | `terminal/pytest.ini` | same |
+| `src/` | `terminal/src/` | package internals unchanged |
+| `tests/` | `terminal/tests/` | run `python -m pytest` from terminal/ |
+| `data/` | `terminal/data/` | live files preserved byte-for-byte |
+| (new) `docs/soft-skills-taxonomy.json` copy | `terminal/data/soft-skills-taxonomy.json` | + path fix below |
+
+Deletions: `src/jobforward/matcher/` (after move) +
+`tests/unit/test_matcher.py` + `tests/contract/test_matcher_output.py`
+(227 → 216-ish; exact new count recorded in evidence).
+
+Code edits (behavior-preserving): `matcher2/soft_skills.py` default
+`"docs/…"` → `"data/…"`; `web/scripts/parity_python.py` resolves
+`terminal/src` (chdir `terminal/`, sys.path `terminal/src`) and emits
+`{"parity":"skipped"}` exit-0 when absent; `web/scripts/parity.mts` prints
+"PARITY SKIPPED — terminal engine not present" without failing; with the
+engine present the behavior is identical (PARITY OK).
+
+Docs (new): `terminal/README.md` (Terminal v1 — frozen baseline statement,
+run/test from its folder); root `README.md` gains the repo map (root
+README exists — updated, not created).
+
+Docs truthfulness pass (living docs only): plan Project Structure section,
+quickstart Run/Tests commands, tasks.md Phase 16 pointer note — historical
+task lines keep their old paths AS RECORDS with the note explaining the
+mapping (`src/jobforward/…` → `terminal/src/jobforward/…` etc.).
+
+### Files to modify (complete list — user rule: file list before coding)
+
+| # | Path | Change |
+|---|---|---|
+| 1 | `terminal/pyproject.toml` | MOVED (git mv) |
+| 2 | `terminal/pytest.ini` | MOVED (git mv) |
+| 3 | `terminal/src/jobforward/**` | MOVED (git mv) |
+| 4 | `terminal/tests/**` | MOVED (git mv) |
+| 5 | `terminal/data/**` | MOVED (git mv; live data preserved) |
+| 6 | `terminal/data/soft-skills-taxonomy.json` | NEW copy from docs/ |
+| 7 | `terminal/src/jobforward/matcher/` + `terminal/tests/unit/test_matcher.py` + `terminal/tests/contract/test_matcher_output.py` | DELETED (git rm) |
+| 8 | `terminal/src/jobforward/matcher2/soft_skills.py` | default path → data/ |
+| 9 | `web/scripts/parity_python.py` | terminal-path resolution + skip JSON |
+| 10 | `web/scripts/parity.mts` | skip handling + message |
+| 11 | `terminal/README.md` | NEW — frozen baseline |
+| 12 | `README.md` (root) | repo map + edition statuses |
+| 13 | `specs/001…/plan.md`, `quickstart.md`, `tasks.md` (+research) | Phase 16 records + path pass |
+
+### Constitution check (Phase 16)
+
+No violations. P4/P1/P2 (zero behavior change — moves and path constants
+only), P8 (no new dependencies; editions self-contained), P9 (skip-
+simulation acceptance check), P7 (logs/data preserved, relocated intact).
+
+### Expected gates
+
+pytest from `terminal/` green (227 minus the two deleted legacy matcher
+test files) · parity PARITY OK with terminal present · skip-simulation:
+temporarily rename `terminal/` → parity prints the skip message and exits 0
+→ rename back · web gates unchanged (test:engine, tsc, test:byok 23/24,
+scan) · `git log --follow` proves history followed a moved file.

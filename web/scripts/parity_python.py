@@ -1,6 +1,11 @@
 """Parity harness (Python side): run the terminal engine on fixed inputs and
 print JSON. The Node side (parity.mjs) runs the TS port on the same inputs
-and compares. Any difference is a port bug."""
+and compares. Any difference is a port bug.
+
+Phase 16 (spec §12): the gate is OPTIONAL — the engine lives in the
+terminal/ edition; when that edition is absent the harness emits
+{"parity":"skipped"} and exits 0 so the web gates never fail because of it
+(research D26)."""
 
 import json
 import os
@@ -8,8 +13,14 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent  # web/scripts -> repo root
-sys.path.insert(0, str(REPO / "src"))
-os.chdir(REPO)  # load_taxonomy() resolves docs/ relative to the repo root
+ENGINE_ROOT = REPO / "terminal"
+
+if not (ENGINE_ROOT / "src").is_dir():
+    print(json.dumps({"parity": "skipped"}))
+    sys.exit(0)
+
+sys.path.insert(0, str(ENGINE_ROOT / "src"))
+os.chdir(ENGINE_ROOT)  # the terminal edition reads its own data/ folder
 
 from jobforward.matcher2.posting import clean_posting, language_ratio
 from jobforward.matcher2.hard_skills import extract_hard_skills, looks_like_posting

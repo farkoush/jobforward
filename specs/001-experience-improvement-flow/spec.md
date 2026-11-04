@@ -532,11 +532,15 @@ the retired 001 matcher is fully superseded by matcher2/).
 
 ### 12.5 Documentation truthfulness
 
-A one-time path-update pass over the normative records: spec/plan/tasks/
-quickstart references to the old root paths (`src/jobforward/…`, `tests/…`,
-`pyproject.toml`, `data/`) become `terminal/…`; the execution note records
-that Phase 16 runs BEFORE the pending Phase 15 implementation (owner
-priority). Moves use `git mv` so history follows the renames.
+A one-time path-update pass over the records: LIVING and forward-looking
+sections (plan structure, quickstart commands, READMEs, task execution
+notes) describe the new layout; HISTORICAL task lines keep their old paths
+AS RECORDS, with the mapping note (`src/jobforward/…` →
+`terminal/src/jobforward/…` etc.) in the Phase 16 execution note (research
+D28 — rewriting historical lines would falsify what was done when). The
+execution note also records that Phase 16 runs BEFORE the pending Phase 15
+implementation (owner priority). Moves use `git mv` so history follows the
+renames.
 
 ### 12.6 Acceptance criteria
 

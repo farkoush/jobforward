@@ -1,9 +1,12 @@
 """Contract test for the soft-skills taxonomy data source (002 T004).
 
-Pins docs/soft-skills-taxonomy.json per contracts/matcher-pipeline.md §3:
-56 records, uniform keys, unique label_en, group_code shape. The matcher's
-soft-skill names may come from this file only (FR-014); a loading failure
-must surface as an extraction failure, never a partial report.
+Pins the edition's taxonomy copy per contracts/matcher-pipeline.md §3:
+56 records, uniform keys, unique label_en, group_code shape. Phase 16
+(spec §12) moved the read to the terminal edition's own data/ folder
+(a byte-identical copy of the normative root docs/ file — the docs copy
+stays the source of record). The matcher's soft-skill names may come from
+this file only (FR-014); a loading failure must surface as an extraction
+failure, never a partial report.
 """
 
 from __future__ import annotations
@@ -16,7 +19,7 @@ import pytest
 
 from src.jobforward.matcher2.soft_skills import TaxonomyError, load_taxonomy
 
-TAXONOMY_PATH = Path("docs/soft-skills-taxonomy.json")
+TAXONOMY_PATH = Path("data/soft-skills-taxonomy.json")
 
 REQUIRED_KEYS = {
     "id",

@@ -51,7 +51,10 @@ class TaxonomyError(Exception):
 
 
 def load_taxonomy(
-    path: str | Path = Path("docs/soft-skills-taxonomy.json"),
+    # Phase 16 (spec §12): the terminal edition is self-contained — the
+    # taxonomy copy lives in the edition's data/ folder (root docs/ keeps
+    # the normative 002 contract file; web keeps its own web/data/ copy).
+    path: str | Path = Path("data/soft-skills-taxonomy.json"),
 ) -> list[dict[str, Any]]:
     """Load and validate the 56-skill taxonomy; raise TaxonomyError on any
     shape problem so the caller can report an extraction failure."""

@@ -1281,3 +1281,94 @@ at T121 (T091/T092 remain open).
   slots, one question open at a time in missing→vague→metric order,
   Next/fragment-click navigation, live sentence update while typing, needs
   list gone, terminal byte-identical; mark T122–T125 [X] with evidence
+
+## Phase 16: Repository Layout — Terminal/Web Separation (spec §12, clarified 2026-11-05)
+
+> **EXECUTION NOTE**: Phase 16 runs BEFORE the pending Phase 15
+> implementation (product-owner priority). Historical task lines in earlier
+> phases keep their old paths AS RECORDS — the mapping is
+> `src/jobforward/…` → `terminal/src/jobforward/…`, `tests/…` →
+> `terminal/tests/…`, `pyproject.toml`/`pytest.ini` → `terminal/…`,
+> `data/` → `terminal/data/` (D28). Zero behavior change; every move uses
+> `git mv` so history follows. Tasks start at T127 (T091/T092 remain open;
+> T121–T126 Phase 15 stay open until Phase 15 implements).
+
+**Purpose**: the two view editions become first-class and legible —
+`terminal/` (Python v1, frozen baseline) + `web/` (unchanged, already
+runtime-independent) at the root beside shared governance (`specs/`,
+`.specify/`, `docs/`); removing terminal/ must never break web (parity
+gate optional-skips); the retired matcher/ package is deleted; the user's
+live data moves intact.
+
+### Setup & Foundational
+
+- [X] T127 Record the product-owner decisions governing this phase
+  (2026-11-05): ROOT SIBLINGS layout (web/ unchanged in place); parity
+  OPTIONAL-SKIP (gate armed while terminal exists — the owner was told the
+  gate's purpose: the twin-drift oracle; skips gracefully when absent);
+  matcher/ + its two legacy tests DELETED; taxonomy copy inside the
+  terminal edition (D27); historical paths stay as records (D28);
+  executes before Phase 15 — evidence: spec §12 resolved blocks + §12.6,
+  research D25–D28, plan Phase 16 Addendum (migration map + 13-item file
+  list, verified ground facts), quickstart Phase 16 validation
+
+### Implementation (moves + minimal code edits)
+
+- [X] T128 Execute the migration with `git mv` (history follows):
+  `pyproject.toml` → `terminal/pyproject.toml`; `pytest.ini` →
+  `terminal/pytest.ini`; `src/` → `terminal/src/`; `tests/` →
+  `terminal/tests/`; `data/` → `terminal/data/` (live files
+  `events.log.jsonl` + `resume.json.bak` preserved byte-for-byte); COPY
+  `docs/soft-skills-taxonomy.json` → `terminal/data/soft-skills-taxonomy.json`;
+  in `terminal/src/jobforward/matcher2/soft_skills.py` change the default
+  taxonomy path from `"docs/soft-skills-taxonomy.json"` to
+  `"data/soft-skills-taxonomy.json"` (verified cross-dependency — the CLI
+  from terminal/ would otherwise break); `git rm -r` the retired
+  `terminal/src/jobforward/matcher/` package and the two legacy tests
+  `terminal/tests/unit/test_matcher.py` +
+  `terminal/tests/contract/test_matcher_output.py`; verify `.gitignore`
+  needs no change (`data/` pattern matches any depth)
+- [X] T129 Make the parity gate optional-skip: in
+  `web/scripts/parity_python.py` resolve the engine at
+  `<repo>/terminal/src` (chdir to `terminal/`, sys.path
+  `terminal/src`) and, when absent, print `{"parity":"skipped"}` and exit 0;
+  in `web/scripts/parity.mts` detect the skip and print
+  "PARITY SKIPPED — terminal engine not present" WITHOUT setting
+  process.exitCode = 1; with the engine present the corpus comparison is
+  byte-identical to today (PARITY OK required)
+- [X] T130 [P] Edition documentation: NEW `terminal/README.md` — "Terminal
+  v1 edition — the original rule/test baseline, FROZEN (product updates
+  continue on the web edition)", with run/test commands from its folder
+  (`PYTHONUTF8=1 python -m pytest -q`,
+  `PYTHONUTF8=1 python -m jobforward`) and the note that it reads
+  `terminal/data/`; update the ROOT `README.md` with the repo map
+  (terminal/ + web/ editions; specs/.specify/docs shared governance) and
+  each edition's status
+- [X] T131 [P] Docs truthfulness pass on LIVING docs only (D28): plan.md
+  Project Structure section → the new layout; quickstart.md top
+  Run/Tests sections → commands from `terminal/`; historical task lines
+  stay untouched (the pointer note lives in this phase's execution note)
+- [X] T132 Gates + acceptance and record evidence (as-run 2026-11-05):
+  migration completed — `git mv` pyproject.toml/pytest.ini/src/tests into
+  `terminal/` + plain `mv data → terminal/data/` (the data dir is
+  git-ignored/untracked — git mv cannot apply; hashes prove the live files
+  `events.log.jsonl` + `resume.json.bak` byte-identical before/after; note:
+  no resume.json exists today, only the .bak — preserved); taxonomy copied
+  to `terminal/data/soft-skills-taxonomy.json` and the DEFAULT PATH fixed
+  in matcher2/soft_skills.py (docs/ → data/) — this ALSO required updating
+  `terminal/tests/contract/test_taxonomy_contract.py` (TAXONOMY_PATH →
+  data/, docstring notes the source-of-record split) — caught by the suite
+  itself (5 red → 213 green); matcher/ + the two legacy test files removed
+  (git rm -f after the git mv staging). **pytest from terminal/: 213 green**
+  (= 227 − 14 legacy matcher tests). Parity: **PARITY OK** with terminal
+  present; **skip-simulation PASS** — `terminal` renamed aside →
+  "PARITY SKIPPED — terminal engine not present", exit 0 → restored →
+  PARITY OK again. Web gates unchanged: test:engine 17/17, tsc clean,
+  test:byok 23/24 (environmental), scan:byok passed. Living-docs pass:
+  plan Project Structure → terminal layout; quickstart Run/Tests →
+  terminal/ commands; spec §12.5 clarified per analyze F1 (living sections
+  updated, historical records keep old paths with the mapping note); root
+  README repo map (rubric reference corrected 2.0.0 → 3.1.0) + NEW
+  terminal/README.md (frozen baseline). Rename-tracking proof lands in the
+  Phase 16 commit (git detects the staged renames; `git log --follow` on
+  terminal/pyproject.toml verified post-commit).

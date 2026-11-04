@@ -502,3 +502,52 @@ each with its rationale and rejected alternatives.
 - **Alternatives rejected**: inline logic in the component (untestable with
   the current setup); a Python twin (it is not analysis logic — parity does
   not apply).
+
+## Addendum: Phase 16 layout decisions (2026-11-05)
+
+### D25 — Root siblings; web stays in place
+
+- **Decision**: `terminal/` + `web/` at the repository root, beside the
+  shared governance (`specs/`, `.specify/`, `docs/`); `web/` is NOT moved.
+- **Rationale**: product-owner answer 2026-11-05 — "هم‌عرض در ریشه". Moving
+  web/ would churn every web path referenced by tasks/scripts/configs for
+  zero independence gain; the goal is legibility, not symmetry of churn.
+- **Alternatives rejected**: shared `apps/` parent (big churn, no benefit).
+
+### D26 — Parity becomes optional-skip
+
+- **Decision**: the parity gate keeps its full corpus comparison while the
+  terminal engine exists (PARITY OK required, unchanged); when
+  `terminal/` is absent it emits a clear skip and exits 0 — the web gates
+  never fail because of it.
+- **Rationale**: product-owner answer 2026-11-05 (after the owner asked
+  what the gate is for) — the twin-drift oracle stays armed as long as the
+  baseline exists; removing the terminal must not break web.
+- **Alternatives rejected**: deleting the gate (loses the oracle);
+  hard-fail (contradicts the independence requirement).
+
+### D27 — Taxonomy copy inside the terminal edition
+
+- **Decision**: `terminal/data/soft-skills-taxonomy.json` is added (copy of
+  `docs/soft-skills-taxonomy.json`) and the Python default path changes
+  from `docs/…` to `data/…` — the terminal edition becomes self-contained.
+  The root `docs/` file stays the normative 002 contract; `web/data/` keeps
+  its own copy. Sync rule: the root docs file is the source of record;
+  edition copies change only via deliberate re-copy.
+- **Rationale**: verified cross-dependency — the cwd-relative `docs/…` read
+  would break the CLI from its new home; the copy pattern matches how the
+  web edition already reads its own `web/data/` copy.
+- **Alternatives rejected**: reaching back to `../docs` from terminal/
+  (breaks the independence guarantee); moving docs/ into terminal/
+  (docs are shared governance).
+
+### D28 — Historical task paths stay as records
+
+- **Decision**: the one-time path pass updates the LIVING docs (plan
+  structure, quickstart commands, root/terminal READMEs); historical
+  task lines keep their old paths AS RECORDS, with a pointer note mapping
+  them to the new locations.
+- **Rationale**: rewriting hundreds of historical task lines would falsify
+  the record of what was done when; the note preserves truthfulness.
+- **Alternatives rejected**: global find/replace over tasks.md (falsifies
+  history).
