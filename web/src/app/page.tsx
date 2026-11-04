@@ -44,6 +44,7 @@ import {
 } from "@/lib/byok/prompts";
 import { buildCoverage, extractParts } from "@/engine/flow/parts";
 import { splitBullets, type SplitCandidate } from "@/engine/flow/entry_split";
+import { partStates, questionOrder } from "@/engine/flow/display";
 import {
   EvaluatorOutputError,
   validateResponse,
@@ -1827,21 +1828,41 @@ const PART_COLOR_OK = "text-emerald-700";
 const PART_COLOR_VAGUE = "text-amber-700";
 const PART_COLOR_MISSING = "text-red-700";
 
-function frameworkPieceText(row: FrameworkRow): string {
-  const label = row.label.toLowerCase();
-  if (!row.words) return fmt(msg.FRAMEWORK_PART_MISSING, { label });
-  if (row.vague) return fmt(msg.FRAMEWORK_PART_VAGUE, { label, words: row.words });
-  return fmt(msg.FRAMEWORK_PART_OK, { label, words: row.words });
-}
-
-function frameworkSpan(row: FrameworkRow) {
-  const text = frameworkPieceText(row);
-  const color = !row.words
-    ? PART_COLOR_MISSING
-    : row.vague
-      ? PART_COLOR_VAGUE
-      : PART_COLOR_OK;
-  return <span key={row.key} className={color}>{text}</span>;
+/** Phase 15 (spec §5.2): ONE span per part in the live sentence —
+ * filled/vague words carry a soft underline in the KEPT status colors
+ * (themed emerald/amber/red); a missing part renders a dotted placeholder
+ * slot carrying its muted label (NO brackets). Clicking any fragment (or
+ * slot) opens that part's question (§6.2); the active fragment is
+ * highlighted (bg-accent — highlight, not a status color). */
+function frameworkSpan(
+  row: FrameworkRow,
+  states: Record<string, string>,
+  activeKey: string | null,
+  onOpen: (key: string) => void
+) {
+  const st = states[row.key] ?? "missing";
+  const activeCls = row.key === activeKey ? " rounded bg-accent" : "";
+  if (st === "missing") {
+    return (
+      <span
+        key={row.key}
+        onClick={() => onOpen(row.key)}
+        className={`cursor-pointer border-b-2 border-dotted border-neutral-400 px-2 text-neutral-500${activeCls}`}
+      >
+        {row.label}
+      </span>
+    );
+  }
+  const color = row.vague ? PART_COLOR_VAGUE : PART_COLOR_OK;
+  return (
+    <span
+      key={row.key}
+      onClick={() => onOpen(row.key)}
+      className={`cursor-pointer underline decoration-2 underline-offset-4 ${color}${activeCls}`}
+    >
+      {row.words}
+    </span>
+  );
 }
 
 // Defined-creativity connectors (specs/001-experience-improvement-flow/few-shot/parser-prompt.md, Display
@@ -1947,7 +1968,12 @@ function answerStarters(row: FrameworkRow, core: string | null): string[] {
 
 /** Assemble the five-part display sentence with content-predicted
  * connecting words; each bracket span takes its status color. */
-function frameworkSentence(rows: FrameworkRow[]) {
+function frameworkSentence(
+  rows: FrameworkRow[],
+  states: Record<string, string>,
+  activeKey: string | null,
+  onOpen: (key: string) => void
+) {
   const [need, feature, action, result, metric] = rows;
   const openConn = need.words && RESEARCH_START.test(need.words)
     ? msg.FRAMEWORK_CONN_RESEARCH
@@ -1966,10 +1992,10 @@ function frameworkSentence(rows: FrameworkRow[]) {
   }
   return (
     <>
-      {openConn} {frameworkSpan(need)} {featureConn} {frameworkSpan(feature)}{" "}
-      {msg.FRAMEWORK_CONN_THROUGH} {frameworkSpan(action)}
-      {msg.FRAMEWORK_CONN_RESULTING} {frameworkSpan(result)} {msg.FRAMEWORK_CONN_AND}{" "}
-      {frameworkSpan(metric)}.
+      {openConn} {frameworkSpan(need, states, activeKey, onOpen)} {featureConn} {frameworkSpan(feature, states, activeKey, onOpen)}{" "}
+      {msg.FRAMEWORK_CONN_THROUGH} {frameworkSpan(action, states, activeKey, onOpen)}
+      {msg.FRAMEWORK_CONN_RESULTING} {frameworkSpan(result, states, activeKey, onOpen)} {msg.FRAMEWORK_CONN_AND}{" "}
+      {frameworkSpan(metric, states, activeKey, onOpen)}.
     </>
   );
 }
@@ -2135,19 +2161,30 @@ function BulletGate({
       done();
     }
   };
+  // Phase 15 (spec §5.2/§6.2): the glance row + focused loop. partStates
+  // mirrors PartDisplayState; the loop order is stable from the bullet's
+  // ORIGINAL extracted state (typing/confirming never reshuffles it).
+  const loopOrder = questionOrder(rows);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const activeKey = loopOrder[activeIdx] ?? null;
+  const openPart = (key: string) => {
+    const idx = loopOrder.indexOf(key);
+    if (idx >= 0) setActiveIdx(idx);
+  };
   const displayRows = rows.map((r) => {
-    const val = (confirmed[PART_KEY_TO_DIM[r.key]] ?? "").trim();
+    const dim = PART_KEY_TO_DIM[r.key];
+    // Phase 15 (§6.2): the sentence updates LIVE — the confirmed value OR
+    // the active question's current typing shows in the sentence at once.
+    const val =
+      (confirmed[dim] ?? "").trim() ||
+      (activeKey === r.key ? (inputs[dim] ?? "").trim() : "");
     return val ? { ...r, words: val, vague: false } : r;
   });
+  const states = partStates(displayRows);
   // Phase 12 (spec §2.2): the diagnostic coverage record — gray rows for
   // the bullet's orphaned spans (maximal unclaimed runs). Data comes from
   // the engine's buildCoverage twin; it never affects statuses or scores.
   const orphans = (bullet.coverage ?? []).filter((e) => e.part === "orphaned");
-  const filled = displayRows.filter((r) => r.words && !r.vague);
-  // The form keeps a block for every originally empty OR vague part, even
-  // after confirm (headline turns green "(filled)") so the answer stays
-  // editable and the improved-phrasing note stays visible.
-  const needs = rows.filter((r) => !r.words || r.vague);
   return (
     <div>
       <h1 className="mb-2 text-2xl font-semibold">
@@ -2180,9 +2217,39 @@ function BulletGate({
           )}
         </div>
       </div>
-      <p className="mb-4 text-[16px]">
-        {frameworkSentence(displayRows)}
+      <p className="mb-2 text-[16px]">
+        {frameworkSentence(displayRows, states, activeKey, openPart)}
       </p>
+      {/* Phase 15 (§5.2): the five-cell glance row — one cell per part,
+          three states by TEXT and weight only (no icons, no row colors,
+          §11.1 rule 1). Cells are clickable too: they open that part's
+          question. */}
+      <div className="mb-4 grid grid-cols-5 gap-2">
+        {rows.map((r) => {
+          const st = states[r.key] ?? "missing";
+          const weight =
+            st === "missing" ? "font-bold" : st === "vague" ? "font-semibold" : "font-normal";
+          const stateText =
+            st === "missing"
+              ? msg.STATUS_MISSING
+              : st === "vague"
+                ? msg.STATUS_VAGUE
+                : msg.STATUS_COMPLETE;
+          return (
+            <button
+              key={r.key}
+              type="button"
+              onClick={() => openPart(r.key)}
+              className={`rounded-lg border border-border bg-card px-2 py-1 text-center text-[13px] text-foreground ${weight}`}
+            >
+              <span className="block text-[11px] font-normal text-muted-foreground">
+                {r.label}
+              </span>
+              {stateText}
+            </button>
+          );
+        })}
+      </div>
       {orphans.length > 0 && (
         <div className="mb-4 rounded-md border border-neutral-200 bg-neutral-50 p-3">
           <p className="text-[13px] font-medium uppercase tracking-wide text-neutral-500">
@@ -2198,36 +2265,56 @@ function BulletGate({
           ))}
         </div>
       )}
-      {filled.length > 0 && (
-        <div className="mb-2">
-          <p className="font-medium">{msg.FRAMEWORK_FILLED}</p>
-          {filled.map((row) => (
-            <p key={row.key} className="pl-4 text-[16px]">
-              {fmt(msg.FRAMEWORK_FILLED_LINE, { label: row.label, words: row.words })}
-            </p>
-          ))}
-        </div>
-      )}
-      {needs.length > 0 && (
+      {/* Phase 15 (§6.2): the FOCUSED loop — exactly ONE question expanded
+          at a time (order: missing parts first, then vague, metric last via
+          questionOrder); the rest are one-line collapsed summaries. Next
+          advances; a fragment click or a row cell opens that part. The
+          "Filled correctly" / "Still needs to be filled" lists are
+          SUPERSEDED by the row + this loop (product-owner answer
+          2026-11-05); the ambiguity reason now lives inside the open
+          question. Every §6.1 decision is unchanged. */}
+      {loopOrder.length > 0 && (
         <div className="mb-6">
-          <p className="font-medium">{msg.FRAMEWORK_NEEDS}</p>
-          {needs.map((row) => {
-            const dim = PART_KEY_TO_DIM[row.key];
+          <p className="mb-3 font-medium">
+            {fmt(msg.QUESTION_COUNTER, { n: activeIdx + 1, total: loopOrder.length })}
+          </p>
+          {loopOrder.map((key, idx) => {
+            const row = rows.find((r) => r.key === key)!;
+            const dim = PART_KEY_TO_DIM[key];
             const conf = (confirmed[dim] ?? "").trim();
-            const color = conf
-              ? PART_COLOR_OK
-              : !row.words
-                ? PART_COLOR_MISSING
-                : PART_COLOR_VAGUE;
-            const headline = conf
-              ? fmt(msg.FRAMEWORK_NEEDS_ITEM_FILLED, { label: row.label })
+            const isActive = idx === activeIdx;
+            const headlineState = conf
+              ? msg.STATUS_COMPLETE
               : row.vague
-                ? fmt(msg.FRAMEWORK_NEEDS_ITEM_VAGUE, { label: row.label })
-                : fmt(msg.FRAMEWORK_NEEDS_ITEM_MISSING, { label: row.label });
+                ? msg.STATUS_VAGUE
+                : msg.STATUS_MISSING;
+            if (!isActive) {
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActiveIdx(idx)}
+                  className="mb-2 flex w-full items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-left text-[15px] text-foreground"
+                >
+                  <span>{fmt(msg.QUESTION_COLLAPSED, { label: row.label, state: headlineState })}</span>
+                  <span className="text-muted-foreground">{msg.QUESTION_OPEN ?? ""}</span>
+                </button>
+              );
+            }
             const reason = conf ? null : needReason(row);
             return (
-              <div key={row.key} className="mb-4 pl-4">
-                <p className={`text-[16px] font-medium ${color}`}>{headline}</p>
+              <div key={key} className="rounded-lg border border-border bg-card p-4">
+                <p
+                  className={`text-[16px] font-semibold ${
+                    conf
+                      ? PART_COLOR_OK
+                      : row.vague
+                        ? PART_COLOR_VAGUE
+                        : PART_COLOR_MISSING
+                  }`}
+                >
+                  {row.label} — {headlineState}
+                </p>
                 {reason && (
                   <div className="mt-1">
                     <p className="text-[15px] font-semibold text-neutral-800">
@@ -2281,6 +2368,15 @@ function BulletGate({
                     }}
                   >
                     {msg.STARTER_CONFIRM}
+                  </button>
+                  <button
+                    className="btn-secondary !min-h-10 !py-2 text-sm"
+                    onClick={() =>
+                      setActiveIdx(Math.min(activeIdx + 1, loopOrder.length - 1))
+                    }
+                    disabled={activeIdx >= loopOrder.length - 1}
+                  >
+                    {msg.QUESTION_NEXT}
                   </button>
                   {improvedShown[dim] && (
                     <p className="text-[14px] text-neutral-600">

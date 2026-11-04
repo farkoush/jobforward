@@ -107,6 +107,15 @@ export const FRAMEWORK_NEEDS_ITEM_FILLED = "{label} (filled)";
 // bullet's orphaned spans (maximal unclaimed runs) under the sentence.
 export const COVERAGE_TITLE = "Not attributed to the framework";
 
+// --- Phase 15 (spec §5.2/§6.2): glance row + focused question loop ---
+export const STATUS_COMPLETE = "Complete";
+export const STATUS_VAGUE = "Vague";
+export const STATUS_MISSING = "Missing";
+export const QUESTION_NEXT = "Next";
+export const QUESTION_COLLAPSED = "{label} — {state}";
+export const QUESTION_COUNTER = "Question {n} of {total}";
+export const QUESTION_OPEN = "Open";
+
 // --- Still-needs-to-be-filled detail (user decision 2026-11-03): vague
 // items show the ambiguity reason first, then two medium-creativity
 // suggestions; missing items show two suggestions. Metric suggestions use

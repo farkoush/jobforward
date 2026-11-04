@@ -1238,7 +1238,7 @@ at T121 (T091/T092 remain open).
 
 ### Tests First (P9 — failing before implementation)
 
-- [ ] T122 Write the failing display tests in NEW
+- [X] T122 Write the failing display tests in NEW
   `web/tests/engine/display.test.ts` for the pure helpers:
   `partStates(rows)` — empty words = Missing ALWAYS (even at rating 0), vague
   = non-empty + vague flag, otherwise Complete (mirrors PartDisplayState);
@@ -1248,15 +1248,15 @@ at T121 (T091/T092 remain open).
 
 ### Implementation (styling/interaction only — no analysis change)
 
-- [ ] T123 Implement the pure display helpers in NEW
+- [X] T123 Implement the pure display helpers in NEW
   `web/src/engine/flow/display.ts`: `partStates(rows)` and
   `questionOrder(rows)` exactly per T122 (web-only presentation logic — no
   Python twin, no parity coupling, no scoring/extraction logic moved)
-- [ ] T124 [P] Add the English B1 strings to `web/src/engine/messages.ts`:
+- [X] T124 [P] Add the English B1 strings to `web/src/engine/messages.ts`:
   state labels "Complete" / "Vague" / "Missing", the Next button label, the
   collapsed one-line summary format "{label} — {state}", and the question
   counter "Question {n} of {total}" — no emoji (theme guard stays green)
-- [ ] T125 Rework BulletGate in `web/src/app/page.tsx` per spec §5.2/§6.2:
+- [X] T125 Rework BulletGate in `web/src/app/page.tsx` per spec §5.2/§6.2:
   the five-cell status row above the sentence (text+weight only);
   frameworkSpan rework — filled/vague parts as verbatim words with a soft
   underline in the kept status colors (themed emerald/amber/red), missing
@@ -1272,15 +1272,28 @@ at T121 (T091/T092 remain open).
 
 ### Verification (gates as-run)
 
-- [ ] T126 Run all gates and record evidence: `npm run test:engine` green
-  incl. the new display tests (T122 red-first), `tsc --noEmit` clean,
-  parity PARITY OK (corpus unchanged), `npm run test:byok` 23/24 baseline,
-  `npm run scan:byok` passed, `python -m pytest` 227 green (Python
-  untouched); walkthrough per quickstart Phase 15: five-cell row with
-  text+weight states, bracket-free sentence with colored underlines + dotted
-  slots, one question open at a time in missing→vague→metric order,
-  Next/fragment-click navigation, live sentence update while typing, needs
-  list gone, terminal byte-identical; mark T122–T125 [X] with evidence
+- [X] T126 Run all gates and record evidence (as-run 2026-11-05):
+  TDD red-first confirmed (module-missing fail → 6 display tests); then all
+  green — `npm run test:engine` **23/23** (11 split + 6 theme guard + 6
+  display: partStates empty=missing-ALWAYS, vague-needs-words, order rules
+  incl. metric-last and complete→[]); `tsc --noEmit` clean (one ordering
+  bug self-caught pre-tsc: activeKey referenced before declaration inside
+  displayRows — reordered); parity **PARITY OK**; `npm run test:byok`
+  **23/24** (live-Ollama environmental); `npm run scan:byok` passed;
+  **`python -m pytest` 213 green from `terminal/`** (Python untouched);
+  **`next build` exit 0**. Implementation notes: the loop order is derived
+  from the bullet's ORIGINAL extracted state (typing/confirming never
+  reshuffles it); live typing shows in the sentence via the active
+  question's input value merged into displayRows; a collapsed question is
+  a one-line button "{label} — {state}" + "Open"; the ambiguity reason
+  renders inside the open question; the Filled-correctly AND Still-needs
+  lists are REMOVED (superseded — product-owner answer 2026-11-05);
+  new strings: Complete/Vague/Missing, Next, "{label} — {state}",
+  "Question {n} of {total}", "Open"; complete bullets never reach
+  BulletGate (existing confirm_complete path — the skip is inherent).
+  Changed files: display.test.ts + display.ts (NEW), messages.ts (6
+  strings), page.tsx (BulletGate rework + frameworkSpan/frameworkSentence
+  signatures) — the plan's 5-file list exactly.
 
 ## Phase 16: Repository Layout — Terminal/Web Separation (spec §12, clarified 2026-11-05)
 
