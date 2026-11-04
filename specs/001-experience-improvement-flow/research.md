@@ -306,3 +306,47 @@ each with its rationale and rejected alternatives.
   rewrite).
 - **Alternatives rejected**: treat the demo as normative (contradicts the
   doc's own rules); two rule sets for models and engine (parity is the point).
+
+## Addendum: Phase 12 coverage decisions (2026-11-04)
+
+### D11 — Coverage is diagnostic only
+
+- **Decision**: the coverage record (spec §2.2) has NO effect on scores,
+  questions, completeness, or the improvement loop; the rubric stays
+  rubric-3.1.0 (no gate-5 version bump). Purpose: let the product owner see
+  how the engine attributes the bullet's words ("how the model thinks"); it
+  may be removed again later without a rubric change.
+- **Rationale**: product-owner answer 2026-11-04 — "این بخش هیچ تاثیر بر
+  نمره‌دهی ندهد … در آینده دوباره این بخش حذف می شود / فقط برای تست". Any
+  scoring effect would force a new rubric version and contradict the stated
+  purpose.
+- **Alternatives rejected**: orphans affect scores (would need rubric-3.2.0 —
+  against the answer); orphans add questions (the 0–5 question contract and
+  §6 conditions would change).
+
+### D12 — Orphaned = maximal contiguous unclaimed spans
+
+- **Decision**: no re-segmentation. The five parts are extracted exactly as
+  before (§2.1); whatever whitespace-normalized text no part claims is grouped
+  into maximal contiguous spans; each span is one orphaned entry with a
+  reason citing its words. The feature-inside-action overlap (§2.1) is
+  claimed by the action and never orphaned.
+- **Rationale**: product-owner answer 2026-11-04 — "فقط کلمات نگرفته".
+  Re-segmenting claimed text would duplicate the parser's §2.1 job;
+  sentence-level chunking manufactures false orphans for multi-part
+  sentences.
+- **Alternatives rejected**: clause-level full segmentation (re-does §2.1);
+  sentence-level chunks (false orphans); per-word orphans (noise).
+
+### D13 — Web-only gray block; terminal unchanged
+
+- **Decision**: the web prototype renders a separate "Not attributed to the
+  framework" block under the sentence — one gray row per orphaned span with
+  quotation + reason; the terminal display (§5) is unchanged
+  (product-owner constraint: never update the Python terminal display).
+- **Rationale**: the three-state colors (emerald/amber/red) encode part
+  statuses; folding orphans into them would blur the verdicts. Gray keeps the
+  diagnostic separate from the statuses.
+- **Alternatives rejected**: a fourth in-sentence color (clutter, weakens the
+  closed-sentence contract); rendering orphans inside the "Still needs to be
+  filled" list (orphans are not to-fill items).

@@ -68,6 +68,9 @@ export const FRAMEWORK_NEEDS_LINE = "{label}";
 export const FRAMEWORK_NEEDS_ITEM_MISSING = "{label} (missing)";
 export const FRAMEWORK_NEEDS_ITEM_VAGUE = "{label} (vague)";
 export const FRAMEWORK_NEEDS_ITEM_FILLED = "{label} (filled)";
+// Phase 12 (spec §2.2): heading of the diagnostic gray block that lists the
+// bullet's orphaned spans (maximal unclaimed runs) under the sentence.
+export const COVERAGE_TITLE = "Not attributed to the framework";
 
 // --- Still-needs-to-be-filled detail (user decision 2026-11-03): vague
 // items show the ambiguity reason first, then two medium-creativity

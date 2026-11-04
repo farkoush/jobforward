@@ -210,3 +210,121 @@ def extract_parts(text: str) -> BulletParts:
         result=_find_result(clauses, intention_from_need),
         metric=_find_metric(clauses),
     )
+
+
+# --- Coverage record (Phase 12, spec §2.2): diagnostic only ------------------
+# spec §2.2 (clarified 2026-11-04): five per-part entries (quotation / status
+# / reason) plus one entry per MAXIMAL CONTIGUOUS UNCLAIMED SPAN ("orphaned")
+# with a reason. No re-segmentation of claimed text — only the unclaimed words
+# are listed (product-owner decision; research D12). The record is DIAGNOSTIC
+# ONLY: it never affects scores, questions, completeness, or the improvement
+# loop (research D11), so the rubric stays rubric-3.1.0. Reason strings are
+# stored data (English B1), NOT terminal display text — messages.py and the
+# §5 display are unchanged; the TS twin in web/src/engine/flow/parts.ts must
+# stay byte-identical (parity gate).
+
+_COVERAGE_PART_ORDER = ("user_need", "product_feature", "action", "result", "metric")
+
+_COVERAGE_LABEL = {
+    "user_need": "user need",
+    "product_feature": "product feature",
+    "action": "specific action",
+    "result": "result",
+    "metric": "metric",
+}
+
+# The dimension whose rating decides "vague" for a part (spec §4: vague
+# follows the dimension score; the metric is guide-only and never vague).
+_COVERAGE_DIMENSION = {
+    "user_need": "context",
+    "product_feature": "context",
+    "action": "role_action_clarity",
+    "result": "result",
+    "metric": None,
+}
+
+_COVERAGE_FILLED = "The bullet states its {label} with these words."
+_COVERAGE_VAGUE = "The {label} is present but vague (rated {rating} of 2)."
+_COVERAGE_MISSING = "No {label} was found in the bullet."
+_COVERAGE_ORPHAN = (
+    '"{words}" does not name a user need, feature, action, result, or metric.'
+)
+
+# Spans without any word characters (separators between claimed parts) are
+# layout, not content — never orphans.
+_COVERAGE_SPAN_STRIP = " .;:,!?'\"()[]"
+
+
+def build_coverage(text: str, parts: BulletParts, ratings) -> list[dict[str, str]]:
+    """Coverage record (spec §2.2, Phase 12): five per-part entries plus one
+    entry per maximal contiguous unclaimed span. Diagnostic only (D11)."""
+    normalized = " ".join(text.split())
+    # Claimed character ranges: the verbatim location of every non-empty part
+    # quotation. The §2.1 feature-inside-action overlap lands inside the
+    # action range, so those words are claimed and never orphaned.
+    covered = [False] * len(normalized)
+    for name in _COVERAGE_PART_ORDER:
+        quote = getattr(parts, name)
+        if quote:
+            start = normalized.find(quote)
+            if start >= 0:
+                for i in range(start, start + len(quote)):
+                    covered[i] = True
+    # Maximal contiguous unclaimed runs -> orphaned spans (D12).
+    spans: list[str] = []
+    i, n = 0, len(normalized)
+    while i < n:
+        if not covered[i]:
+            j = i
+            while j < n and not covered[j]:
+                j += 1
+            stripped = normalized[i:j].strip(_COVERAGE_SPAN_STRIP)
+            if re.search(r"[A-Za-z0-9]", stripped):
+                spans.append(stripped)
+            i = j
+        else:
+            i += 1
+    record: list[dict[str, str]] = []
+    for name in _COVERAGE_PART_ORDER:
+        quote = getattr(parts, name) or ""
+        label = _COVERAGE_LABEL[name]
+        if not quote:
+            record.append(
+                {
+                    "quote": "",
+                    "part": name,
+                    "status": "missing",
+                    "reason": _COVERAGE_MISSING.format(label=label),
+                }
+            )
+            continue
+        dimension = _COVERAGE_DIMENSION[name]
+        rating = getattr(ratings, dimension) if dimension and ratings is not None else 2
+        if rating is not None and rating < 2:
+            record.append(
+                {
+                    "quote": quote,
+                    "part": name,
+                    "status": "vague",
+                    "reason": _COVERAGE_VAGUE.format(label=label, rating=rating),
+                }
+            )
+        else:
+            record.append(
+                {
+                    "quote": quote,
+                    "part": name,
+                    "status": "filled",
+                    "reason": _COVERAGE_FILLED.format(label=label),
+                }
+            )
+    for span in spans:
+        record.append(
+            {
+                "quote": span,
+                "part": "orphaned",
+                "status": "orphaned",
+                "reason": _COVERAGE_ORPHAN.format(words=span),
+            }
+        )
+    return record

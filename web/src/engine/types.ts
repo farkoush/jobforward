@@ -69,6 +69,15 @@ export function partsPresent(p: BulletParts): Record<PartName, boolean> {
   return out;
 }
 
+/** Phase 12 (spec §2.2): one diagnostic coverage entry — quotation, status,
+ * reason. Verbatim port of the Python coverage record (flow/parts.py). */
+export interface CoverageEntry {
+  quote: string;
+  part: PartName | "orphaned";
+  status: "filled" | "vague" | "missing" | "orphaned";
+  reason: string;
+}
+
 export interface QuestionRecord {
   dimension: QuestionDimension;
   text: string;
@@ -109,6 +118,9 @@ export interface Bullet {
   result: string | null;
   metric: string | null;
   part_present: Record<PartName, boolean> | null;
+  /** Phase 12 (spec §2.2): diagnostic coverage record; absent until an
+   * analysis computes it — old sessions load unchanged (never backfilled). */
+  coverage?: CoverageEntry[] | null;
 }
 
 /** Stored parts, or a fresh extraction for pre-Phase-10 bullets. */

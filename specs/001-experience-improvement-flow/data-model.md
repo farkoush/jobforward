@@ -237,3 +237,32 @@ Validation: vague requires non-empty words — an empty part is never vague
   "Model in use on this screen: {provider}: {model}" renders only when
   useForScoring AND key AND model are set AND the screen can call a model;
   the key itself never leaves the browser (masked display only).
+
+## Addendum: Phase 12 coverage record (2026-11-04, diagnostic only)
+
+Spec §2.2. Optional per-bullet field; documents saved before Phase 12 load
+unchanged (field absent by default; never backfilled — P5 incremental).
+
+### CoverageEntry
+
+| Field | Type | Rules |
+|---|---|---|
+| quote | str | verbatim substring of the bullet (whitespace-normalized matching, §2.1); empty ONLY for a missing part |
+| part | enum | one of `user_need`, `product_feature`, `action`, `result`, `metric`, `orphaned` |
+| status | enum | `filled` / `vague` / `missing` for the five parts (same states as PartDisplayState); `orphaned` for spans |
+| reason | str | English B1: why the words satisfy the part (filled), why the rating made it vague, why no words were found (missing), or why the span belongs to no part (orphaned) |
+
+Ordering: the five part entries first (Need → Feature → Action → Result →
+Metric), then orphaned spans in text order.
+
+Invariants (validated by tests, not enforced at parse time):
+
+- every `quote` appears verbatim in the bullet; a word is claimed by at most
+  one part quotation — the §2.1 feature-inside-action overlap is claimed by
+  the action and never orphaned;
+- the union of part quotations and orphaned spans covers the whole bullet
+  (after whitespace normalization);
+- orphaned entries never change scores, questions, or statuses (D11) — the
+  record is derived output recomputed on every analysis of that bullet;
+- `coverage` may be removed in a later change without a document migration
+  (self-contained optional field).

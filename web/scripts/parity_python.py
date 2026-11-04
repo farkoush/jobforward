@@ -15,7 +15,7 @@ from jobforward.matcher2.posting import clean_posting, language_ratio
 from jobforward.matcher2.hard_skills import extract_hard_skills, looks_like_posting
 from jobforward.matcher2.soft_skills import load_taxonomy, match_soft_skills
 from jobforward.matcher2.report import build_report
-from jobforward.flow.parts import extract_parts
+from jobforward.flow.parts import build_coverage, extract_parts
 from jobforward.rubric import RUBRIC_VERSION
 from jobforward.scoring.adapters.local import LocalHeuristicAdapter
 from jobforward.flow.rewrite import assemble_rewrite
@@ -73,6 +73,7 @@ EDGE_BULLETS = [
     "I built the export button to reduce churn",
     "Hiring teams had no clear view of competitor strengths, so I redesigned the hiring and project-assignment flows, and users no longer face friction in hiring and project-assignment flows by 35%.",
     "Benchmarked 7 competitors and mapped Upwork journeys to \nuncover friction in hiring flows.",
+    "I rebuilt the pricing page, and the rollout finished in two weeks",
 ]
 
 EXTRA_ANSWERS = {"context": "candidates dropped off", "action": "rebuilt the form"}
@@ -233,6 +234,14 @@ def main():
         {"bullet_index": r.bullet_index, "context": r.context,
          "role_action_clarity": r.role_action_clarity, "result": r.result}
         for r in response_e.ratings
+    ]
+    # Phase 12 (spec §2.2): the diagnostic coverage record must match the TS
+    # twin exactly — entries, order, quotations, statuses, reasons.
+    out["coverage_edge"] = [
+        build_coverage(bullet, parts, ratings)
+        for bullet, parts, ratings in zip(
+            EDGE_BULLETS, parts_e, response_e.ratings
+        )
     ]
     out["rewrite2"] = assemble_rewrite(BULLETS[0], EXTRA_ANSWERS)
 

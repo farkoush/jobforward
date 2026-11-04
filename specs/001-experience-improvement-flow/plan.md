@@ -254,3 +254,51 @@ display divergence (P8 note) and the backfill sequencing (P9 note).
 `python -m pytest` 216 green · parity PARITY OK · `tsc` clean ·
 `npm run test:byok` 24 green (live-Ollama timeout environmental) ·
 `npm run scan:byok` green.
+
+---
+
+## Phase 12 Addendum (coverage record — chunk attribution, 2026-11-04)
+
+Spec §2.2 (clarified 2026-11-04). Diagnostic-only coverage pass over the
+bullet's own words; tasks start at **T095** (T091/T092 remain open).
+
+### Design additions
+
+- **Computation (`flow/parts.py` + TS twin `web/src/engine/flow/parts.ts`)** —
+  a deterministic `build_coverage(bullet_text, parts, ratings)` appended to
+  the
+  existing extraction module as a verbatim twin: five per-part entries
+  (quote = the part's exact extracted words; empty quote + a missing reason
+  for an absent part) plus one entry per **maximal contiguous unclaimed
+  span** of the whitespace-normalized bullet (quote + reason). Claiming
+  matches the extracted part texts verbatim inside the bullet; the §2.1
+  feature-inside-action overlap is claimed by the action and never orphaned.
+  No re-segmentation of claimed text (product-owner decision: "only the
+  unclaimed words").
+- **Data (`data-model.md` Phase 12 addendum)** — optional `coverage` list on
+  the bullet; documents saved before Phase 12 load unchanged (field absent by
+  default, never backfilled). Diagnostic only: no effect on scores, questions,
+  completeness, or the improvement loop (rubric stays rubric-3.1.0 — no gate-5
+  version bump).
+- **Display (web only)** — a gray "Not attributed to the framework" block
+  under the framework sentence: one row per orphaned span with quotation +
+  reason. New strings in `web/src/engine/messages.ts` (English B1);
+  `src/jobforward/messages.py` and the §5 terminal display are UNCHANGED —
+  Phase 12 is web + data scope only.
+- **Removability** — the product owner may remove the record later without a
+  rubric change: the feature is self-contained (one optional bullet field +
+  one web block), so removal is two small diffs.
+
+### Constitution check (Phase 12)
+
+No violations. P1 (quotes are verbatim substrings; orphan reasons describe
+unclaimed text, never add text), P4 (no scoring change; deterministic
+computation only), P8 (diagnostic-only, self-contained, smallest footprint),
+P9 (coverage tests written first, failing before implementation), P10
+(English B1 strings via the messages module).
+
+### Expected gates
+
+pytest green (new coverage tests included) · parity PARITY OK on the extended
+corpus (a bullet with leftover connector/greeting text → orphaned span with
+reason) · tsc clean · existing web tests green.

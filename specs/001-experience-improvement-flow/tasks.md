@@ -877,3 +877,117 @@ inline improvement loop, model disclosure and calibrated model prompt.
   0/1/2-only output, arithmetic in code. Evidence: pytest 216 green, PARITY
   OK, tsc clean after the move; zero stale `docs/bullet-parser*` references
   (grep clean).
+
+## Phase 12: Coverage Record — Chunk Attribution (spec §2.2, clarified 2026-11-04)
+
+**Purpose**: a diagnostic-only coverage pass over the bullet's own words —
+five per-part entries (quotation / status / reason) plus one entry per
+maximal contiguous unclaimed span ("orphaned") with a reason — computed
+deterministically in BOTH engines, stored as an optional bullet field,
+rendered web-only as a gray "Not attributed to the framework" block under the
+sentence. NO effect on scores, questions, completeness, or the improvement
+loop (research D11); the rubric stays rubric-3.1.0 (no gate-5 bump); the
+Python terminal display is UNCHANGED (product-owner constraint). Removable
+later without a rubric change. Tasks start at T095 (T091/T092 remain open).
+
+### Setup & Foundational
+
+- [X] T095 Record the product-owner decisions governing this phase
+  (2026-11-04): coverage is diagnostic only — no effect on scores/questions/
+  completeness, rubric stays rubric-3.1.0; "orphaned" = only the unclaimed
+  words (maximal contiguous spans, no re-segmentation); web presentation =
+  separate gray "Not attributed to the framework" block under the sentence;
+  terminal display unchanged (evidence: spec §2.2 resolved blocks + §4
+  coverage field + §9 coverage criteria, research D11–D13, plan Phase 12
+  Addendum, data-model Phase 12 addendum, quickstart Phase 12 addendum)
+
+### Tests First (P9 — failing before implementation)
+
+- [X] T096 [P] Write the failing coverage unit tests in
+  `tests/unit/test_coverage.py`: five per-part entries in order
+  Need→Feature→Action→Result→Metric with quote/status/reason (filled quotes
+  verbatim in the bullet; empty quote + a missing reason for absent parts;
+  vague = non-empty words whose dimension rating is < 2 — need/feature from
+  context, action from role_action_clarity, result from result; metric is
+  filled when non-empty, never vague); the fully covered Upwork bullet
+  ("Benchmarked 7 competitors and mapped … to uncover friction in hiring and
+  project-assignment flows.") yields NO orphaned spans; a bullet with a
+  trailing greeting/connector ("… . Honestly it was a mess.") yields ONE
+  orphaned span with a reason citing its words; the feature-inside-action
+  overlap (§2.1) is claimed by the action and never orphaned; the union of
+  part quotations and orphaned spans covers the whole whitespace-normalized
+  bullet; orphan data never changes any dimension score
+- [X] T097 [P] Write the failing storage tests in `tests/unit/test_storage.py`:
+  a bullet saved without `coverage` loads unchanged and never gains the
+  field; a bullet saved with `coverage` round-trips the record exactly
+  (field is optional, no migration, P5)
+- [X] T098 [P] Extend the parity harnesses `web/scripts/parity.mts` +
+  `web/scripts/parity_python.py` with the same orphan corpus case on both
+  sides and a coverage-record comparison (identical entries, order, reasons)
+
+### Python Engine (deterministic, stdlib-only)
+
+- [X] T099 Implement `build_coverage(bullet_text, parts, ratings)` in
+  `src/jobforward/flow/parts.py`: claim the extracted part texts verbatim
+  (whitespace-normalized matching, §2.1); group every unclaimed run of the
+  bullet into maximal contiguous spans; five part entries (empty quote + a
+  missing reason for absent parts; filled/vague/missing status per §4 —
+  vague follows the dimension rating) + one orphaned entry per span with an
+  English B1 reason describing why no part claims it; feature-inside-action
+  words claimed by the action; reason strings live beside the function as
+  verbatim-twin constants (NOT in `messages.py` — terminal display scope
+  untouched); deterministic ordering per the data-model Phase 12 addendum
+- [X] T100 Wire coverage into the analysis path at the call site that
+  already fills `part_present`/part fields for a scored bullet (so every
+  analyzed bullet carries the optional `coverage` record in its stored
+  dict); the record is recomputed on re-analysis and never affects
+  ratings/questions/completeness (D11)
+- [X] T101 [P] Storage tolerance in `src/jobforward/storage/repository.py`:
+  the bullet dict accepts an optional `coverage` list (load/save round-trip,
+  absent by default, old documents unchanged — no schema bump)
+
+### Web Engine & Display (twin + gray block)
+
+- [X] T102 [P] Implement the verbatim TS twin `buildCoverage()` in
+  `web/src/engine/flow/parts.ts` (same claiming, spans, ordering, reasons as
+  T099) and add the optional `coverage` field to the engine bullet type in
+  `web/src/engine/types.ts`
+- [X] T103 [P] Add the English B1 strings to `web/src/engine/messages.ts`:
+  block title "Not attributed to the framework" and the orphan-reason
+  vocabulary (mirrors the Python constants)
+- [X] T104 Render the gray "Not attributed to the framework" block under the
+  one-sentence framework in `web/src/app/page.tsx`: one row per orphaned
+  span (quotation + reason), neutral gray styling that never reuses the
+  emerald/amber/red states; no block when there are no orphaned spans; per
+  §5.1 the per-part quotation/status/reason ride on the existing part
+  rendering
+
+### Verification (gates as-run)
+
+- [X] T105 Run all gates and record evidence (as-run 2026-11-04):
+  `python -m pytest` **227 green** (216 prior + 11 new coverage/storage
+  tests; TDD red confirmed first — ImportError, then two failing asserts:
+  a wrong test expectation for the vague rule — context=0 makes a present
+  feature vague per §4, test corrected to a bullet WITH a need — and a
+  dead-code serialize bug in repository.py fixed by assign-then-return);
+  parity **PARITY OK** with the new orphan case ("I rebuilt the pricing
+  page, and the rollout finished in two weeks") and the coverage_edge
+  comparison — the TS twin is byte-identical to Python; `tsc --noEmit`
+  clean; `npm run test:byok` **23/24** (the 1 fail is the documented
+  live-Ollama environmental timeout, unchanged from T093/T094);
+  `npm run scan:byok` passed; terminal display untouched (`messages.py`
+  and §5 display code never modified — coverage is data-only in Python);
+  `data/resume.json` untouched. Note: `messages.ts` carries only
+  COVERAGE_TITLE — the orphan-reason vocabulary lives beside
+  `buildCoverage`/`build_coverage` as verbatim-twin constants so the
+  parity gate compares a single computation source (T103 deviation,
+  parity-mandated). Changed files: `flow/parts.py` (build_coverage +
+  constants), `models/entities.py` (optional `Bullet.coverage`),
+  `storage/repository.py` (optional serialize/load key), `cli.py` (two
+  analysis call sites: _score_and_show + _reanalyze_bullet),
+  `web/src/engine/flow/parts.ts` (buildCoverage twin),
+  `web/src/engine/types.ts` (CoverageEntry + optional Bullet coverage),
+  `web/src/lib/client.ts` (StoredBullet), `web/src/engine/messages.ts`
+  (COVERAGE_TITLE), `web/src/app/page.tsx` (applyScoreToEntry wiring +
+  gray block in BulletGate), parity harnesses (orphan case +
+  coverage_edge).

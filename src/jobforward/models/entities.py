@@ -214,6 +214,10 @@ class Bullet:
     result: Optional[str] = None
     metric: Optional[str] = None
     part_present: Optional[dict[str, bool]] = None
+    # Phase 12 (spec §2.2): the diagnostic coverage record — five per-part
+    # entries plus orphaned spans. Optional; old documents load unchanged
+    # (None = never computed). Never affects scores or statuses (D11).
+    coverage: Optional[list[dict[str, str]]] = None
 
     def parts_or_extract(self):
         """Stored parts, or a fresh extraction for pre-Phase-10 bullets."""

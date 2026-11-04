@@ -75,6 +75,10 @@ export interface StoredBullet {
   result: string | null;
   metric: string | null;
   part_present: Record<string, boolean> | null;
+  /** Phase 12 (spec §2.2): diagnostic coverage record — optional; old
+   * sessions (localStorage) load unchanged. Shape mirrors engine
+   * CoverageEntry without importing the engine here. */
+  coverage?: { quote: string; part: string; status: string; reason: string }[] | null;
   questions: StoredQuestion[];
   proposals: { text: string; decision: string }[];
   merge_warned: boolean;

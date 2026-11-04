@@ -8,7 +8,7 @@ import { cleanPosting, languageRatio } from "../src/engine/matcher2/posting";
 import { extractHardSkills, looksLikePosting } from "../src/engine/matcher2/hardSkills";
 import { loadTaxonomy, matchSoftSkills } from "../src/engine/matcher2/softSkills";
 import { buildReport } from "../src/engine/matcher2/report";
-import { extractParts } from "../src/engine/flow/parts";
+import { buildCoverage, extractParts } from "../src/engine/flow/parts";
 import { localEvaluate } from "../src/engine/scoring/local";
 import { DEFAULT_RUBRIC_VERSION } from "../src/engine/types";
 import { assembleRewrite } from "../src/engine/flow/rewrite";
@@ -193,6 +193,7 @@ const EDGE_BULLETS = [
   "I built the export button to reduce churn",
     "Hiring teams had no clear view of competitor strengths, so I redesigned the hiring and project-assignment flows, and users no longer face friction in hiring and project-assignment flows by 35%.",
   "Benchmarked 7 competitors and mapped Upwork journeys to \nuncover friction in hiring flows.",
+  "I rebuilt the pricing page, and the rollout finished in two weeks",
 ];
 
 const cleaned2 = cleanPosting(POSTING2);
@@ -238,6 +239,17 @@ const ratingsEdge = localEvaluate({ texts: EDGE_BULLETS, parts: partsEdge, rubri
 if (JSON.stringify(ratingsEdge) !== JSON.stringify(expected.ratings_edge)) {
   fail(
     `ratings_edge mismatch:\n ts=${JSON.stringify(ratingsEdge)}\n py=${JSON.stringify(expected.ratings_edge)}`
+  );
+}
+
+// --- Phase 12 coverage record (spec §2.2): the TS twin must match the
+// Python engine exactly — entries, order, quotations, statuses, reasons. ---
+const coverageEdge = EDGE_BULLETS.map((b, i) =>
+  buildCoverage(b, partsEdge[i], ratingsEdge[i])
+);
+if (JSON.stringify(coverageEdge) !== JSON.stringify(expected.coverage_edge)) {
+  fail(
+    `coverage_edge mismatch:\n ts=${JSON.stringify(coverageEdge, null, 1)}\n py=${JSON.stringify(expected.coverage_edge, null, 1)}`
   );
 }
 

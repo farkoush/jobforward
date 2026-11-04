@@ -135,3 +135,42 @@ def test_rubric_v2_data_stays_loadable_after_v3(tmp_path):
     doc = json.loads((tmp_path / "resume.json").read_text(encoding="utf-8"))
     assert doc["rubric_version"] == DEFAULT_RUBRIC_VERSION
     assert doc["entries"][0]["bullets"][0]["rubric_version"] == "rubric-2.0.0"
+
+
+def test_bullet_without_coverage_stays_without(tmp_path):
+    """Phase 12 (T097): the diagnostic coverage record is optional — a
+    document saved without it loads unchanged and never gains the field."""
+    repo = Repository(tmp_path / "resume.json")
+    entry = _make_entry()
+    repo.save([entry])
+    loaded = repo.load()
+    assert loaded[0].bullets[0].coverage is None
+    doc = json.loads((tmp_path / "resume.json").read_text(encoding="utf-8"))
+    assert "coverage" not in doc["entries"][0]["bullets"][0]
+
+
+def test_coverage_round_trips(tmp_path):
+    """Phase 12 (T097): a bullet carrying the coverage record round-trips it
+    exactly (optional field, no migration, P5)."""
+    repo = Repository(tmp_path / "resume.json")
+    entry = _make_entry()
+    entry.bullets[0].coverage = [
+        {
+            "quote": "",
+            "part": "user_need",
+            "status": "missing",
+            "reason": "No user need was found in the bullet.",
+        },
+        {
+            "quote": "honestly it was a mess",
+            "part": "orphaned",
+            "status": "orphaned",
+            "reason": '"honestly it was a mess" does not name a user need, '
+            "feature, action, result, or metric.",
+        },
+    ]
+    repo.save([entry])
+    loaded = repo.load()
+    assert loaded[0].bullets[0].coverage == entry.bullets[0].coverage
+    doc = json.loads((tmp_path / "resume.json").read_text(encoding="utf-8"))
+    assert doc["entries"][0]["bullets"][0]["coverage"] == entry.bullets[0].coverage

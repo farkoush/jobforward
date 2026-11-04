@@ -199,3 +199,29 @@ Then:
 Paste "Scope of Execution" → Examples 1–6 of `specs/001-experience-improvement-flow/few-shot/parser-prompt.md`
 into any model, send one test bullet (T1–T10) at a time, compare with the
 answer key. The engine must agree with the same examples (spec §2.1, §9).
+
+## Addendum: Phase 12 coverage validation (2026-11-04, spec §2.2)
+
+### Engine tests
+
+`python -m pytest` — new coverage tests prove: five per-part entries with
+quotation/status/reason (empty quote + a missing reason for absent parts);
+leftover text becomes one orphaned span per maximal run with a reason
+("Benchmarked 7 competitors and mapped … to uncover friction in hiring and
+project-assignment flows." → no orphans; a bullet with a trailing greeting →
+one orphan); the feature-inside-action overlap is never orphaned; old
+documents without `coverage` load unchanged; orphan data never changes any
+score.
+
+### Web↔Python parity gate
+
+`cd web && npm run parity` — the corpus gains an orphan case (leftover
+connector/greeting text); PARITY OK requires identical coverage records from
+both engines.
+
+### Browser walkthrough (http://localhost:3100)
+
+Analyze a bullet with leftover text: under the one-sentence framework a gray
+"Not attributed to the framework" block lists each orphaned span with its
+quotation and reason; a fully covered bullet shows no block. The terminal CLI
+display is byte-identical to before Phase 12.

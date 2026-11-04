@@ -42,7 +42,7 @@ import {
   BYOK_EVALUATOR_SYSTEM_PROMPT,
   buildEvaluatorUserPrompt,
 } from "@/lib/byok/prompts";
-import { extractParts } from "@/engine/flow/parts";
+import { buildCoverage, extractParts } from "@/engine/flow/parts";
 import {
   EvaluatorOutputError,
   validateResponse,
@@ -248,6 +248,9 @@ export default function Home() {
       bullet.part_present = Object.fromEntries(
         PART_NAMES.map((name) => [name, Boolean(result.parts[i][name].trim())])
       );
+      // Phase 12 (spec §2.2): the diagnostic coverage record rides on every
+      // analysis; it never affects ratings or statuses (research D11).
+      bullet.coverage = buildCoverage(bullet.text, result.parts[i], result.ratings[i]);
       if (bullet.status === "new" || bullet.status === "edited") {
         bullet.status = "analyzed"; // new/edited -> analyzed (status machine)
       }
@@ -1891,6 +1894,10 @@ function BulletGate({
     const val = (confirmed[PART_KEY_TO_DIM[r.key]] ?? "").trim();
     return val ? { ...r, words: val, vague: false } : r;
   });
+  // Phase 12 (spec §2.2): the diagnostic coverage record — gray rows for
+  // the bullet's orphaned spans (maximal unclaimed runs). Data comes from
+  // the engine's buildCoverage twin; it never affects statuses or scores.
+  const orphans = (bullet.coverage ?? []).filter((e) => e.part === "orphaned");
   const filled = displayRows.filter((r) => r.words && !r.vague);
   // The form keeps a block for every originally empty OR vague part, even
   // after confirm (headline turns green "(filled)") so the answer stays
@@ -1931,6 +1938,21 @@ function BulletGate({
       <p className="mb-4 text-[16px]">
         {frameworkSentence(displayRows)}
       </p>
+      {orphans.length > 0 && (
+        <div className="mb-4 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+          <p className="text-[13px] font-medium uppercase tracking-wide text-neutral-500">
+            {msg.COVERAGE_TITLE}
+          </p>
+          {orphans.map((entry, index) => (
+            <p
+              key={`orphan-${index}`}
+              className="mt-1 pl-2 text-[14px] text-neutral-600"
+            >
+              {entry.reason}
+            </p>
+          ))}
+        </div>
+      )}
       {filled.length > 0 && (
         <div className="mb-2">
           <p className="font-medium">{msg.FRAMEWORK_FILLED}</p>

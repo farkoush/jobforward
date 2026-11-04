@@ -98,7 +98,7 @@ class Repository:
         ]
 
     def _serialize_bullet(self, bullet: Bullet) -> dict[str, Any]:
-        return {
+        data = {
             "id": bullet.id,
             "text": bullet.text,
             "status": bullet.status.value,
@@ -116,6 +116,12 @@ class Repository:
             "metric": bullet.metric,
             "part_present": bullet.part_present,
         }
+        # Phase 12 (spec §2.2): the diagnostic coverage record is optional —
+        # the key exists only when the record was computed, so documents
+        # saved before Phase 12 stay without it (no migration, P5).
+        if bullet.coverage is not None:
+            data["coverage"] = bullet.coverage
+        return data
 
     def _serialize_match_action(
         self, match_action: Optional[MatchAction]
@@ -223,6 +229,7 @@ class Repository:
             result=data.get("result"),
             metric=data.get("metric"),
             part_present=data.get("part_present"),
+            coverage=data.get("coverage"),
         )
 
     @staticmethod

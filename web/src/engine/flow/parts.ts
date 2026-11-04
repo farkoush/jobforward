@@ -17,7 +17,7 @@
  * that fills neither the action nor a metric — no two parts share words.
  */
 
-import { BulletParts } from "../types";
+import { BulletParts, CoverageEntry } from "../types";
 
 const CLAUSE_SPLIT = /[,;]|\bso\b|\bbecause\b/i;
 
@@ -171,4 +171,148 @@ export function extractParts(text: string): BulletParts {
     result: findResult(parts, intentionFromNeed),
     metric: findMetric(parts),
   };
+}
+
+// --- Coverage record (Phase 12, spec §2.2): diagnostic only ------------------
+// spec §2.2 (clarified 2026-11-04): five per-part entries (quotation / status
+// / reason) plus one entry per MAXIMAL CONTIGUOUS UNCLAIMED SPAN ("orphaned")
+// with a reason. No re-segmentation of claimed text — only the unclaimed
+// words are listed (product-owner decision; research D12). The record is
+// DIAGNOSTIC ONLY: it never affects scores, questions, completeness, or the
+// improvement loop (research D11), so the rubric stays rubric-3.1.0. Reason
+// strings are stored data (English B1), NOT terminal display text; this
+// function is a byte-identical twin of build_coverage in
+// src/jobforward/flow/parts.py (parity gate compares the records).
+
+const COVERAGE_PART_ORDER = [
+  "user_need",
+  "product_feature",
+  "action",
+  "result",
+  "metric",
+] as const;
+
+const COVERAGE_LABEL: Record<string, string> = {
+  user_need: "user need",
+  product_feature: "product feature",
+  action: "specific action",
+  result: "result",
+  metric: "metric",
+};
+
+// The dimension whose rating decides "vague" for a part (spec §4: vague
+// follows the dimension score; the metric is guide-only and never vague).
+const COVERAGE_DIMENSION: Record<
+  string,
+  "context" | "role_action_clarity" | "result" | null
+> = {
+  user_need: "context",
+  product_feature: "context",
+  action: "role_action_clarity",
+  result: "result",
+  metric: null,
+};
+
+const COVERAGE_FILLED = "The bullet states its {label} with these words.";
+const COVERAGE_VAGUE = "The {label} is present but vague (rated {rating} of 2).";
+const COVERAGE_MISSING = "No {label} was found in the bullet.";
+const COVERAGE_ORPHAN =
+  '"{words}" does not name a user need, feature, action, result, or metric.';
+
+// Spans without any word characters (separators between claimed parts) are
+// layout, not content — never orphans.
+const COVERAGE_SPAN_STRIP = " .;:,!?'\"()[]";
+
+/** Python str.strip(chars) equivalent: trim chars from both ends. */
+function stripChars(s: string, chars: string): string {
+  let start = 0;
+  let end = s.length;
+  while (start < end && chars.includes(s[start])) start++;
+  while (end > start && chars.includes(s[end - 1])) end--;
+  return s.slice(start, end);
+}
+
+/** Coverage record (spec §2.2, Phase 12): five per-part entries plus one
+ * entry per maximal contiguous unclaimed span. Diagnostic only (D11). */
+export function buildCoverage(
+  text: string,
+  parts: BulletParts,
+  ratings: { context: number; role_action_clarity: number; result: number } | null
+): CoverageEntry[] {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const values = parts as unknown as Record<string, string>;
+  // Claimed character ranges: the verbatim location of every non-empty part
+  // quotation. The §2.1 feature-inside-action overlap lands inside the
+  // action range, so those words are claimed and never orphaned.
+  const covered = new Array<boolean>(normalized.length).fill(false);
+  for (const name of COVERAGE_PART_ORDER) {
+    const quote = values[name];
+    if (quote) {
+      const start = normalized.indexOf(quote);
+      if (start >= 0) {
+        for (let i = start; i < start + quote.length; i++) covered[i] = true;
+      }
+    }
+  }
+  // Maximal contiguous unclaimed runs -> orphaned spans (D12).
+  const spans: string[] = [];
+  let i = 0;
+  const n = normalized.length;
+  while (i < n) {
+    if (!covered[i]) {
+      let j = i;
+      while (j < n && !covered[j]) j++;
+      const stripped = stripChars(normalized.slice(i, j), COVERAGE_SPAN_STRIP);
+      if (/[A-Za-z0-9]/.test(stripped)) spans.push(stripped);
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  const record: CoverageEntry[] = [];
+  for (const name of COVERAGE_PART_ORDER) {
+    const quote = values[name] || "";
+    const label = COVERAGE_LABEL[name];
+    if (!quote) {
+      record.push({
+        quote: "",
+        part: name,
+        status: "missing",
+        reason: COVERAGE_MISSING.replace("{label}", label),
+      });
+      continue;
+    }
+    const dimension = COVERAGE_DIMENSION[name];
+    const rating =
+      dimension && ratings
+        ? (ratings as unknown as Record<string, number>)[dimension]
+        : 2;
+    if (rating !== null && rating !== undefined && rating < 2) {
+      record.push({
+        quote,
+        part: name,
+        status: "vague",
+        reason: COVERAGE_VAGUE.replace("{label}", label).replace(
+          "{rating}",
+          String(rating)
+        ),
+      });
+    } else {
+      record.push({
+        quote,
+        part: name,
+        status: "filled",
+        reason: COVERAGE_FILLED.replace("{label}", label),
+      });
+    }
+  }
+  for (const span of spans) {
+    record.push({
+      quote: span,
+      part: "orphaned",
+      status: "orphaned",
+      reason: COVERAGE_ORPHAN.replace("{words}", span),
+    });
+  }
+  return record;
 }

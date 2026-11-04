@@ -42,6 +42,7 @@ from .flow.questions import (
     next_round,
 )
 from .flow.rewrite import ExtraClaimError, assemble_rewrite
+from .flow.parts import build_coverage
 from .flow.incremental import needs_reanalysis
 from .scoring.overlap import find_overlaps
 from .storage.repository import Repository, DEFAULT_RUBRIC_VERSION
@@ -262,7 +263,9 @@ class CLI:
             self.failure_exit = True
             return False
 
-        for bullet, rating in zip(entry.bullets, response.ratings):
+        for bullet_index, (bullet, rating) in enumerate(
+            zip(entry.bullets, response.ratings)
+        ):
             bullet.rating_pending = None
             bullet.ratings = Ratings(
                 context=rating.context,
@@ -270,6 +273,11 @@ class CLI:
                 result=rating.result,
             )
             bullet.rubric_version = RUBRIC_VERSION
+            # Phase 12 (spec §2.2): the diagnostic coverage record rides on
+            # every analysis; it never affects ratings or statuses (D11).
+            bullet.coverage = build_coverage(
+                bullet.text, parts[bullet_index], bullet.ratings
+            )
             # new → analyzed; edited → analyzed; failed analysis keeps label
             target = (
                 BulletStatus.ANALYZED
@@ -515,6 +523,9 @@ class CLI:
             result=rating.result,
         )
         bullet.rubric_version = RUBRIC_VERSION
+        # Phase 12 (spec §2.2): recompute the diagnostic coverage record on
+        # every re-analysis (never affects ratings or statuses, D11).
+        bullet.coverage = build_coverage(bullet.text, extracted, bullet.ratings)
 
         result = transition(bullet.status, BulletStatus.ANALYZED)
         if result.ok and result.changed:

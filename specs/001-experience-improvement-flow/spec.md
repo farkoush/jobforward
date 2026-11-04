@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-23
 
-**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11)
+**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning)
 
 **Input**: User description: "A text-flow prototype (no graphical interface) that guides an entry-level product manager job seeker through one complete path for improving a single experience entry. The user adds an experience entry (type: job, project, course, side work), a title, and 1–6 free‑text English bullets. The tool scores each bullet on three dimensions (Context, Specific Action, Result) and rewrites bullets using a five‑part framework (User Need → Product Feature → Action → Result → Metric)."
 
@@ -22,6 +22,13 @@ prototype's display and improvement loop (§5.1, §6.1). The web changes are
 web + parser-doc scope only — the terminal's display (§5) and flow (§4.1) are
 unchanged. Evidence: 216 pytest green, web↔Python parity gate PARITY OK, BYOK
 tests green.
+
+Phase 12 (chunk attribution, §2.2) is specified 2026-11-04 and NOT yet
+implemented: the three §2.2 clarifications were resolved the same day
+(diagnostic-only scope; orphaned = unclaimed remainder spans; separate gray
+web block under the sentence). Next: plan and tasks (T093+; T091/T092 remain
+open). Until it lands, statuses continue to be assigned from part
+presence/scores without the coverage record.
 
 ## 1. Goal
 
@@ -74,6 +81,55 @@ documented outputs. The pasted format demo that historically sat at the top
 of that document was FORMAT DEMO ONLY — not normative (product-owner decision
 2026-11-04); the demo no longer appears in the document.
 
+### 2.2 Chunk attribution before status assignment (Phase 12, 2026-11-04)
+
+Before any part receives its status (filled / vague / missing), the engine
+performs a **coverage pass** over the bullet's own words (constitution P1 —
+extraction never invents). The pass does NOT re-segment the bullet: the five
+parts are extracted exactly as before (§2.1), and the words no part claims —
+each **maximal contiguous unclaimed span** — are marked **orphaned**: text
+that belongs to none of the five parts (for example a connector run with no
+framework meaning, or a fragment with no need, feature, action, outcome, or
+metric signal). A word is claimed only when the engine assigns it to a part
+(verbatim after whitespace normalization, §2.1); no word is claimed by two
+parts — the single §2.1 exception (a feature name inside the action sentence)
+is claimed by the action and is never orphaned — and every unclaimed word
+appears in exactly one orphaned span.
+
+For every orphaned chunk the engine reports a **reason** — why no part claims
+it (for example: "connecting words with no framework meaning", "fragment — no
+need, feature, action, outcome, or metric signal"). The reason cites the
+chunk's own words.
+
+The attribution record mirrors status assignment: each part entry carries the
+same filled/vague/missing status the engine derives (§5), and the displayed
+statuses must be exactly the statuses derivable from the record. Output rule:
+for **all five parts AND every orphaned span**, the analysis carries three
+things — the **quotation** (the exact words; empty for a missing part), the
+**status**, and the **reason** (why filled words satisfy the part, why a
+vague/missing status applies, or why an orphaned span belongs to no part).
+
+The coverage record is stored with the analysis (§4) and rendered in the web
+prototype (§5.1); the terminal display (§5) stays unchanged — Phase 12 is web
++ data scope only.
+
+[RESOLVED 2026-11-04, product-owner answer]: coverage scope — the coverage
+record is **diagnostic only**. Orphaned spans have NO effect on scores,
+question generation, completeness, or the improvement loop. The record exists
+so the product owner can inspect how the engine attributes the bullet's words
+("how the model thinks"); it may be removed again later without a rubric
+change. The rubric stays rubric-3.1.0 (constitution gate 5 is not triggered —
+no scoring criterion changes).
+
+[RESOLVED 2026-11-04, product-owner answer]: chunk granularity — **only the
+unclaimed words**. No new segmentation: whatever extraction (§2.1) leaves
+outside all five parts is listed as orphaned spans, each with a reason; the
+claimed part quotations come from the existing extraction unchanged.
+
+[NEEDS CLARIFICATION: what granularity defines a "chunk" — the clause-level
+segments the parser already builds per §2.1 rules, whole sentences, or only
+the unassigned remainder spans?]
+
 **Examples in this document** (the tool does not use these examples at runtime):
 
 | Field | Example |
@@ -114,6 +170,7 @@ deterministic code (constitution P4); the model returns only 0/1/2 ratings.
 - `id`, `text`
 - `user_need`, `product_feature`, `action`, `result`, `metric` (text fields extracted automatically).
 - `part_present {user_need, product_feature, action, result, metric}` – Five booleans (replaces `context_present`).
+- `coverage` (chunk-attribution record, §2.2, diagnostic only) – ordered entries: one per part (`{quote, part, status, reason}` — the part's exact extracted words, empty quote for a missing part) plus one per orphaned span (`{quote, part: "orphaned", status, reason}` — each maximal contiguous span of the bullet that no part claims, with the reason no part claims it).
 - "Vague" is determined by the relevant dimension score (0 or 1).
 - `analysis_status`: New, edited, or analyzed. Only new or edited bullets are re‑analyzed.
 - `dimension_scores {context, action, result}`
@@ -191,6 +248,14 @@ terminal keeps the list format above. Product-owner decision 2026-11-03.
 - The web "Still needs to be filled" list additionally shows, per part, the
   ambiguity reason quoting the candidate's words and grounded suggestions
   (§6.1); the terminal list stays names-only as above.
+- The web prototype also renders the coverage record (§2.2): every part shows
+  quotation, status, and reason, and orphaned chunks are listed with their
+  quotation and reason.
+[RESOLVED 2026-11-04, product-owner answer]: orphan presentation — a
+separate **"Not attributed to the framework" block under the display
+sentence**: one row per orphaned chunk with its quotation and reason, in a
+neutral (gray) style that never reuses the filled/vague/missing colors. The
+terminal display (§5) is unchanged.
 
 ## 6. Questions
 
@@ -276,6 +341,9 @@ These rules apply only during the rewriting stage; when displaying the framework
 - The web display renders the one-sentence format of §5.1 with the closed connector set, and the sentence never contradicts the score.
 - Every submitted improvement yields a before/after score pair computed by the same pipeline as first-time scoring.
 - The model disclosure banner appears exactly on the screens where a model call can happen while model scoring is active, and never otherwise.
+- Coverage (§2.2): the coverage record lists, per part, its exact extracted words with status and reason, and every word of the bullet that no part claims appears in exactly one orphaned span with a reason; no word is claimed by two parts (the §2.1 feature-inside-action overlap excepted — such words are claimed by the action and never orphaned) and orphaned spans never change scores, questions, or statuses.
+- The coverage record (§4) carries quotation, status, and reason for all five parts and every orphaned chunk; a missing part's quotation is empty and its reason states why the part is missing.
+- The statuses shown for the five parts are exactly the statuses derivable from the coverage record (the record is the input to status assignment, §2.2), and the web display of the record (§5.1) matches it.
 
 ## 10. Open Items for Planning
 
@@ -284,3 +352,4 @@ These rules apply only during the rewriting stage; when displaying the framework
 - Review dimension weights after pilot data; any change creates a new rubric version.
 - ~~Correct the five-part parsing (research verbs → need; intention clause → vague result; no shared words; `flow(s)`; multi-line normalization) and align the result score (present-but-vague = 1)~~ — **DONE 2026-11-03** as rubric-3.1.0 (Phase 11, T063–T092; 216 pytest green, parity OK; constitution amended to v3.1.0 on 2026-11-04).
 - ~~Web prototype: in-sentence display, inline improvement loop with grounded suggestions, copy, model disclosure banner, BYOK prompt calibration~~ — **DONE 2026-11-03** (Phase 11; web + parser-doc scope only; terminal display unchanged). Open follow-ups remain in tasks.md Phase 11 (doc answer-key alignment; OpenRouter CORS retry).
+- Chunk attribution before status assignment (§2.2, Phase 12) — spec'd and clarified 2026-11-04 (diagnostic-only scope; orphaned = unclaimed remainder spans; separate gray web block under the sentence); then plan and tasks from T093 (T091/T092 remain open).
