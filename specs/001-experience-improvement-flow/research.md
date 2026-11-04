@@ -458,3 +458,47 @@ each with its rationale and rejected alternatives.
   the enforceable half belongs in the test suite (P9), the rest in review.
 - **Alternatives rejected**: no guard (rules decay silently); a full visual
   regression harness (out of proportion for the prototype — P8).
+
+## Addendum: Phase 15 analysis-UX decisions (2026-11-05)
+
+### D22 — Status colors stay on the underlines; the row is text+weight
+
+- **Decision**: the sentence's soft underlines KEEP the three status colors
+  (themed emerald/amber/red — §5.1's palette now on the warm scales). The
+  five-cell status row differentiates states by TEXT and weight ONLY — no
+  colored icons, no emoji (§11.1 rule 1: a color is not a colored icon).
+- **Rationale**: product-owner answer 2026-11-05 — "رنگ‌ها روی زیرخط".
+  Color is the fastest status recognition and §5.1 already pins these
+  meanings; the row stays neutral so the theme's brand-red discipline
+  (primary buttons/emphasis only) is untouched.
+- **Alternatives rejected**: monochrome underlines everywhere (slower
+  recognition; drops the established §5.1 color semantics).
+
+### D23 — The needs list is superseded on the web
+
+- **Decision**: the web's "Still needs to be filled" list is REMOVED — the
+  five-cell row + the focused question loop replace it, and the ambiguity
+  reason renders INSIDE the open question. The terminal's names-only list
+  (§5) is unchanged.
+- **Rationale**: product-owner answer 2026-11-05 — "جایگزین می‌شود"; three
+  simultaneous layers (row/sentence/list) would be clutter, against the
+  owner's items 1+3 intent.
+- **Alternatives rejected**: keeping the list under the sentence (clutter,
+  duplicated state); moving the reason to a tooltip only (hidden from the
+  flow).
+
+### D24 — Display logic as pure engine helpers (web-only, no twin)
+
+- **Decision**: the two deterministic pieces — per-part state derivation
+  (Complete/Vague/Missing, mirroring PartDisplayState: empty = missing
+  ALWAYS, vague = non-empty + vague flag) and the focused-loop question
+  order (missing first, then vague, each in Need→Feature→Action→Result,
+  metric last) — live in a NEW web-only module
+  `web/src/engine/flow/display.ts` as pure functions, tested engine-level.
+- **Rationale**: no React test infrastructure exists; pure helpers give P9
+  real red-first tests without adding test deps (P8). The logic is
+  presentation-only (web-only — no Python twin, no parity coupling; the
+  analysis logic does not move).
+- **Alternatives rejected**: inline logic in the component (untestable with
+  the current setup); a Python twin (it is not analysis logic — parity does
+  not apply).

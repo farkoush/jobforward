@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-23
 
-**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning); amended 2026-11-05 — platform theme and voice (Phase 14, cross-cutting; complete web adoption, Tailwind-variant-only, clarified 2026-11-05 — ready for planning)
+**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning); amended 2026-11-05 — platform theme and voice (Phase 14, cross-cutting; complete web adoption, Tailwind-variant-only, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — five-part analysis UX: glance row, underline sentence, focused one-question loop (Phase 15, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — repository layout: two view editions, one governance root (Phase 16, clarified 2026-11-05 — root siblings, optional-skip parity, matcher/ deleted; ready for planning)
 
 **Input**: User description: "A text-flow prototype (no graphical interface) that guides an entry-level product manager job seeker through one complete path for improving a single experience entry. The user adds an experience entry (type: job, project, course, side work), a title, and 1–6 free‑text English bullets. The tool scores each bullet on three dimensions (Context, Specific Action, Result) and rewrites bullets using a five‑part framework (User Need → Product Feature → Action → Result → Metric)."
 
@@ -322,6 +322,36 @@ sentence**: one row per orphaned chunk with its quotation and reason, in a
 neutral (gray) style that never reuses the filled/vague/missing colors. The
 terminal display (§5) is unchanged.
 
+### 5.2 Warm analysis display (Phase 15 — supersedes §5.1's bracket format on the web)
+
+Product-owner UX review 2026-11-05 (items 1–2 of eight): the web's display
+drops the bracket format and becomes glanceable. The terminal (§5) is
+UNTOUCHED — its §5 list format and brackets stay exactly as they are.
+
+- **Five-cell status row** above the sentence: one cell per part (Need,
+  Feature, Action, Result, Metric), three states — **Complete**, **Vague**,
+  **Missing** (English B1 labels; the owner's Persian examples were tone
+  references only — P10 decision 2026-11-05). States differ by TEXT and
+  weight only — never colored icons or emoji (§11.1 rule 1).
+- **The sentence without brackets**: filled/vague parts show the
+  candidate's verbatim words with a **soft underline**; missing parts render
+  a **dotted placeholder gap** in their slot so the sentence still reads
+  naturally. Every §5.1 CONTENT rule still holds — verbatim words only, the
+  closed connector variant set, ", resulting in" always, the sentence never
+  contradicts the score, the research-only rendering — ONLY the presentation
+  changes from brackets to underlines/placeholders.
+- The gray coverage block (§2.2) stays under the sentence unchanged.
+[RESOLVED 2026-11-05, product-owner answer]: status colors — the sentence
+underlines KEEP the three status colors (themed emerald/amber/red, §5.1's
+palette now on the warm scales): color is fast status recognition and does
+not violate §11.1 rule 1 (a color is not a colored icon). The five-cell row
+is text+weight only regardless.
+
+[RESOLVED 2026-11-05, product-owner answer]: the "Still needs to be filled"
+list is SUPERSEDED on the web — the five-cell row + the focused question
+loop replace it, and the ambiguity reason moves INSIDE the open question.
+The terminal list (§5) stays names-only as before.
+
 ## 6. Questions
 
 Ask one question per missing/vague part (order above). Before each question, the tool identifies the achievement and the part being discussed. The candidate can skip any question; each bullet has 0–5 questions. Conditions:
@@ -371,6 +401,28 @@ replacement; zero answers means no rewrite; the tool never invents content).
   metric appended to the result segment; falls back to the verbatim original
   when nothing improved exists) — with a visible confirmation.
 
+### 6.2 Focused question loop (Phase 15 — supersedes §6.1's all-at-once form on the web)
+
+Product-owner UX review 2026-11-05 (item 3 of eight): the web improvement
+loop shows ONE question at a time. Every §6.1 DECISION is unchanged —
+confirm per part, zero confirmed answers means no rewrite, grounded
+suggestions from the bullet's own words, the tool never invents content,
+re-submission re-scores through the same first-time pipeline.
+
+- **Order**: missing parts first, then vague parts (each group in the fixed
+  Need → Feature → Action → Result order), the Metric LAST.
+- Exactly **one question is expanded** at a time; the others are collapsed.
+  **Next** advances to the next question; **clicking a sentence fragment**
+  opens that part's question; confirmed parts stay visible as filled in the
+  row (§5.2) and the sentence and remain clickable to reopen.
+- The **active fragment is highlighted** in the sentence, and typing
+  updates the sentence **live** (the confirmed word appears immediately).
+- Already-complete bullets (2/2/2) **skip the loop entirely** —
+  confirmation only, as §6 defines.
+- The existing **question texts (§6) are unchanged** — the program reads
+  exactly those strings (product-owner note).
+- The terminal steps 5–10 (§4.1) are unchanged.
+
 ## 7. Rewriting Rules (WORDING)
 
 These rules apply only during the rewriting stage; when displaying the framework, the candidate's words remain exactly as written.
@@ -403,8 +455,9 @@ These rules apply only during the rewriting stage; when displaying the framework
 - A purpose clause is a vague result; a need phrase ending in "to" is never read as a result.
 - No word appears in two framework parts (the feature-inside-action overlap excepted); a multi-line bullet extracts exactly like its single-line equivalent.
 - A present-but-vague result scores 1 and a missing result scores 0; an empty part never displays as vague.
-- The web display renders the one-sentence format of §5.1 with the closed connector set, and the sentence never contradicts the score.
+- The web display renders the one-sentence format of §5.1 with the closed connector set, and the sentence never contradicts the score. **Phase 15 (§5.2): on the web the parts render as soft underlines with dotted placeholders for missing slots (no brackets), a five-cell status row (Complete/Vague/Missing, text+weight only, no icons) sits above the sentence, and the coverage block (§2.2) is unchanged; the terminal keeps §5 exactly.**
 - Every submitted improvement yields a before/after score pair computed by the same pipeline as first-time scoring.
+- **Phase 15 (§6.2): exactly one question is expanded at a time in the order missing → vague → metric (fixed part order within each group); Next and fragment-click navigation work; typing updates the sentence live; confirmed parts remain visible and clickable; complete bullets skip the loop (confirmation only); zero confirmed answers still means no rewrite.**
 - The model disclosure banner appears exactly on the screens where a model call can happen while model scoring is active, and never otherwise.
 - The platform theme (§11) renders on every web screen with the three vendored fonts and no external font requests, and the tone guard test passes (no emoji in message strings; key tokens present).
 - Coverage (§2.2): the coverage record lists, per part, its exact extracted words with status and reason, and every word of the bullet that no part claims appears in exactly one orphaned span with a reason; no word is claimed by two parts (the §2.1 feature-inside-action overlap excepted — such words are claimed by the action and never orphaned) and orphaned spans never change scores, questions, or statuses.
@@ -423,7 +476,84 @@ These rules apply only during the rewriting stage; when displaying the framework
 - ~~Web prototype: in-sentence display, inline improvement loop with grounded suggestions, copy, model disclosure banner, BYOK prompt calibration~~ — **DONE 2026-11-03** (Phase 11; web + parser-doc scope only; terminal display unchanged). Open follow-ups remain in tasks.md Phase 11 (doc answer-key alignment; OpenRouter CORS retry).
 - Chunk attribution before status assignment (§2.2, Phase 12) — spec'd and clarified 2026-11-04 (diagnostic-only scope; orphaned = unclaimed remainder spans; separate gray web block under the sentence); then plan and tasks from T093 (T091/T092 remain open). **DONE 2026-11-04** — implemented and gated (T095–T105; pytest 227 green, PARITY OK, terminal untouched).
 - Hybrid entry — paste-and-split bullet shaping (§4.2, Phase 13) — spec'd and clarified 2026-11-04 (WEB-ONLY scope, terminal unchanged; fields stored+displayed, dates free-text; combined flag rule + wrap-merge); then plan and tasks from T106 (T091/T092 remain open). **DONE 2026-11-04** — implemented and gated (T106–T114; test:engine 11/11, PARITY OK, terminal untouched), committed as c56e574.
-- Platform theme and voice (§11, Phase 14) — spec'd and clarified 2026-11-05 (COMPLETE web adoption; Tailwind-variant-only — raw pack stays outside the repo; fonts vendored locally); then plan and tasks from T115 (T091/T092 remain open).
+- Platform theme and voice (§11, Phase 14) — spec'd and clarified 2026-11-05 (COMPLETE web adoption; Tailwind-variant-only — raw pack stays outside the repo; fonts vendored locally); then plan and tasks from T115 (T091/T092 remain open). **DONE 2026-11-05** — implemented and gated (T115–T120; test:engine 17/17 incl. theme guard, tsc clean, next build exit 0, PARITY OK, pytest 227), committed as cbf7ae8.
+- Five-part analysis UX — glance row + underline sentence + focused one-question loop (§5.2/§6.2, Phase 15) — spec'd and clarified 2026-11-05 (items 1–3; status colors stay on underlines; needs list superseded on the web; items 4–8 DEFERRED below); then plan and tasks from T121 (T091/T092 remain open).
+- DEFERRED UX items (owner's review 2026-11-05, not in Phase 15 — candidates for later phases): (4) fewer/better suggestions — grounded suggestion first, generic under "other suggestion", cursor to the first "…" gap; (5) one-line warm ambiguity reason with the fuller guidance hidden behind "Why?"; (6) metric without pressure — a clear "I don't have a number" skip + an encouraging line + a gentle "is this a measured number?" check on guess-like input ("about", "roughly"); (7) progress line "N of 5 complete" next to "Achievement n of total" + a final clean card with the improved sentence beside the original text (copy/continue exist); (8) Enter-to-next, a Back button that never wipes answers, and auto-saved answers across refreshes.
+- Repository layout — two view editions, one governance root (§12, Phase 16) — spec'd and clarified 2026-11-05 (root siblings; optional-skip parity; matcher/ + its two legacy tests deleted); **executes BEFORE the pending Phase 15 implementation per product-owner priority**; then plan and tasks from T127 (T091/T092 remain open).
+
+## 12. Repository Layout: Two View Editions, One Governance Root (Phase 16, 2026-11-05)
+
+The product has TWO VIEW EDITIONS of one engine — the **Terminal** (Python
+v1, the original rule/test baseline) and the **Web** (the product's
+continuation) — and the repository must make that legible while keeping ONE
+governance root: `specs/`, `.specify/`, and `docs/` stay at the repository
+root, shared by both editions and owned by neither.
+
+### 12.1 Edition folders
+
+- **terminal/** — ALL Python-side assets move here: `pyproject.toml`,
+  `src/jobforward/**`, `tests/**`, and the terminal's runtime data folder.
+  Package internals are unchanged; the CLI runs standalone from this folder.
+  terminal/ carries its own README declaring the edition: Terminal v1 — the
+  original baseline, FROZEN (product updates continue on the web edition).
+- **web/** — unchanged in place; already runtime-independent (verified
+  2026-11-05: the web imports nothing from the Python side; the only
+  cross-coupling was the dev-time parity harness).
+
+### 12.2 Independence guarantee
+
+Removing terminal/ must not break web in any way. Web runtime has no Python
+dependency; the parity gate (a dev-time release gate) becomes OPTIONAL: with
+the terminal engine present it runs exactly as today (PARITY OK required as
+before); with terminal/ absent it skips gracefully with a clear message and
+never fails the web build/test gates.
+[RESOLVED 2026-11-05, product-owner answer]: optional-skip parity confirmed —
+the owner now knows the gate's purpose (the twin-drift oracle: it proves the
+web's TS engine still matches the Python reference engine byte-for-byte on
+the shared corpus). With the terminal engine present the gate runs exactly
+as today (PARITY OK required); with terminal/ absent it skips gracefully
+with a clear message and never fails the web gates.
+
+### 12.3 Live data
+
+The user's real resume data moves WITH the terminal folder (root `data/` →
+`terminal/data/`), preserved byte-for-byte (constitution data rules); the
+web prototype's own data (`web/data/`) does not move.
+
+### 12.4 Superseded package cleanup
+
+The retired `matcher/` package (replaced by `matcher2/`, no production
+importers — verified 2026-11-05) plus its two legacy tests are candidates
+for removal in this phase.
+[RESOLVED 2026-11-05, product-owner answer]: DELETED in this phase —
+`matcher/` + `tests/unit/test_matcher.py` +
+`tests/contract/test_matcher_output.py` (verified: no production importers;
+the retired 001 matcher is fully superseded by matcher2/).
+
+### 12.5 Documentation truthfulness
+
+A one-time path-update pass over the normative records: spec/plan/tasks/
+quickstart references to the old root paths (`src/jobforward/…`, `tests/…`,
+`pyproject.toml`, `data/`) become `terminal/…`; the execution note records
+that Phase 16 runs BEFORE the pending Phase 15 implementation (owner
+priority). Moves use `git mv` so history follows the renames.
+
+### 12.6 Acceptance criteria
+
+- The repository root contains only the two edition folders (`terminal/`,
+  `web/`), the shared governance (`specs/`, `.specify/`, `docs/`), and repo
+  meta (`.git`, `.gitignore`, `.zcode/`, README).
+- Web gates all green with terminal present (parity PARITY OK) AND with
+  `terminal/` temporarily absent (parity reports the skip, nothing fails).
+- pytest from `terminal/` passes at the same count (minus the legacy
+  matcher tests if deletion is confirmed); the live resume data is intact
+  in `terminal/data/` and never left the machine.
+- `terminal/README.md` states the frozen-baseline status; a root README
+  carries the repo map.
+[RESOLVED 2026-11-05, product-owner answer]: ROOT SIBLINGS confirmed —
+`terminal/` + `web/` at the repository root, beside the shared governance
+(`specs/`, `.specify/`, `docs/`); `web/` stays exactly where it is
+(minimal churn).
 
 ## 11. Platform Theme and Voice (Phase 14, 2026-11-05)
 

@@ -289,3 +289,39 @@ accent, radius, content width, the three font families) are present in
 parity PARITY OK (unchanged) · `npm run test:byok` 23/24 baseline ·
 `npm run scan:byok` passed · `python -m pytest` 227 green. The terminal CLI
 is untouched.
+
+## Addendum: Phase 15 validation (2026-11-05, spec §5.2/§6.2)
+
+### Engine tests
+
+`cd web && npm run test:engine` — the new display tests prove: partStates
+derives Complete/Vague/Missing per part (empty = missing ALWAYS, even at
+rating 0; vague = non-empty + vague flag; otherwise complete) and
+questionOrder returns missing parts first, then vague parts, each in
+Need→Feature→Action→Result order, metric last (a metric that is merely
+empty is last, never first).
+
+### Browser walkthrough (http://localhost:3100)
+
+1. Bullet gate: a five-cell status row sits ABOVE the sentence —
+   Complete/Vague/Missing per part, text+weight only (no icons).
+2. The sentence has NO brackets: filled/vague words carry a soft colored
+   underline; missing slots show a dotted gap with the muted part label;
+   the sentence reads naturally end-to-end; the gray coverage block is
+   still under the sentence.
+3. Exactly ONE question is expanded, ordered missing → vague → metric;
+   the rest are collapsed to one-line summaries; Next advances; clicking a
+   fragment (or a dotted slot) opens that part's question; the active
+   fragment is highlighted; typing updates the sentence LIVE.
+4. Confirmed parts turn Complete in the row, stay visible, and reopen on
+   click; the old needs list is GONE; the reason for a vague part appears
+   inside its open question.
+5. A complete bullet (2/2/2) skips the loop — confirmation only.
+6. Terminal unchanged; scores unchanged (pytest 227 / PARITY OK as proof).
+
+### Gates
+
+`npm run test:engine` green (incl. display tests, TDD red-first) ·
+`tsc --noEmit` clean · parity PARITY OK (unchanged) · `npm run test:byok`
+23/24 baseline · `npm run scan:byok` passed · `python -m pytest` 227 green.
+The terminal CLI is untouched.

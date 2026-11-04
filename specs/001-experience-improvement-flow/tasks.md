@@ -1206,3 +1206,78 @@ Tasks start at T115 (T091/T092 remain open).
   requires. Light-mode-only held. Changed files: theme.test.ts (NEW),
   globals.css (REWRITE), layout.tsx (fonts), page.tsx (msg-* + tooltip) —
   the plan's list exactly.
+
+## Phase 15: Five-Part Analysis UX — Glance Row, Underline Sentence, Focused Loop (spec §5.2/§6.2, clarified 2026-11-05)
+
+**Purpose**: the web's five-part analysis display and improvement loop are
+reworked per the product owner's UX review items 1–3 (items 4–8 DEFERRED to
+§10): a five-cell status row (Complete/Vague/Missing — text+weight only,
+never icons), a bracket-free sentence (soft underlines in the KEPT status
+colors; dotted placeholder slots with the muted label for missing parts; all
+§5.1 content rules unchanged), and a focused loop with exactly ONE question
+expanded at a time (order: missing parts first, then vague, each in
+Need→Feature→Action→Result, metric LAST; Next + fragment-click navigation;
+active-fragment highlight; live typing; confirmed parts clickable to
+reopen). The "Still needs to be filled" list is SUPERSEDED on the web (the
+ambiguity reason moves inside the open question). Every §6.1 decision is
+unchanged (confirm per part, zero answers = no rewrite, same pipeline
+re-scoring); the existing question texts (§6) are read verbatim. WEB-ONLY:
+Python engine, terminal, messages.py, parity corpus UNTOUCHED. Tasks start
+at T121 (T091/T092 remain open).
+
+### Setup & Foundational
+
+- [X] T121 Record the product-owner decisions governing this phase
+  (2026-11-05): items 1–3 of the UX review chosen for Phase 15, items 4–8
+  deferred; sentence underlines KEEP the status colors while the row is
+  text+weight only (D22); the needs list is superseded on the web (D23);
+  display logic as pure engine helpers — web-only, no twin (D24); labels/
+  reasons English B1 (P10 decision) — evidence: spec §5.2/§6.2 resolved
+  blocks + §9 Phase 15 criteria, research D22–D24, plan Phase 15 Addendum
+  (incl. the 5-file list), quickstart Phase 15 validation
+
+### Tests First (P9 — failing before implementation)
+
+- [ ] T122 Write the failing display tests in NEW
+  `web/tests/engine/display.test.ts` for the pure helpers:
+  `partStates(rows)` — empty words = Missing ALWAYS (even at rating 0), vague
+  = non-empty + vague flag, otherwise Complete (mirrors PartDisplayState);
+  `questionOrder(rows)` — missing parts first, then vague parts, each group
+  in Need→Feature→Action→Result order, Metric last (a bullet with only an
+  empty metric yields exactly [metric]; a complete bullet yields [])
+
+### Implementation (styling/interaction only — no analysis change)
+
+- [ ] T123 Implement the pure display helpers in NEW
+  `web/src/engine/flow/display.ts`: `partStates(rows)` and
+  `questionOrder(rows)` exactly per T122 (web-only presentation logic — no
+  Python twin, no parity coupling, no scoring/extraction logic moved)
+- [ ] T124 [P] Add the English B1 strings to `web/src/engine/messages.ts`:
+  state labels "Complete" / "Vague" / "Missing", the Next button label, the
+  collapsed one-line summary format "{label} — {state}", and the question
+  counter "Question {n} of {total}" — no emoji (theme guard stays green)
+- [ ] T125 Rework BulletGate in `web/src/app/page.tsx` per spec §5.2/§6.2:
+  the five-cell status row above the sentence (text+weight only);
+  frameworkSpan rework — filled/vague parts as verbatim words with a soft
+  underline in the kept status colors (themed emerald/amber/red), missing
+  parts as dotted placeholder slots carrying the muted part label (NO
+  brackets); remove the "Still needs to be filled" list (superseded — the
+  ambiguity reason renders inside the open question); exactly ONE question
+  expanded at a time ordered by questionOrder with the rest as one-line
+  collapsed summaries; Next advances; clicking a fragment or a dotted slot
+  opens that part's question; the active fragment is highlighted; typing
+  updates the sentence live; confirmed parts stay visible and clickable to
+  reopen; complete bullets skip the loop (confirmation only); the gray
+  coverage block, copy action, and all §6.1 decisions unchanged
+
+### Verification (gates as-run)
+
+- [ ] T126 Run all gates and record evidence: `npm run test:engine` green
+  incl. the new display tests (T122 red-first), `tsc --noEmit` clean,
+  parity PARITY OK (corpus unchanged), `npm run test:byok` 23/24 baseline,
+  `npm run scan:byok` passed, `python -m pytest` 227 green (Python
+  untouched); walkthrough per quickstart Phase 15: five-cell row with
+  text+weight states, bracket-free sentence with colored underlines + dotted
+  slots, one question open at a time in missing→vague→metric order,
+  Next/fragment-click navigation, live sentence update while typing, needs
+  list gone, terminal byte-identical; mark T122–T125 [X] with evidence

@@ -454,3 +454,79 @@ baseline · `npm run scan:byok` passed · `python -m pytest` 227 green ·
 walkthrough: cream background, red pill primary buttons, Fraunces headings,
 18px body, warm error/success pairs, network tab shows no font request to
 any external origin.
+
+---
+
+## Phase 15 Addendum (five-part analysis UX, 2026-11-05)
+
+Spec §5.2/§6.2 (clarified 2026-11-05; items 1–3 of the owner's UX review;
+4–8 deferred to §10). WEB-ONLY presentation/interaction phase: Python
+engine, terminal, `messages.py`, parity corpus UNTOUCHED. Tasks start at
+**T121**.
+
+### Design additions
+
+- **Pure display helpers (NEW `web/src/engine/flow/display.ts`)** — the two
+  deterministic pieces of the new UI live OUTSIDE the component so P9 tests
+  are engine-level (no React test infra exists; web-only module — no twin,
+  presentation logic, not analysis): `partStates(rows)` derives
+  Complete/Vague/Missing per part (missing = empty words, ALWAYS; vague =
+  non-empty + vague flag; complete otherwise — mirrors PartDisplayState),
+  and `questionOrder(rows)` returns the focused-loop order — missing parts
+  first, then vague parts, each in Need→Feature→Action→Result order, metric
+  last. No scoring/extraction logic moves here.
+- **Five-cell status row (page.tsx, above the sentence)** — one cell per
+  part with the English B1 state label; text+weight only (no icons, no
+  color coding on the row).
+- **Bracket-free sentence** — `frameworkSpan` becomes: filled/vague = the
+  verbatim words with a soft underline in the KEPT status colors (themed
+  emerald/amber/red — product-owner answer 2026-11-05); missing = a dotted
+  placeholder slot in the slot's position carrying the part label in muted
+  text (the sentence keeps reading naturally). All §5.1 content rules
+  (closed connectors, ", resulting in", verbatim words) are untouched. The
+  gray coverage block stays under the sentence.
+- **Focused question loop (BulletGate rework)** — exactly ONE question
+  expanded (ordered by `questionOrder`), the rest collapsed to a one-line
+  summary with the state label; Next advances; clicking a sentence fragment
+  (filled, vague, OR dotted slot) opens that part's question; the active
+  fragment is highlighted; typing updates the sentence live (the existing
+  inputs already drive `displayRows`); confirmed parts remain visible and
+  clickable to reopen. The "Still needs to be filled" list is REMOVED on
+  the web (superseded — the ambiguity reason renders inside the open
+  question); the terminal names-only list is untouched. Complete bullets
+  skip the loop (confirmation only, as today). Zero confirmed answers still
+  means no rewrite; re-submission re-scores through the same pipeline.
+- **Copy rules** — the existing question texts (§6) are read verbatim; new
+  strings are only the state labels (Complete/Vague/Missing), Next, the
+  collapsed summary, and the question counter (e.g. "Question 2 of 4") —
+  English B1, no emoji (theme guard keeps passing).
+
+### Files to modify (complete list — user rule: file list before coding)
+
+| # | File | Change |
+|---|---|---|
+| 1 | `web/tests/engine/display.test.ts` | NEW — failing tests for partStates + questionOrder (P9, first) |
+| 2 | `web/src/engine/flow/display.ts` | NEW — pure display helpers (part states + question order) |
+| 3 | `web/src/app/page.tsx` | BulletGate rework: status row, underline spans + dotted slots, focused loop (Next/click/highlight/live), needs-list removal; frameworkSpan rework |
+| 4 | `web/src/engine/messages.ts` | new English B1 strings (state labels, Next, collapsed summary, question counter) |
+| 5 | docs: plan/research/quickstart/tasks (+ spec already amended) | Phase 15 records |
+
+Python engine, terminal, parity harnesses, theme guard: UNTOUCHED (parity
+and guard stay green).
+
+### Constitution check (Phase 15)
+
+No violations. P1/P2 (every §6.1 decision unchanged; the tool never invents;
+user confirms per part), P4 (no scoring change), P8 (no new dependencies),
+P9 (display-helper tests written first), P10 (English B1 strings), §11
+(no icons/emoji on the row).
+
+### Expected gates
+
+`npm run test:engine` green (incl. new display tests, TDD red-first) ·
+`tsc --noEmit` clean · parity PARITY OK (unchanged) · `npm run test:byok`
+23/24 baseline · `npm run scan:byok` passed · `python -m pytest` 227 green ·
+walkthrough: five-cell row with text+weight states, bracket-free sentence
+with colored underlines + dotted slots, one question open at a time in
+missing→vague→metric order, Next/fragment-click navigation, live sentence
+update while typing, needs list gone, terminal byte-identical.
