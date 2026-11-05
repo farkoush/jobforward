@@ -480,6 +480,7 @@ These rules apply only during the rewriting stage; when displaying the framework
 - Five-part analysis UX — glance row + underline sentence + focused one-question loop (§5.2/§6.2, Phase 15) — spec'd and clarified 2026-11-05 (items 1–3; status colors stay on underlines; needs list superseded on the web; items 4–8 DEFERRED below); then plan and tasks from T121 (T091/T092 remain open).
 - DEFERRED UX items (owner's review 2026-11-05, not in Phase 15 — candidates for later phases): (4) fewer/better suggestions — grounded suggestion first, generic under "other suggestion", cursor to the first "…" gap; (5) one-line warm ambiguity reason with the fuller guidance hidden behind "Why?"; (6) metric without pressure — a clear "I don't have a number" skip + an encouraging line + a gentle "is this a measured number?" check on guess-like input ("about", "roughly"); (7) progress line "N of 5 complete" next to "Achievement n of total" + a final clean card with the improved sentence beside the original text (copy/continue exist); (8) Enter-to-next, a Back button that never wipes answers, and auto-saved answers across refreshes.
 - Repository layout — two view editions, one governance root (§12, Phase 16) — spec'd and clarified 2026-11-05 (root siblings; optional-skip parity; matcher/ + its two legacy tests deleted); **executes BEFORE the pending Phase 15 implementation per product-owner priority**; then plan and tasks from T127 (T091/T092 remain open).
+- Warm UX & voice (§11.5, Phase 17) — owner look-and-feel review 2026-11-05, all four accepted groups; LIGHT PATH (no spec-kit commands, owner-approved before/after tone table); **DONE 2026-11-05** — implemented and gated (pytest 213 from terminal/, test:engine 23/23, tsc clean, next build exit 0, PARITY OK), committed as e69186c, f93965a, d926dda, fab9ee4, 5f5b1af.
 
 ## 12. Repository Layout: Two View Editions, One Governance Root (Phase 16, 2026-11-05)
 
@@ -647,3 +648,34 @@ adopts ONLY the Tailwind variant into the global stylesheet; the raw
 standalone files (jobforward-theme.css jbf-*, preview.html, fonts.html)
 stay outside the repo with the product owner. The global stylesheet remains
 the single source of truth (no duplicate token sets to keep in sync).
+
+### 11.5 Warm UX and voice wiring (Phase 17, light path, 2026-11-05)
+
+Product-owner look-and-feel review 2026-11-05 (warm first-person voice
+model; all four accepted groups). Binding outcome of the light-path
+implementation (commits e69186c … 5f5b1af):
+
+- Color notes: already satisfied by the §11.2 tokens — warm black on cream;
+  the brand red only on the primary button and emphasis; errors in the warm
+  orange-red, never the brand red; success in the olive green. No change.
+- Stage progress bar at the top of the page: warm segments + a
+  "Step n of N" caption mapped from the screen state (add flow: Details /
+  Achievements / Questions / Result; match flow: Paste / Review / Hard
+  skills / Soft skills); no bar on gate/welcome/menu/settings. Text and
+  segments only — no icons (§11.1 rule 1).
+- The overall score renders as a progress ring with the number (JetBrains
+  Mono digits, brand red stroke on the warm neutral track — emphasis use,
+  §11.1 rule 2); all score numbers render in JetBrains Mono.
+- The busy status shows the blinking pulse-dot next to "Analyzing…"; the
+  hard/soft skill names render as mono tech-tag chips.
+- Warm voice pass (P10 lockstep — texts byte-identical in messages.py and
+  messages.ts): the ERR_* family, ADD_* prompts, DRAFT_*, GOODBYE,
+  EDIT_BULLET_DONE, ADD_PASTE_EMPTY, and the split-confirm CTA rewritten to
+  the warm first-person B1 tone from the owner-approved before/after table.
+  MATCH_* (002 contract, pinned verbatim) and ASK_* (§6 texts) untouched.
+- Encouragement lines and title/company field hints are WEB-ONLY strings in
+  messages.ts (terminal display frozen — the §5.2 divergence pattern):
+  ENCOURAGE_SCORED on the score screen, ENCOURAGE_STRONGER before the
+  before/after line after an inline improvement.
+- Gates as run 2026-11-05: pytest 213 from terminal/, test:engine 23/23
+  (theme guard included), tsc clean, next build exit 0, PARITY OK.
