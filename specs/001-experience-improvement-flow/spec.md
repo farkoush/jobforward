@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-23
 
-**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning); amended 2026-11-05 — platform theme and voice (Phase 14, cross-cutting; complete web adoption, Tailwind-variant-only, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — five-part analysis UX: glance row, underline sentence, focused one-question loop (Phase 15, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — repository layout: two view editions, one governance root (Phase 16, clarified 2026-11-05 — root siblings, optional-skip parity, matcher/ deleted; ready for planning)
+**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning); amended 2026-11-05 — platform theme and voice (Phase 14, cross-cutting; complete web adoption, Tailwind-variant-only, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — five-part analysis UX: glance row, underline sentence, focused one-question loop (Phase 15, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — repository layout: two view editions, one governance root (Phase 16, clarified 2026-11-05 — root siblings, optional-skip parity, matcher/ deleted; ready for planning); amended 2026-11-05 — warm UX and voice wiring (Phase 17, light path, §11.5; owner look-and-feel groups accepted, implemented and gated)
 
 **Input**: User description: "A text-flow prototype (no graphical interface) that guides an entry-level product manager job seeker through one complete path for improving a single experience entry. The user adds an experience entry (type: job, project, course, side work), a title, and 1–6 free‑text English bullets. The tool scores each bullet on three dimensions (Context, Specific Action, Result) and rewrites bullets using a five‑part framework (User Need → Product Feature → Action → Result → Metric)."
 
@@ -135,10 +135,6 @@ no scoring criterion changes).
 unclaimed words**. No new segmentation: whatever extraction (§2.1) leaves
 outside all five parts is listed as orphaned spans, each with a reason; the
 claimed part quotations come from the existing extraction unchanged.
-
-[NEEDS CLARIFICATION: what granularity defines a "chunk" — the clause-level
-segments the parser already builds per §2.1 rules, whole sentences, or only
-the unassigned remainder spans?]
 
 **Examples in this document** (the tool does not use these examples at runtime):
 
@@ -679,3 +675,9 @@ implementation (commits e69186c … 5f5b1af):
   before/after line after an inline improvement.
 - Gates as run 2026-11-05: pytest 213 from terminal/, test:engine 23/23
   (theme guard included), tsc clean, next build exit 0, PARITY OK.
+
+[RESOLVED 2026-11-05, product-owner answer]: encouragement coverage — the TWO
+placements above (the score screen line and the post-improvement line) are
+the accepted final interpretation of "a short encouraging sentence after
+each stage"; no additional transitions get encouragement lines. More
+placements remain a future decision through a new phase.
