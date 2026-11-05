@@ -7,6 +7,7 @@
 
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextRequest } from "next/server";
+import { GATE_COOKIE_NAME, verifyGateCookie } from "@/lib/llm/gate";
 
 const SALT = "jobforward-gate-v1";
 
@@ -32,8 +33,14 @@ export function checkPassword(password: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Every API route (except /api/gate) requires the x-gate-token header. */
+/**
+ * Every API route (except /api/gate) requires a valid gate session: the
+ * signed httpOnly cookie (FR-18) is checked first; the legacy x-gate-token
+ * header remains accepted during the client transition (T011).
+ */
 export function isAuthorized(request: NextRequest): boolean {
+  const cookieId = verifyGateCookie(request.cookies.get(GATE_COOKIE_NAME)?.value);
+  if (cookieId) return true;
   const token = request.headers.get("x-gate-token") ?? "";
   const a = Buffer.from(token);
   const b = Buffer.from(expectedToken());
@@ -57,6 +64,9 @@ export function rateLimited(sessionId: string): boolean {
   return false;
 }
 
+/** Quota identity: the anonymous cookie id (FR-18), legacy header fallback. */
 export function sessionIdOf(request: NextRequest): string {
+  const cookieId = verifyGateCookie(request.cookies.get(GATE_COOKIE_NAME)?.value);
+  if (cookieId) return cookieId;
   return request.headers.get("x-session-id") ?? "anonymous";
 }

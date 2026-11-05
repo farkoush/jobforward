@@ -7,7 +7,7 @@
  * routes; this client only orchestrates screens and renders results.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as msg from "@/engine/messages";
 import { fmt } from "@/engine/messages";
 import {
@@ -34,14 +34,18 @@ import { logEvent } from "@/lib/logger";
 import { ByokSettings } from "@/components/ByokSettings";
 import { ModelBanner } from "@/components/ModelBanner";
 import {
+  getRawKeyForGateway,
   getByokState,
   initByok,
-  rateBulletsWithModel,
+  setUseForScoring,
 } from "@/lib/byok/client";
 import {
   BYOK_EVALUATOR_SYSTEM_PROMPT,
   buildEvaluatorUserPrompt,
 } from "@/lib/byok/prompts";
+import { GATEWAY_MESSAGES, RETRYABLE_REASONS } from "@/lib/llm/messages";
+import type { GatewayReason } from "@/lib/llm/types";
+import { clearDraft, loadDraft, saveDraftDebounced } from "@/lib/draft";
 import { buildCoverage, extractParts } from "@/engine/flow/parts";
 import { splitBullets, type SplitCandidate } from "@/engine/flow/entry_split";
 import { partStates, questionOrder } from "@/engine/flow/display";
@@ -173,6 +177,13 @@ export default function Home() {
   const stage = STAGE_INDEX[screen]; // W3 stage bar; null outside a flow
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Gateway end-state (US2): Persian message + Retry (+ explicit free-path
+  // confirmation after a BYOK failure, SC-008). Kept separate from the
+  // engine's `error` code path so the Persian text renders verbatim.
+  const [gatewayError, setGatewayError] = useState<string | null>(null);
+  const [gatewayReason, setGatewayReason] = useState<GatewayReason | null>(null);
+  const [byokDowngradeOffer, setByokDowngradeOffer] = useState(false);
+  const retryActionRef = useRef<(() => void) | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   // Entry collection (Phase 13 hybrid: paste-and-split, spec §4.2)
@@ -210,6 +221,9 @@ export default function Home() {
     initByok();
     if (!getGateToken()) setScreen("gate");
     else if (existing && existing.consentAt) setScreen("menu");
+    // Draft recovery (FR-22): restore unsaved paste input after a reload.
+    const savedPaste = loadDraft("paste");
+    if (savedPaste) setPasted(savedPaste);
     setReady(true);
   }, []);
 
@@ -217,6 +231,9 @@ export default function Home() {
 
   function go(next: Screen) {
     setError(null);
+    setGatewayError(null);
+    setGatewayReason(null);
+    setByokDowngradeOffer(false);
     setScreen(next);
   }
 
@@ -320,72 +337,143 @@ export default function Home() {
   }
 
   /**
-   * BYOK path (advanced, opt-in): the model produces ONLY the 0/1/2 bullet
-   * ratings, browser -> provider directly (the key never reaches our
-   * server). Output is untrusted: zod + the shared validity check gate it,
-   * and ALL arithmetic stays in the engine (metrics.ts) — mirroring the
-   * terminal's opt-in LLM evaluator design.
+   * Gateway path (004-llm-gateway, P12): the model produces ONLY the 0/1/2
+   * bullet ratings, reached through /api/llm/fast — the free NVIDIA chain by
+   * default, or the user's OpenRouter key via the x-byok-key header
+   * (per-request, never persisted, FR-29). Output is untrusted: fence-
+   * stripping + the shared validity check gate it, and ALL arithmetic stays
+   * in the engine (metrics.ts) — mirroring the terminal's opt-in LLM
+   * evaluator design. Invalid output is retried once, then refused (FR-014).
    */
-  async function scoreWithByok(texts: string[]) {
+  async function scoreWithGateway(
+    texts: string[],
+    useByok: boolean
+  ): Promise<
+    | {
+        ok: true;
+        ratings: Array<{
+          bullet_index: number;
+          context: number;
+          role_action_clarity: number;
+          result: number;
+        }>;
+        parts: ReturnType<typeof extractParts>[];
+        entry_score: number;
+        rubric_version: string;
+      }
+    | { ok: false; reason: GatewayReason; error: string }
+  > {
     const parts = texts.map((t) => extractParts(t));
-    const outcome = await rateBulletsWithModel(texts, (bullets) => [
-      { role: "system" as const, content: BYOK_EVALUATOR_SYSTEM_PROMPT },
-      { role: "user" as const, content: buildEvaluatorUserPrompt(bullets) },
-    ]);
-    if (!outcome.ok || !outcome.ratings) {
-      return {
-        ok: false as const,
-        error: outcome.error?.userMessage ?? msg.ERR_EVALUATOR_FAILURE,
-      };
+    const byok = getByokState();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const outcome = (await fetch("/api/llm/fast", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(useByok && getRawKeyForGateway()
+            ? {
+                "x-byok-key": getRawKeyForGateway() as string,
+                "x-byok-model": byok.model ?? "",
+              }
+            : {}),
+        },
+        body: JSON.stringify({
+          task: "scoring_ratings",
+          input: buildEvaluatorUserPrompt(texts),
+          context: { system: BYOK_EVALUATOR_SYSTEM_PROMPT },
+        }),
+      }).then((r) => r.json())) as
+        | { ok: true; text: string }
+        | { ok: false; reason: GatewayReason }
+        | null;
+      if (!outcome) {
+        return {
+          ok: false,
+          reason: "NETWORK",
+          error: GATEWAY_MESSAGES.NETWORK,
+        };
+      }
+      if (outcome.ok !== true) {
+        const reason = outcome.reason ?? "ALL_MODELS_FAILED";
+        return {
+          ok: false,
+          reason,
+          error: GATEWAY_MESSAGES[reason] ?? msg.ERR_EVALUATOR_FAILURE,
+        };
+      }
+      // Untrusted model output: strip fences, parse, shared validity check.
+      const cleaned = String(outcome.text ?? "")
+        .replace(/^```(?:json)?/i, "")
+        .replace(/```\s*$/, "")
+        .trim();
+      try {
+        const parsed = JSON.parse(cleaned) as {
+          ratings?: Array<{
+            bullet_index?: unknown;
+            context?: unknown;
+            role_action_clarity?: unknown;
+            result?: unknown;
+          }>;
+        };
+        const raw = parsed.ratings;
+        if (!Array.isArray(raw)) throw new Error("no ratings array");
+        const normalized = raw.map((r, i) => ({
+          bullet_index: i,
+          context: Number(r.context),
+          role_action_clarity: Number(r.role_action_clarity),
+          result: Number(r.result),
+        }));
+        // Shared validity check (values in {0,1,2}, one rating per bullet).
+        validateResponse(normalized, texts.length);
+        const entryScore = entryScoreFromRatings(
+          normalized.map((r) => ({
+            context: r.context,
+            role_action_clarity: r.role_action_clarity,
+            result: r.result,
+          }))
+        );
+        return {
+          ok: true,
+          ratings: normalized,
+          parts,
+          entry_score: entryScore,
+          rubric_version: DEFAULT_RUBRIC_VERSION,
+        };
+      } catch {
+        continue; // invalid output → one more gateway attempt (retry-once)
+      }
     }
-    try {
-      const normalized = outcome.ratings.map((r, i) => ({
-        bullet_index: i,
-        context: r.context,
-        role_action_clarity: r.role_action_clarity,
-        result: r.result,
-      }));
-      // Shared validity check (values in {0,1,2}, one rating per bullet).
-      validateResponse(normalized, texts.length);
-      const entryScore = entryScoreFromRatings(
-        normalized.map((r) => ({
-          context: r.context,
-          role_action_clarity: r.role_action_clarity,
-          result: r.result,
-        }))
-      );
-      return {
-        ok: true as const,
-        ratings: normalized,
-        parts,
-        entry_score: entryScore,
-        rubric_version: DEFAULT_RUBRIC_VERSION,
-      };
-    } catch {
-      return { ok: false as const, error: msg.ERR_EVALUATOR_FAILURE };
-    }
+    return {
+      ok: false,
+      reason: "ALL_MODELS_FAILED",
+      error: GATEWAY_MESSAGES.ALL_MODELS_FAILED,
+    };
   }
 
-  /** Score the stored entry (server engine by default, or the user's model
-   * when BYOK is enabled) and persist the ratings into the session (applied
-   * inside updateSession so mutations are not lost). */
+  /** Score the stored entry through the gateway (free path by default,
+   * the user's key when BYOK is on) and persist the ratings into the
+   * session (applied inside updateSession so mutations are not lost).
+   * A BYOK failure NEVER falls back automatically (SC-008): the user sees a
+   * dedicated Persian message and explicitly confirms the free path. */
   async function scoreAndPersist(onlyBulletId?: number) {
     const stored = getSession();
     if (!stored?.entry) return null;
     const byok = getByokState();
     const useByok = byok.useForScoring && byok.hasKey && Boolean(byok.model);
-    let result:
-      | Awaited<ReturnType<typeof scoreAllTexts>>
-      | Awaited<ReturnType<typeof scoreWithByok>>;
-    if (useByok) {
-      setBusy(true);
-      result = await scoreWithByok(stored.entry.bullets.map((b) => b.text));
-      setBusy(false);
-    } else {
-      result = await scoreAllTexts(stored.entry.bullets.map((b) => b.text));
-    }
+    setGatewayError(null);
+    setGatewayReason(null);
+    setByokDowngradeOffer(false);
+    retryActionRef.current = () => void scoreAndPersist(onlyBulletId);
+    setBusy(true);
+    const result = await scoreWithGateway(
+      stored.entry.bullets.map((b) => b.text),
+      useByok
+    );
+    setBusy(false);
     if (!result.ok) {
-      setError("error" in result && result.error ? result.error : msg.ERR_EVALUATOR_FAILURE);
+      setGatewayError(result.error);
+      setGatewayReason(result.reason);
+      if (useByok) setByokDowngradeOffer(true);
       return null;
     }
     updateSession((s) => {
@@ -395,7 +483,10 @@ export default function Home() {
     logEvent(
       "analysis_backend",
       null,
-      redact({ backend: useByok ? "byok" : "deterministic", model: byok.model }) as Record<string, unknown>
+      redact({
+        backend: useByok ? "byok" : "gateway-free",
+        model: useByok ? byok.model : null,
+      }) as Record<string, unknown>
     );
     return result;
   }
@@ -443,6 +534,7 @@ export default function Home() {
     setSplitList(candidates);
     setSplitInputFor(null);
     setSplitInputValue("");
+    clearDraft("paste"); // input is now stored in the session (FR-20)
     go("entry_split");
   }
 
@@ -978,6 +1070,44 @@ export default function Home() {
             {errorText(error, matchParams)}
           </div>
         )}
+        {gatewayError && (
+          <div role="alert" className="msg-error mb-6">
+            <p>{gatewayError}</p>
+            {gatewayReason && RETRYABLE_REASONS.has(gatewayReason) && (
+              <button
+                className="btn-primary mt-3"
+                onClick={() => retryActionRef.current?.()}
+              >
+                Retry
+              </button>
+            )}
+            {gatewayReason &&
+              (gatewayReason === "QUOTA_USER" || gatewayReason === "QUOTA_GLOBAL") && (
+                <button
+                  className="btn-secondary mt-3"
+                  onClick={() => go("byok_settings")}
+                >
+                  Use my own key
+                </button>
+              )}
+            {byokDowngradeOffer && (
+              <button
+                className="btn-secondary mt-3"
+                onClick={() => {
+                  // Explicit user confirmation (FR-28): switch scoring to the
+                  // free gateway path and retry the same input.
+                  setUseForScoring(false);
+                  setByokDowngradeOffer(false);
+                  setGatewayError(null);
+                  setGatewayReason(null);
+                  retryActionRef.current?.();
+                }}
+              >
+                Continue with the free path
+              </button>
+            )}
+          </div>
+        )}
         {message && (
           <div className="msg-success mb-6">{message}</div>
         )}
@@ -1113,7 +1243,10 @@ export default function Home() {
                 className="text-input"
                 rows={10}
                 value={pasted}
-                onChange={(e) => setPasted(e.target.value)}
+                onChange={(e) => {
+                  setPasted(e.target.value);
+                  saveDraftDebounced("paste", e.target.value);
+                }}
                 placeholder="Paste in English"
               />
               <p className="mt-2 text-[13px] text-neutral-600">

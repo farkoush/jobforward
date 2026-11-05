@@ -134,6 +134,15 @@ export function setProvider(providerId: ProviderId): void {
   emit();
 }
 
+/**
+ * Gateway-era accessor (004-llm-gateway, FR-29): exposes the in-memory key
+ * so the page can send it per-request in the x-byok-key header. The key is
+ * NEVER persisted by the caller — this only reads the memory slot.
+ */
+export function getRawKeyForGateway(): string | null {
+  return memoryKey;
+}
+
 export function setKey(key: string, remember: boolean): void {
   memoryKey = key.trim();
   state.hasKey = true;

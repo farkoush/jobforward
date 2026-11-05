@@ -8,3 +8,6 @@ next-env.d.ts
 data/events.log.jsonl
 .env.local
 .env*.local
+
+# The env template is documentation, not a secret — track it.
+!.env.example
