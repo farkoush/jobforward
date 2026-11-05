@@ -669,14 +669,16 @@ export default function Home() {
       if (!scored) return;
       const current = getSession();
       setMessage(
-        fmt(msg.SCORE_BEFORE_AFTER, {
-          before: before === null ? "None" : round2(before),
-          after:
-            current?.entry?.entry_score === null || current?.entry?.entry_score === undefined
-              ? "None"
-              : round2(current.entry.entry_score),
-          rubric: DEFAULT_RUBRIC_VERSION,
-        })
+        msg.ENCOURAGE_STRONGER +
+          " " +
+          fmt(msg.SCORE_BEFORE_AFTER, {
+            before: before === null ? "None" : round2(before),
+            after:
+              current?.entry?.entry_score === null || current?.entry?.entry_score === undefined
+                ? "None"
+                : round2(current.entry.entry_score),
+            rubric: DEFAULT_RUBRIC_VERSION,
+          })
       );
       go("score");
       return;
@@ -1067,6 +1069,7 @@ export default function Home() {
                 onChange={(e) => setTitle(e.target.value)}
                 autoFocus
               />
+              <p className="mt-1 text-[13px] text-neutral-600">{msg.FIELD_HINT_TITLE}</p>
             </label>
             <label className="mb-3 block">
               <span className="mb-1 block text-[14px] font-medium text-neutral-800">
@@ -1077,6 +1080,7 @@ export default function Home() {
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
               />
+              <p className="mt-1 text-[13px] text-neutral-600">{msg.FIELD_HINT_COMPANY}</p>
             </label>
             <label className="mb-3 block">
               <span className="mb-1 block text-[14px] font-medium text-neutral-800">
@@ -1770,6 +1774,7 @@ function ScoreView({ entry, onContinue }: { entry: StoredEntry; onContinue: () =
       <h1 className="mb-4 text-2xl font-semibold">
         {fmt(msg.SCORE_BULLET_HEADER, { text: entry.title, rubric: DEFAULT_RUBRIC_VERSION })}
       </h1>
+      <p className="mb-4 text-[15px] text-neutral-700">{msg.ENCOURAGE_SCORED}</p>
       {entry.bullets.map((bullet, i) => (
         <div key={bullet.id} className="card mb-3">
           <p className="mb-2 font-medium">

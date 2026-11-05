@@ -341,3 +341,11 @@ export const ERR_ENV = "Environment error (for example, PYTHONUTF8 is disabled).
 export const ERR_NO_ENTRY = "We don't have an experience yet - let's add your first one.";
 export const ERR_INVALID_CHOICE =
   "That didn't match one of the options - pick one of the numbers shown.";
+
+// --- W4 warm UX (owner look-and-feel 2026-11-05): WEB-ONLY strings — the
+// terminal display is frozen, so these intentionally have no Python twin
+// (same divergence pattern as the Phase 13/15 sections above). ---
+export const ENCOURAGE_SCORED = "Nice work - here's how your experience reads now.";
+export const ENCOURAGE_STRONGER = "Nice - this part just got stronger.";
+export const FIELD_HINT_TITLE = "For example: \"Product Manager\"";
+export const FIELD_HINT_COMPANY = "For example: \"Acme\" or \"Freelance\"";
