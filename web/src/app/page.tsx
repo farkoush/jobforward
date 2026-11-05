@@ -110,6 +110,53 @@ const PART_LABELS: Record<string, string> = {
   metric: msg.PART_LABEL_METRIC,
 };
 
+/* W3 (owner look-and-feel 2026-11-05): top-of-page stage bar. Pure mapping
+   from the screen state to the active flow + step index; screens outside a
+   flow (gate/welcome/menu/settings) render no bar. Segments + caption only —
+   no icons (§11.1 rule 1). */
+type FlowStage = { flow: "add" | "match"; index: number };
+
+const STAGE_INDEX: Partial<Record<Screen, FlowStage>> = {
+  entry_type: { flow: "add", index: 0 },
+  entry_details: { flow: "add", index: 0 },
+  entry_split: { flow: "add", index: 1 },
+  bullet_gate: { flow: "add", index: 2 },
+  confirm_complete: { flow: "add", index: 2 },
+  score: { flow: "add", index: 3 },
+  bullet_list: { flow: "add", index: 3 },
+  merge: { flow: "add", index: 3 },
+  copy: { flow: "add", index: 3 },
+  done: { flow: "add", index: 3 },
+  match_paste: { flow: "match", index: 0 },
+  match_review: { flow: "match", index: 1 },
+  match_hard: { flow: "match", index: 2 },
+  match_soft: { flow: "match", index: 3 },
+};
+
+const FLOW_LABELS: Record<"add" | "match", string[]> = {
+  add: ["Details", "Achievements", "Questions", "Result"],
+  match: ["Paste", "Review", "Hard skills", "Soft skills"],
+};
+
+function StageProgress({ flow, index }: { flow: "add" | "match"; index: number }) {
+  const labels = FLOW_LABELS[flow];
+  return (
+    <div className="mb-6">
+      <div aria-hidden="true" className="flex gap-1.5">
+        {labels.map((label, i) => (
+          <div
+            key={label}
+            className={`h-1.5 flex-1 rounded-full ${i <= index ? "bg-primary" : "bg-neutral-200"}`}
+          />
+        ))}
+      </div>
+      <p className="mt-2 text-[13px] font-medium uppercase tracking-wide text-neutral-500">
+        Step {index + 1} of {labels.length} — {labels[index]}
+      </p>
+    </div>
+  );
+}
+
 
 type Rating = { context: number; role_action_clarity: number; result: number };
 
@@ -123,6 +170,7 @@ type FrameworkRow = {
 export default function Home() {
   const [ready, setReady] = useState(false);
   const [screen, setScreen] = useState<Screen>("welcome");
+  const stage = STAGE_INDEX[screen]; // W3 stage bar; null outside a flow
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -915,6 +963,8 @@ export default function Home() {
           )}
         </header>
 
+        {stage && <StageProgress flow={stage.flow} index={stage.index} />}
+
         {busy && (
           <div role="status" className="msg-info mb-6 flex items-center gap-2">
             <span className="pulse-dot" aria-hidden="true" />
@@ -1669,6 +1719,51 @@ function ChoiceScreen({
   );
 }
 
+/* W3 (owner look-and-feel 2026-11-05): the overall score as a progress ring
+   with the number in JetBrains Mono — not a dry bare number. Brand red stroke
+   (emphasis use, §11.1 rule 2) on a warm neutral track. */
+function ScoreRing({ value }: { value: number }) {
+  const clamped = Math.max(0, Math.min(100, value));
+  const shown = Math.round(clamped);
+  const r = 34;
+  const circ = 2 * Math.PI * r;
+  return (
+    <div className="mb-6 flex items-center gap-4">
+      <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true">
+        <circle cx="44" cy="44" r={r} fill="none" strokeWidth="8" stroke="var(--color-neutral-200)" />
+        {clamped > 0 && (
+          <circle
+            cx="44"
+            cy="44"
+            r={r}
+            fill="none"
+            strokeWidth="8"
+            strokeLinecap="round"
+            stroke="var(--primary)"
+            strokeDasharray={`${(clamped / 100) * circ} ${circ}`}
+            transform="rotate(-90 44 44)"
+          />
+        )}
+        <text
+          x="44"
+          y="50"
+          textAnchor="middle"
+          fill="var(--foreground)"
+          className="font-mono text-[20px] font-semibold"
+        >
+          {shown}
+        </text>
+      </svg>
+      <p className="font-mono font-medium">
+        {fmt(msg.SCORE_OVERALL, {
+          value: round2(clamped),
+          rubric: DEFAULT_RUBRIC_VERSION,
+        })}
+      </p>
+    </div>
+  );
+}
+
 function ScoreView({ entry, onContinue }: { entry: StoredEntry; onContinue: () => void }) {
   return (
     <div>
@@ -1701,12 +1796,7 @@ function ScoreView({ entry, onContinue }: { entry: StoredEntry; onContinue: () =
         </p>
       )}
       {entry.bullets.length > 0 && !entry.draft_reason ? (
-        <p className="mb-6 font-mono font-medium">
-          {fmt(msg.SCORE_OVERALL, {
-            value: entry.entry_score === null ? 0 : round2(entry.entry_score),
-            rubric: DEFAULT_RUBRIC_VERSION,
-          })}
-        </p>
+        <ScoreRing value={entry.entry_score ?? 0} />
       ) : (
         <p className="mb-6 font-medium">
           {msg.SCORE_OVERALL_HIDDEN} {msg.SCORE_DRAFT_LINE}
