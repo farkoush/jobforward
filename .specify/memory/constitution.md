@@ -2,30 +2,21 @@
 ═══════════════════════════════════════════════════════════════════════════════
 SYNC IMPACT REPORT (temporary scratch material — remove before committing)
 ═══════════════════════════════════════════════════════════════════════════════
-Version change: 3.0.0 → 3.1.0
-Change type: MINOR — material guidance expansion (rubric versioning scheme
-             re-pinned; scoring-alignment clarification added); no principle
+Version change: 3.1.0 → 3.2.0
+Change type: MINOR — new principle added (P11); no existing principle
              redefined, no section added or removed.
 
-Modified principles:
-  - اصل ۴ (P4): the stale integer pin «rubric_version = 2» is replaced by
-    semver-string pinning — the rubric version of record is the semver
-    string stored next to every score (format rubric-X.Y.Z, since
-    rubric-3.0.0); current = rubric-3.1.0. Recorded: rubric-3.0.0
-    (spec 001 Phase 9, 2026-10-29) and rubric-3.1.0
-    (specs/003-rubric-3-1-five-part-parity, implemented 2026-11-03) were
-    versioned in code/docs while this document still pinned v2.
-    Clarified the result criterion: a PRESENT but vague result part scores
-    1 (P4 law from the start); 0 is reserved for a MISSING result — the
-    deterministic code complies as of rubric-3.1.0.
+Added principles:
+  - اصل ۱۱ (P11): فرآیند ساخت — هر مورد جدید از جریان spec-kit می‌گذرد
+    (specify → clarify → plan → tasks → implement؛ plan.md با فهرست فایل‌ها
+    پیش از هر کد؛ /speckit-plan دروازهٔ طراحی). مسیر سبک فقط با اجازهٔ
+    صریح مدیر محصول و با backfill اجباری. هر spec جدید قواعد سکو را به
+    ارث می‌برد: §11 ویژگی 001 (تم و لحن)، لحن گرم B1، پاریتی py+ts برای
+    رشته‌های مشترک، پین قراردادی MATCH_*، ترمینال منجمد، گیت‌های همیشگی.
 
 Modified sections:
-  - Preamble: governing stack is now «روبریک rubric-3.1.0، قواعد تطبیق‌گر
-    نسخهٔ ۱».
-  - اصل ۹ reference test: re-baselined under the governing semver rubric.
-  - Quality gate 3 (reference-example gate) and gate 5 (rubric version
-    gate): same re-pin. Matcher rules stay version 1.
-  - Additional Constraints header: same re-pin.
+  - Preamble: دامنهٔ انطباق «اصول ۱ تا ۱۰» → «اصول ۱ تا ۱۱».
+  - Governance (بازبینی انطباق): همین به‌روزرسانی دامنه.
 
 Follow-up TODOs: none
 ═══════════════════════════════════════════════════════════════════════════════
@@ -35,7 +26,9 @@ Follow-up TODOs: none
 
 این سند اصول غیرقابل‌مذاکرهٔ پروژه است. نسخهٔ حاکم پروژه، «پروتوتایپ سطح ۱»
 با روبریک rubric-3.1.0 و قواعد تطبیق‌گر نسخهٔ ۱ است. هر ویژگی، سند یا تست
-باید با اصول ۱ تا ۱۰ انطباق داشته باشد؛ تناقض با هر اصل یعنی رد پیش از ساخت.
+باید با اصول ۱ تا ۱۱ انطباق داشته باشد؛ تناقض با هر اصل یعنی رد پیش از ساخت.
+متن کامل قواعد سکو (تم و لحن گرم) در §11 ویژگی 001-experience-improvement-flow
+ثبت است و طبق اصل ۱۱ روی هر spec جدید حاکم است.
 
 ## اصول بنیادین (Core Principles)
 
@@ -187,6 +180,30 @@ Follow-up TODOs: none
 - متن بولت‌ها همان‌طور که کاربر نوشته ذخیره و نمایش داده می‌شود و
   نباید تغییر شکل دهد (بدون ویرایش نشانه‌گذاری یا بازنویسی).
 
+### اصل ۱۱ — فرآیند ساخت: هر مورد جدید از spec-kit می‌گذرد
+
+- هر مورد جدیدِ ساختنی (ویژگی، زیرسیستم، جریان تازه، یا تغییر کاربردی) باید
+  از جریان spec-kit پیش برود: specify → clarify (در صورت ابهام) → plan →
+  tasks → implement. طراحی پیاده‌سازی با `/speckit-plan` انجام می‌شود و
+  plan.md (شامل فهرست فایل‌ها) پیش از نوشتن هر کد باید موجود باشد.
+- مسیر سبک (ساخت مستقیم بدون plan) فقط برای آزمایشِ کوچک و فقط با اجازهٔ
+  صریح مدیر محصول مجاز است؛ اگر آزمایش نگه داشته شود، backfill اجباری است
+  (ثبت در spec و در صورت نیاز در plan/tasks).
+- هر spec جدید باید قواعد سکو را به ارث ببرد و با آن‌ها انطباق داشته باشد:
+  - §11 ویژگی 001-experience-improvement-flow (تم و لحن سکو): پالت گرم؛
+    چهار قاعدهٔ لحن (بدون ایموجی و آیکن رنگی؛ قرمز برند فقط دکمهٔ اصلی و
+    تأکید؛ خطا با قرمز نارنجیِ گرم و هرگز قرمز برند؛ بدنهٔ ۱۸px)؛ فونت‌های
+    vendored بدون هیچ درخواست فونت بیرونی.
+  - لحن گرم اول‌شخص انگلیسی B1 (اصل ۱۰)؛ رشته‌های مشترک py+ts هم‌زمان و
+    بایت‌به‌بایت (قاعدهٔ port)؛ متن‌های MATCH_* پین قراردادی specs/002؛
+    نمایش ترمینال منجمد.
+  - گیت‌های همیشگی: test:engine (شامل نگهبان تم)، tsc، build، PARITY
+    (با skip اختیاری)، و pytest از terminal/.
+
+استدلال: قانون نوشته‌شده بدون فرآیند اجرا نمی‌شود. تجربهٔ فاز ۱۷ (مسیر سبک)
+نشان داد حتی کارِ کوچکِ خوش‌نیّت بدون plan به backfill و بازبینی اضافه نیاز
+دارد؛ یکنواختی فرآیند تضمین می‌کند هیچ spec جدیدی قواعد سکو را دور بزند.
+
 ## محدودیت‌های اضافی (Additional Constraints)
 
 **محدودهٔ نسخهٔ حاکم: پروتوتایپ سطح ۱ (روبریک rubric-3.1.0، قواعد تطبیق‌گر
@@ -235,7 +252,7 @@ Remove/Shorten وجود ندارد.
   ثبت نسخهٔ جدید روبریک مجاز نیست؛ همین‌طور تغییر قواعد تطبیق‌گر بدون
   نسخهٔ جدید قواعد.
 - **بازبینی انطباق:** هر ویژگی یا سند جدید باید پیش از پذیرش با
-  اصول ۱ تا ۱۰ بازبینی شود؛ نقض اصل ۱ یا ۲ مسدودکننده است.
+  اصول ۱ تا ۱۱ بازبینی شود؛ نقض اصل ۱ یا ۲ مسدودکننده است.
 - پیاده‌سازی runtime باید از این سند به‌عنوان مرجع نهایی استفاده کند.
 
-**Version**: 3.1.0 | **Ratified**: 2026-10-23 | **Last Amended**: 2026-11-04
+**Version**: 3.2.0 | **Ratified**: 2026-10-23 | **Last Amended**: 2026-11-05
