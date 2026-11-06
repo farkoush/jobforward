@@ -243,14 +243,25 @@ export default function Home() {
 
   async function submitGate() {
     setBusy(true);
-    const result = await fetch("/api/gate", {
+    const result = (await fetch("/api/gate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: gatePassword }),
-    }).then((r) => r.json());
+    })
+      .then((r) => r.json())
+      .catch(() => null)) as { ok: boolean; error?: string; token?: string } | null;
     setBusy(false);
+    if (!result) {
+      // Empty/non-JSON response: the server itself failed (FR-23).
+      setGatewayError(GATEWAY_MESSAGES.CONFIG_ERROR);
+      return;
+    }
     if (!result.ok) {
-      setError("WRONG_PASSWORD");
+      if (result.error === "CONFIG_ERROR") {
+        setGatewayError(GATEWAY_MESSAGES.CONFIG_ERROR);
+      } else {
+        setError("WRONG_PASSWORD");
+      }
       return;
     }
     setGateToken(result.token as string);

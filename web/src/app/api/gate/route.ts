@@ -16,22 +16,30 @@ import {
  * Wrong attempts are limited to 5/minute/IP (platform metadata only).
  */
 export async function POST(request: NextRequest) {
-  const body = GateRequestSchema.safeParse(await request.json().catch(() => null));
-  if (!body.success) {
-    return NextResponse.json({ ok: false, error: "ERR_INVALID_CHOICE" }, { status: 400 });
+  try {
+    const body = GateRequestSchema.safeParse(await request.json().catch(() => null));
+    if (!body.success) {
+      return NextResponse.json({ ok: false, error: "ERR_INVALID_CHOICE" }, { status: 400 });
+    }
+    if (!checkPassword(body.data.password)) {
+      const limited = await loginLimited(ipOf(request));
+      // Identical body either way — the UI shows one message and no
+      // rate-limit internals are revealed.
+      return NextResponse.json(
+        { ok: false, error: "WRONG_PASSWORD" },
+        { status: limited ? 429 : 401 }
+      );
+    }
+    // The body keeps the legacy token field during the client transition
+    // (T011); authorization itself now rides on the httpOnly cookie.
+    const response = NextResponse.json({ ok: true, token: tokenFor(body.data.password) });
+    response.headers.append("Set-Cookie", gateCookieHeader(signGateCookie(newAnonymousId())));
+    return response;
+  } catch (exc) {
+    // Operator-side failure (e.g. GATE_COOKIE_SECRET unset): return typed
+    // JSON so the client never parses an empty body (FR-23). The variable
+    // NAME goes to the server log only — never to the client.
+    console.error("[gate]", exc instanceof Error ? exc.message : exc);
+    return NextResponse.json({ ok: false, error: "CONFIG_ERROR" }, { status: 500 });
   }
-  if (!checkPassword(body.data.password)) {
-    const limited = await loginLimited(ipOf(request));
-    // Identical body either way — the UI shows one Persian message and no
-    // rate-limit internals are revealed.
-    return NextResponse.json(
-      { ok: false, error: "WRONG_PASSWORD" },
-      { status: limited ? 429 : 401 }
-    );
-  }
-  // The body keeps the legacy token field during the client transition
-  // (T011); authorization itself now rides on the httpOnly cookie.
-  const response = NextResponse.json({ ok: true, token: tokenFor(body.data.password) });
-  response.headers.append("Set-Cookie", gateCookieHeader(signGateCookie(newAnonymousId())));
-  return response;
 }
