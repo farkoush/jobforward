@@ -130,6 +130,7 @@ describe("request log (US4, SC-004)", () => {
     );
     const entries = capturedLogs();
     expect(entries[0].fallbackUsed).toBe(true);
+    expect(entries[0].fallbackDepth).toBe(1);
     expect(entries[0].model).toBe("test-fast-fallback-1");
     expect(entries[0].finalStatus).toBe("succeeded");
   });

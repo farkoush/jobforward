@@ -141,3 +141,81 @@ edition as a self-contained `src/lib/llm/` module + three API routes; the frozen
 |-----------|------------|-------------------------------------|
 | Two LLM API routes (gen/fast) instead of one | Vercel `maxDuration` is per-route; GEN needs 90 s and FAST 40 s | A single route would have to take the larger timeout for every request, wasting the FAST budget and weakening the no-504 guarantee |
 | Pluggable rate-store adapter | Production counters need Vercel KV (serverless has no shared memory); local dev/tests need zero infra | KV-only would make local dev and tests require a cloud dependency; memory-only would break on serverless |
+
+## Amendment: §13 Gateway Operational Additions (2026-11-06, owner brief)
+
+Owner added two small items with complete requirements inline (plan-first; recorded
+as spec §13 FR-37/FR-38; tasks T046–T051 appended).
+
+### Design + FILE LIST
+
+- NEW `web/src/lib/llm/validate-models.ts` — shared validation: GET
+  {NVIDIA_BASE_URL}/models (Bearer, from env), compare the four chain env vars;
+  warn per missing ID naming the env var; error when a category retains no valid
+  model; skip-with-warning when /models is unreachable. Never halts the app.
+- NEW `web/src/instrumentation.ts` — Next.js startup hook (nodejs runtime only);
+  skipped when LLM_MOCK=true.
+- NEW `web/scripts/check-models.ts` — CLI form (`npm run check:models`, tsx) with
+  a tiny built-in .env.local loader (no new dependencies).
+- MOD `web/src/lib/llm/config.ts` — LLM_MOCK parsed; mockEnabled() forces false
+  when NODE_ENV=production (one warning when the flag is set there).
+- MOD `web/src/lib/llm/client.ts` — mock transport: with mock enabled the attempt
+  functions receive synthetic Responses (429 with Retry-After, 500, 403 HTML,
+  empty content, abort-honoring hanging body for timeout) or fixed success
+  text/chunks — real taxonomy/limits/logging stay in the loop.
+- MOD `web/src/lib/llm/gateway.ts` + `web/src/app/api/llm/{fast,gen}/route.ts` —
+  dev-only header `x-mock-error` read ONLY when mockEnabled(); ignored otherwise
+  and always in production.
+- MOD `web/.env.example` (LLM_MOCK), `web/package.json` (check:models script).
+- NEW `web/tests/llm/mock-mode.test.ts` (TDD-first) + validate-models tests.
+- MOD `specs/004 spec.md (§13)`, `tasks.md (T046–T051)`.
+
+Constitution: P12 (provider calls stay in lib/llm), P13 (URL/key from env),
+P15 (error paths exercised through the mock), P16 (operator logs are English B1 —
+server-side, not UI text). No rubric / matcher-rules / pinned-string impact.
+
+## Amendment: §14 Audit Remediation (2026-11-07, owner audit brief)
+
+Six-item audit: per-item status assessed in-session (1 partial / 2 absent / 3 absent /
+4 partial / 5 partial / 6 partial), gaps fixed, tests written. Contracts unchanged:
+typed results, fatal 400/401/403, 404 -> straight fallback, no hardcoded names/keys.
+
+### Design + FILE LIST
+
+- MOD `web/src/lib/llm/validate-models.ts` — validation returns PRUNED per-run
+  chains ({GEN,FAST}): missing-from-list and forbidden-pattern IDs excluded with
+  loud warnings; oversize heuristic (largest NNNb token, unknown tolerated) warns
+  on FAST-chain IDs >= MODEL_SIZE_WARN_PARAMS (default 200B) — warn-only; applied
+  chains stored via applyValidatedChains()/getAppliedChains(); skip (fetch
+  failure) clears the override so raw env chains are used.
+- MOD `web/src/lib/llm/config.ts` — new env: FORBIDDEN_MODEL_PATTERNS (default
+  embed,safety-guard,content-safety,reward,parse), MODEL_SIZE_WARN_PARAMS (200),
+  REASONING_MODEL_PATTERNS (default gpt-oss,reasoning), REASONING_MAX_TOKENS_FAST
+  (4000), MAX_PROVIDER_CALLS_PER_REQUEST (4); helper maxTokensFor(category, model).
+- MOD `web/src/lib/llm/types.ts` — new pinned reason RATE_LIMITED.
+- MOD `web/src/lib/llm/messages.ts` — RATE_LIMITED message (English B1) +
+  RETRYABLE_REASONS.
+- MOD `web/src/lib/llm/client.ts` — ClassifiedFailure.kind (timeout |
+  empty_response | malformed | network) so the per-attempt log can distinguish
+  empty_response.
+- MOD `web/src/lib/llm/fallback.ts` — per-attempt warn prints kind;
+  maxProviderCalls option (cap -> outcome rate_limited when the last failure was a
+  429); Retry-After honored BEFORE moving to the next model.
+- MOD `web/src/lib/llm/gateway.ts` + `web/src/app/api/llm/{fast,gen}/route.ts` —
+  effective chains (applied-validated override, else env); empty pruned category ->
+  typed CONFIG_ERROR; fast success + gen done events carry modelUsed /
+  usedFallback / fallbackDepth; RATE_LIMITED mapping with retryAfter.
+- MOD `web/src/lib/llm/request-log.ts` — fallbackDepth field.
+- MOD `web/src/app/page.tsx` — small non-intrusive fallback notice (English B1)
+  on the score screen when usedFallback.
+- NEW `web/scripts/probe-rate-limit.ts` — dev-only, slow, report-only (not part
+  of automated tests).
+- NEW/MOD tests: validate-models pruning/forbidden/oversize/skip; gateway
+  transparency (usedFallback/depth both ways); fallback cap + Retry-After-before-
+  next-model; maxTokensFor; error-paths gains RATE_LIMITED (message guard covers it
+  automatically via the reasons iteration).
+- MOD `specs/004 spec.md (§14)`, `tasks.md (T052–T060)`.
+
+Constitution: P12/P13 unchanged (provider calls and URL/key stay in lib/llm/env);
+P15 (every new path tested); P16 (operator logs + UI notice English B1);
+P18 (input preserved on rate_limited). No rubric / matcher-rules impact.

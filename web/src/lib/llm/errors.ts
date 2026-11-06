@@ -10,8 +10,13 @@
 
 export type FailureClass = "retryable" | "not_found" | "fatal";
 
+/** Distinct per-attempt markers for the operator log (§14 FR-42). */
+export type FailureKind = "timeout" | "empty_response" | "malformed" | "network";
+
 export interface ClassifiedFailure {
   cls: FailureClass;
+  /** Distinct marker when the failure was client-classified (FR-42). */
+  kind?: FailureKind;
   /** Seconds to wait before retrying, when the provider sent Retry-After. */
   retryAfter?: number;
   status?: number;
@@ -42,7 +47,8 @@ export function retryAfterFrom(
 }
 
 export function classifyStatus(status: number, retryAfter?: number): ClassifiedFailure {
-  if (status === 404) return { cls: "not_found", status };
+  // 404 and 410 both mean the model is not servable — straight to fallback.
+  if (status === 404 || status === 410) return { cls: "not_found", status };
   if (status === 400 || status === 401 || status === 403) {
     return { cls: "fatal", status };
   }
@@ -54,14 +60,16 @@ export function classifyStatus(status: number, retryAfter?: number): ClassifiedF
 
 /** Client-side failure constructors (timeout / empty / malformed / network). */
 export function timeoutFailure(): ClassifiedFailure {
-  return { cls: "retryable" };
+  return { cls: "retryable", kind: "timeout" };
 }
 export function emptyResponseFailure(): ClassifiedFailure {
-  return { cls: "retryable" };
+  // Distinct marker (FR-42): a 200 with empty content usually means the
+  // model spent its max_tokens reasoning.
+  return { cls: "retryable", kind: "empty_response" };
 }
 export function malformedFailure(): ClassifiedFailure {
-  return { cls: "retryable" };
+  return { cls: "retryable", kind: "malformed" };
 }
 export function networkFailure(): ClassifiedFailure {
-  return { cls: "retryable" };
+  return { cls: "retryable", kind: "network" };
 }

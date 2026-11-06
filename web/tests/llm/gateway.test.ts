@@ -42,6 +42,11 @@ describe("gateway (US1, FR-16/23/26/27/28)", () => {
     clearGatewayEnv();
     vi.unstubAllGlobals();
     vi.resetModules();
+    vi.doUnmock("@/lib/llm/validate-models");
+    (async () => {
+      const m = await import("@/lib/llm/validate-models");
+      m.resetAppliedChainsForTests();
+    })();
   });
 
   async function gatewayModule() {
@@ -59,6 +64,9 @@ describe("gateway (US1, FR-16/23/26/27/28)", () => {
     expect(outcome.ok).toBe(true);
     if (outcome.ok) {
       expect(outcome.model).toBe("test-fast-primary");
+      expect(outcome.modelUsed).toBe("test-fast-primary");
+      expect(outcome.usedFallback).toBe(false);
+      expect(outcome.fallbackDepth).toBe(0);
       expect(outcome.source).toBe("free");
       expect(outcome.text).toBe("123");
       expect(outcome.usage).toEqual({ in: 12, out: 9 });
@@ -85,7 +93,25 @@ describe("gateway (US1, FR-16/23/26/27/28)", () => {
       `${NVIDIA_URL}:test-fast-fallback-1`,
     ]);
     expect(outcome.ok).toBe(true);
-    if (outcome.ok) expect(outcome.model).toBe("test-fast-fallback-1");
+    if (outcome.ok) {
+      // FR-43 transparency: the fallback is visible to the caller.
+      expect(outcome.modelUsed).toBe("test-fast-fallback-1");
+      expect(outcome.usedFallback).toBe(true);
+      expect(outcome.fallbackDepth).toBe(1);
+    }
+  });
+
+  it("a category with no valid (pruned) models fails with typed CONFIG_ERROR", async () => {
+    const { applyValidatedChains } = await import("@/lib/llm/validate-models");
+    applyValidatedChains({ GEN: ["test-gen-primary"], FAST: [] });
+    const calls = mockFetch(() => Response.json(openAiCompletion("x")));
+    const { runFastGateway } = await gatewayModule();
+    const outcome = await runFastGateway(
+      { task: "scoring_ratings", input: "score these" },
+      { identity: "anon-1" }
+    );
+    expect(outcome).toMatchObject({ ok: false, reason: "CONFIG_ERROR" });
+    expect(calls).toEqual([]); // never called — no valid model exists
   });
 
   it("returns ALL_MODELS_FAILED when every model fails — never throws", async () => {

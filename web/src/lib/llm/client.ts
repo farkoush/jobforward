@@ -41,11 +41,79 @@ export interface AttemptInput {
   abortAt: number;
   firstTokenTimeoutMs: number;
   chunkSilenceTimeoutMs: number;
+  /** Dev-only simulated outcome (FR-38); honored only when mock is enabled. */
+  mockScenario?: MockTransportScenario | null;
 }
 
 export type AttemptOutput =
   | { ok: true; text: string; usage: CompletionUsage }
   | { ok: false; failure: ClassifiedFailure };
+
+/** Dev-only simulated outcomes (FR-38). */
+export const MOCK_SCENARIOS = ["429", "500", "timeout", "403_html", "empty"] as const;
+export type MockScenario = (typeof MOCK_SCENARIOS)[number];
+/** Transport scenario: a named failure, or the default fixed success. */
+export type MockTransportScenario = MockScenario | "success";
+
+export function parseMockScenario(value: string | null | undefined): MockScenario | null {
+  return value && (MOCK_SCENARIOS as readonly string[]).includes(value)
+    ? (value as MockScenario)
+    : null;
+}
+
+/**
+ * Synthetic provider responses for mock mode (FR-38). Real Response objects
+ * so the actual parsing/classification path stays in the loop; the timeout
+ * scenario rejects on the caller's abort signal exactly like a real stuck
+ * connection.
+ */
+async function mockResponse(input: AttemptInput, signal: AbortSignal): Promise<Response> {
+  const scenario = input.mockScenario as MockTransportScenario;
+  if (scenario === "timeout") {
+    return new Promise<Response>((_, reject) => {
+      const onAbort = () => reject(new DOMException("Aborted", "AbortError"));
+      if (signal.aborted) onAbort();
+      else signal.addEventListener("abort", onAbort, { once: true });
+    });
+  }
+  if (scenario === "429") {
+    return new Response(JSON.stringify({ error: { message: "mock rate limit" } }), {
+      status: 429,
+      headers: { "Content-Type": "application/json", "Retry-After": "1" },
+    });
+  }
+  if (scenario === "500") {
+    return new Response(JSON.stringify({ error: { message: "mock server error" } }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  if (scenario === "403_html") {
+    return new Response(
+      "<html><body>Your request was blocked (mock 403).</body></html>",
+      { status: 403, headers: { "Content-Type": "text/html" } }
+    );
+  }
+  if (scenario === "empty") {
+    return Response.json({ choices: [{ message: { content: "" } }] });
+  }
+  // Fixed success.
+  if (input.stream) {
+    const sse =
+      `data: ${JSON.stringify({ choices: [{ delta: { content: "Mock " } }] })}\n\n` +
+      `data: ${JSON.stringify({ choices: [{ delta: { content: "stream response" } }] })}\n\n` +
+      `data: ${JSON.stringify({
+        choices: [{ delta: {} }],
+        usage: { prompt_tokens: 1, completion_tokens: 1 },
+      })}\n\n` +
+      "data: [DONE]\n\n";
+    return new Response(sse, { headers: { "Content-Type": "text/event-stream" } });
+  }
+  return Response.json({
+    choices: [{ message: { content: "Mock response (LLM_MOCK=true)" } }],
+    usage: { prompt_tokens: 1, completion_tokens: 1 },
+  });
+}
 
 function buildRequest(input: AttemptInput): { url: string; init: RequestInit } {
   return {
@@ -118,7 +186,9 @@ export async function completeOnce(input: AttemptInput): Promise<AttemptOutput> 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.max(1, input.abortAt - Date.now()));
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
+    const response = input.mockScenario
+      ? await mockResponse(input, controller.signal)
+      : await fetch(url, { ...init, signal: controller.signal });
     if (!response.ok) {
       const body: unknown = await response.json().catch(() => null);
       return {
@@ -175,7 +245,9 @@ export async function* streamCompletion(
   const hardTimer = setTimeout(() => controller.abort(), Math.max(1, input.abortAt - Date.now()));
   const received: string[] = [];
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
+    const response = input.mockScenario
+      ? await mockResponse(input, controller.signal)
+      : await fetch(url, { ...init, signal: controller.signal });
     if (!response.ok || !response.body) {
       const body: unknown = response.body
         ? await response.json().catch(() => null)

@@ -22,6 +22,7 @@ export const GATEWAY_REASONS = [
   "INVALID_TASK",
   "CONFIG_ERROR",
   "ALL_MODELS_FAILED",
+  "RATE_LIMITED",
   "BYOK_FAILED",
   "BYOK_LIMIT",
   "NETWORK",
@@ -44,6 +45,10 @@ export interface GatewaySuccess {
   ok: true;
   text: string;
   model: string;
+  /** Fallback transparency (FR-43): always present. */
+  modelUsed: string;
+  usedFallback: boolean;
+  fallbackDepth: number;
   source: Source;
   usage: { in: number | null; out: number | null };
   ms: number;
@@ -57,6 +62,9 @@ export type StreamEvent =
   | {
       type: "done";
       model: string;
+      modelUsed: string;
+      usedFallback: boolean;
+      fallbackDepth: number;
       source: Source;
       usage: { in: number | null; out: number | null };
       ms: number;

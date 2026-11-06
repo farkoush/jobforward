@@ -9,6 +9,8 @@
     "test": "node --experimental-vm-modules scripts/run-engine-tests.mjs",
     "test:engine": "tsx --test tests/engine/*.test.ts",
     "test:byok": "tsx --test tests/byok/*.test.ts",
+    "check:models": "tsx scripts/check-models.ts",
+    "probe:rate-limit": "tsx scripts/probe-rate-limit.ts",
     "scan:byok": "node scripts/byok-security-scan.mjs",
     "test:llm": "vitest run tests/llm"
   },

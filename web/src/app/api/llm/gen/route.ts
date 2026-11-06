@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAuthorized, sessionIdOf } from "@/lib/serverAuth";
 import { runGenGateway } from "@/lib/llm/gateway";
+import { parseMockScenario } from "@/lib/llm/client";
+import { mockEnabled } from "@/lib/llm/config";
 import { failure } from "@/lib/llm/types";
 
 /**
@@ -49,6 +51,11 @@ export async function POST(request: NextRequest) {
       identity: sessionIdOf(request),
       byokKey: request.headers.get("x-byok-key"),
       byokModel: request.headers.get("x-byok-model"),
+      // Dev-only (FR-38): read only when mock mode is enabled; always null
+      // in production.
+      mockError: mockEnabled()
+        ? parseMockScenario(request.headers.get("x-mock-error"))
+        : null,
     }
   );
   const stream = new ReadableStream<Uint8Array>({

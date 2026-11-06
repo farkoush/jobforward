@@ -33,8 +33,10 @@ export type ChainResult =
     }
   | {
       ok: false;
-      /** exhausted = every model/attempt failed; fatal = a 400/401/403 stopped the chain. */
-      outcome: "exhausted" | "fatal";
+      /** exhausted = every model/attempt failed; fatal = a 400/401/403 stopped
+       * the chain; rate_limited = persistent 429s hit the provider-call cap or
+       * the deadline (FR-44). */
+      outcome: "exhausted" | "fatal" | "rate_limited";
       lastClass: ClassifiedFailure["cls"] | "none";
       lastStatus?: number;
       retryAfter?: number;
@@ -51,6 +53,15 @@ export interface ChainOptions {
   /** Called right before each actual provider call (limiter hook, FR-31). */
   onProviderCall?: () => Promise<void>;
   maxAttemptsPerModel?: number;
+  /** Provider-call cap per user request (FR-44, default 4): persistent 429s
+   * reaching the cap (or the deadline) yield the rate_limited outcome. */
+  maxProviderCalls?: number;
+  /** Per-attempt collector for the request log's attempts detail. */
+  onAttempt?: (info: {
+    model: string;
+    attempt: number;
+    failure: ClassifiedFailure;
+  }) => void;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -78,7 +89,7 @@ export async function runChain(options: ChainOptions): Promise<ChainResult> {
       if (Date.now() >= options.deadlineAt) {
         return {
           ok: false,
-          outcome: "exhausted",
+          outcome: lastStatus === 429 ? "rate_limited" : "exhausted",
           lastClass,
           lastStatus,
           retryAfter: lastRetryAfter,
@@ -102,6 +113,16 @@ export async function runChain(options: ChainOptions): Promise<ChainResult> {
       lastClass = failure.cls;
       lastStatus = failure.status;
       lastRetryAfter = failure.retryAfter;
+      // Operator-facing per-attempt visibility: without this line a chain
+      // that 404s every model surfaces only as ALL_MODELS_FAILED in the
+      // request log, hiding the cause (§13 lesson, 2026-11-06). The kind
+      // (e.g. empty_response) is preferred when present (FR-42).
+      console.warn(
+        `[llm] attempt ${attemptsMade}: model=${model} attempt=${attempt} -> ${
+          failure.kind ?? failure.cls
+        }${failure.status ? ` (HTTP ${failure.status})` : ""}`
+      );
+      options.onAttempt?.({ model, attempt, failure });
       if (failure.cls === "fatal") {
         return {
           ok: false,
@@ -115,6 +136,24 @@ export async function runChain(options: ChainOptions): Promise<ChainResult> {
       if (failure.cls === "not_found") {
         break; // skip straight to the next model (single attempt)
       }
+      // Provider-call cap (FR-44): persistent 429s that reach the cap stop
+      // the chain with the typed rate_limited outcome — never an unbounded
+      // loop.
+      if (
+        options.maxProviderCalls &&
+        attemptsMade >= options.maxProviderCalls &&
+        lastStatus === 429
+      ) {
+        return {
+          ok: false,
+          outcome: "rate_limited",
+          lastClass,
+          lastStatus,
+          retryAfter: lastRetryAfter,
+          attemptsMade,
+          source: options.source,
+        };
+      }
       const wait = backoffMs(failure, attempt);
       if (Date.now() + wait >= options.deadlineAt) {
         // The wait would eat the deadline — nothing more can start in time.
@@ -126,7 +165,7 @@ export async function runChain(options: ChainOptions): Promise<ChainResult> {
 
   return {
     ok: false,
-    outcome: "exhausted",
+    outcome: lastStatus === 429 ? "rate_limited" : "exhausted",
     lastClass,
     lastStatus,
     retryAfter: lastRetryAfter,

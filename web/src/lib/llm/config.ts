@@ -72,6 +72,33 @@ const gatewayEnvSchema = z.object({
   // Counter store (production); absent in dev → in-memory adapter
   KV_REST_API_URL: z.string().optional(),
   KV_REST_API_TOKEN: z.string().optional(),
+
+  // Mock mode (FR-38, dev-only): "true" routes attempts through the mock
+  // transport; ignored in production (mockEnabled()).
+  LLM_MOCK: z.string().optional(),
+
+  // Chain policy (§14 FR-39..FR-42/44) — all env-overridable.
+  FORBIDDEN_MODEL_PATTERNS: z
+    .string()
+    .default("embed,safety-guard,content-safety,reward,parse")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean)
+    ),
+  MODEL_SIZE_WARN_PARAMS: int(200),
+  REASONING_MODEL_PATTERNS: z
+    .string()
+    .default("gpt-oss,reasoning")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean)
+    ),
+  REASONING_MAX_TOKENS_FAST: int(4000),
+  MAX_PROVIDER_CALLS_PER_REQUEST: int(4),
 });
 
 export type LlmConfig = z.infer<typeof gatewayEnvSchema> & {
@@ -111,6 +138,27 @@ export function resetLlmConfigForTests(): void {
   cached = null;
 }
 
+let productionMockWarned = false;
+
+/**
+ * Mock mode switch (FR-38): LLM_MOCK=true enables the mock transport in
+ * non-production environments ONLY — in production the flag is ignored
+ * (one warning naming the reason) and real transports are always used.
+ */
+export function mockEnabled(): boolean {
+  if (process.env.LLM_MOCK !== "true") return false;
+  if (process.env.NODE_ENV === "production") {
+    if (!productionMockWarned) {
+      console.warn(
+        "[llm] LLM_MOCK=true is ignored in production; the real provider transport stays active"
+      );
+      productionMockWarned = true;
+    }
+    return false;
+  }
+  return true;
+}
+
 export function budgetFor(category: "GEN" | "FAST"): {
   attemptTimeoutMs: number;
   deadlineMs: number;
@@ -128,4 +176,22 @@ export function budgetFor(category: "GEN" | "FAST"): {
         deadlineMs: cfg.DEADLINE_MS_FAST,
         maxOutputTokens: cfg.MAX_OUTPUT_TOKENS_FAST,
       };
+}
+
+/**
+ * Output-token budget for a SPECIFIC model (§14 FR-42): reasoning-style
+ * models on the FAST path get the higher reasoning budget — they otherwise
+ * spend the normal cap thinking and return empty content.
+ */
+export function maxTokensFor(category: "GEN" | "FAST", model: string): number {
+  const cfg = getLlmConfig();
+  if (category === "FAST") {
+    const lower = model.toLowerCase();
+    const reasoning = cfg.REASONING_MODEL_PATTERNS.some((pattern) =>
+      lower.includes(pattern)
+    );
+    if (reasoning) return cfg.REASONING_MAX_TOKENS_FAST;
+    return cfg.MAX_OUTPUT_TOKENS_FAST;
+  }
+  return cfg.MAX_OUTPUT_TOKENS_GEN;
 }

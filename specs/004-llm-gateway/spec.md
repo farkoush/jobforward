@@ -578,3 +578,100 @@ Per constitution P11, this spec inherits and MUST comply with:
   any new interface elements (error banner, Retry button).
 - Data stays local (P8); logs never leave the device.
 - The terminal edition is frozen: this feature applies to the web edition only.
+
+## §13 Gateway Operational Additions (amended 2026-11-06, owner brief)
+
+### FR-37 — Model-ID validation
+
+- At server startup AND via `npm run check:models` (scripts/check-models.ts), the
+  gateway fetches the provider model list from GET {NVIDIA_BASE_URL}/models and
+  compares every configured ID (GEN_MODEL, GEN_FALLBACKS, FAST_MODEL,
+  FAST_FALLBACKS) against it.
+- An ID missing from the list produces a clear warning naming the env variable and
+  the ID; the application is NOT halted.
+- If NO valid model remains for a category, a clear error is emitted (logged; the
+  app keeps running — affected requests fail with the typed CONFIG_ERROR path).
+- If the /models fetch itself fails, validation is skipped with a clear warning
+  (indeterminate, not an error).
+- Validation output is operator-facing (server logs / script output, English) —
+  FR-15 (user-facing UI text) is unaffected.
+
+### FR-38 — Mock mode (dev-only)
+
+- When LLM_MOCK=true, the gateway returns fixed responses instead of calling the
+  provider. The flag is IGNORED when the environment is production (a warning is
+  logged if it is set there).
+- With mock mode on, a dev-only request parameter (header `x-mock-error`) selects
+  the simulated outcome: 429, 5xx, timeout, 403 served as an HTML body, or an
+  empty response. Simulations traverse the real failure taxonomy, limits, and
+  logging.
+- With no scenario selected, mock mode returns a fixed successful response
+  (one-shot text; streamed chunks for GEN).
+- Live/manual error checking uses this mode (quickstart scenarios).
+
+Assumption: validation and mock notices are operator-facing logs in English —
+server-side, not user-facing UI text (FR-15 unaffected).
+
+## §14 Audit Remediation (2026-11-07, owner audit brief)
+
+Six-item audit of the gateway; per item the current code was assessed, gaps fixed,
+and tests written. Standing contracts unchanged: typed results, fatal 400/401/403,
+404 -> straight fallback, no hardcoded model names or keys.
+
+### FR-39 — Chain pruning and per-run validity (extends FR-37)
+
+- Model-ID validation now PRUNES the chains of the run: IDs missing from the
+  provider list, and IDs matching forbidden patterns (FR-40), are REMOVED from the
+  chain used by requests, each with a loud warning naming the env variable.
+- If a category retains no valid model, a clear error is logged AND requests for
+  that category fail with the typed CONFIG_ERROR result (never a crash).
+- If the /models fetch fails (network, 403 HTML), validation is skipped with a
+  warning and the env chains are used AS-IS (previous behavior preserved).
+
+### FR-40 — Non-chat models excluded
+
+- A configurable forbidden-pattern list (default: embed, safety-guard,
+  content-safety, reward, parse) excludes non-chat models from every chain during
+  validation, each with a loud warning. Excluded IDs are never called.
+
+### FR-41 — Oversized model warning on the FAST chain
+
+- A name-based size heuristic (largest "NNNb" token; unknown sizes tolerated
+  without error) warns when a FAST-chain ID appears to be >= a configurable
+  parameter threshold (default ~200B). Warning only — the model is NOT removed.
+- Emitted at startup and in check:models.
+
+### FR-42 — Empty-200 classification and reasoning models on FAST
+
+- A 200 response with EMPTY content is classified retryable and logged with the
+  distinct marker empty_response (it typically means the model spent max_tokens
+  reasoning).
+- A configurable reasoning-pattern list (default: gpt-oss, reasoning) warns when a
+  FAST-chain ID matches, and a higher, env-configurable max token budget is applied
+  to those models on the FAST path.
+
+### FR-43 — Fallback transparency
+
+- The gateway result ALWAYS carries modelUsed, usedFallback and fallbackDepth
+  (index of the responding model in the chain); the request log carries
+  fallbackDepth as well.
+- When usedFallback=true the UI shows a small, non-intrusive notice that the
+  answer came from a fallback model, so usability-test results are not misread.
+  Interface language: English B1 (constitution v4.0.0 P16).
+
+### FR-44 — Provider-call cap and shared-limit handling on 429
+
+- Every real provider call (retry and fallback) passes the global limiter
+  (already implemented; now tested).
+- A configurable cap on provider calls per user request (default 4) bounds the
+  chain: with persistent 429s across models, once the cap or the deadline is
+  reached the typed RATE_LIMITED result (with retryAfter) is returned and the
+  user's input is preserved. No unbounded loop is possible.
+- After a 429 with Retry-After, the same delay is applied BEFORE the next model is
+  called (shared-limit assumption: fallback may not help immediately).
+- NEW dev-only script scripts/probe-rate-limit.ts (slow, report-only, excluded
+  from automated tests) probes whether the provider's ~40 rpm cap is per-model or
+  shared across models.
+
+Assumption: audit warnings/errors are operator-facing logs in English (server-side;
+FR-15 unaffected).

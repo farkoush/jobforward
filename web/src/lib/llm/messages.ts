@@ -29,6 +29,8 @@ export const GATEWAY_MESSAGES: Record<GatewayReason, string> = {
     "The AI service is unavailable right now. Please try again later.",
   ALL_MODELS_FAILED:
     "The AI service is temporarily unavailable. You can try again.",
+  RATE_LIMITED:
+    "The provider is rate limiting requests right now. Please wait a moment and try again.",
   BYOK_FAILED:
     "Your key did not work. You can try again, or continue with the free path — it's your choice.",
   BYOK_LIMIT:
@@ -40,6 +42,7 @@ export const GATEWAY_MESSAGES: Record<GatewayReason, string> = {
 /** Reasons where an immediate Retry makes sense (button visibility). */
 export const RETRYABLE_REASONS: ReadonlySet<GatewayReason> = new Set([
   "ALL_MODELS_FAILED",
+  "RATE_LIMITED",
   "NETWORK",
   "SERVICE_BUSY",
   "MINUTE_LIMIT",

@@ -11,3 +11,6 @@ data/events.log.jsonl
 
 # The env template is documentation, not a secret — track it.
 !.env.example
+
+# gateway request log (local diagnostics, git-ignored)
+web/data/llm-requests.log.jsonl

@@ -230,3 +230,36 @@ verbatim; existing tasks untouched.
 - [x] T043 Offer the optional use-my-own-key action when a FREE daily quota is reached per FR-13/FR-27 (partial) — in web/src/app/page.tsx, when gatewayReason is QUOTA_USER or QUOTA_GLOBAL render a button that opens the ByokSettings advanced screen (existing navigation), input untouched; the offer must NOT appear for non-quota reasons
 - [x] T044 Create web/tests/llm/gen-stream.test.ts — automated coverage of the GEN streaming path per FR-32/SC-010/P15 (missing): fallback happens only before the first chunk (0 model switches after it), a mid-stream cut ends with a typed error event while received text is preserved, the done event carries model/source/usage/ms, first-token timeout moves to the next model, mocked NDJSON fetch streams with fake timers
 - [x] T045 Extend web/tests/llm/limits.test.ts with the global daily quota path per FR-11 (partial): DAILY_FAST_GLOBAL exceeded -> QUOTA_GLOBAL rejection before any provider call, while a second identity still passes (global, not per-user)
+
+---
+
+## Phase 9: Amendment — Gateway Operational Additions (owner brief, 2026-11-06)
+
+**Purpose:** two small additions per the owner's brief (spec §13: FR-37 model-ID
+validation, FR-38 mock mode). Plan addendum carries the FILE LIST.
+
+- [x] T046 Record the amendment: spec.md §13 (FR-37/FR-38), plan.md addendum with FILE LIST, this phase
+- [x] T047 [P] Create web/tests/llm/mock-mode.test.ts FIRST (must FAIL): LLM_MOCK=true routes through the mock transport without any provider fetch — success text, 429 → ALL_MODELS_FAILED retryable, 403 HTML → fatal CONFIG_ERROR, empty → exhausted, timeout (ATTEMPT_TIMEOUT_MS_FAST=200, abort-honoring hanging body) → exhausted, production ignores LLM_MOCK (real fetch used); plus validate-models tests: missing ID warns naming the env var, empty category errors, /models unreachable skips with a warning
+- [x] T048 Add LLM_MOCK to web/src/lib/llm/config.ts with a mockEnabled() helper (forced false when NODE_ENV=production, one warning when set there) and document it in web/.env.example
+- [x] T049 Implement the mock transport in web/src/lib/llm/client.ts (synthetic Responses: 429 with Retry-After, 500, 403 HTML, empty content, abort-honoring hanging body, fixed success text / SSE chunks for stream:true) and wire the dev-only x-mock-error header through web/src/app/api/llm/fast/route.ts, web/src/app/api/llm/gen/route.ts and web/src/lib/llm/gateway.ts (honored only when mockEnabled())
+- [x] T050 Create web/src/lib/llm/validate-models.ts (GET {NVIDIA_BASE_URL}/models, compare the four chain env vars, warn/error per FR-37, skip on fetch failure) + web/src/instrumentation.ts (startup hook, nodejs runtime, skipped under LLM_MOCK) + web/scripts/check-models.ts (npm run check:models, tiny .env.local loader) + package.json script
+- [x] T051 Run gates: test:llm, tsc, build + live npm run check:models against the configured provider
+
+---
+
+## Phase 10: Amendment — §14 Audit Remediation (owner audit brief, 2026-11-07)
+
+**Purpose:** six-item audit; per-item status assessed (see plan addendum), gaps
+fixed, tests written. Contracts unchanged: typed results, fatal 400/401/403,
+404 -> straight fallback, no hardcoded names/keys.
+
+- [x] T052 Record the amendment: spec.md §14 (FR-39..FR-44), plan addendum with FILE LIST, this phase
+- [x] T053 [P] Tests FIRST (must FAIL where behavior is new): validate-models pruning/forbidden/oversize/skip tests; gateway transparency tests (usedFallback/depth both ways); fallback cap + Retry-After-before-next-model tests; maxTokensFor tests; error-paths RATE_LIMITED case
+- [x] T054 Implement chain pruning in web/src/lib/llm/validate-models.ts — validation returns pruned {GEN,FAST} chains (missing-from-list + forbidden-pattern IDs excluded with loud warnings naming the env var), oversize warning on FAST IDs (largest NNNb token >= MODEL_SIZE_WARN_PARAMS, unknown sizes tolerated), applied-chains store (apply/get/reset), skip clears the override (raw env chains as-is)
+- [x] T055 Add env config in web/src/lib/llm/config.ts — FORBIDDEN_MODEL_PATTERNS (embed,safety-guard,content-safety,reward,parse), MODEL_SIZE_WARN_PARAMS (200), REASONING_MODEL_PATTERNS (gpt-oss,reasoning), REASONING_MAX_TOKENS_FAST (4000), MAX_PROVIDER_CALLS_PER_REQUEST (4) + maxTokensFor(category, model) helper + document all in web/.env.example
+- [x] T056 Add ClassifiedFailure.kind (timeout | empty_response | malformed | network) in web/src/lib/llm/client.ts and print the kind in the per-attempt operator log (distinct empty_response marker)
+- [x] T057 Implement in web/src/lib/llm/fallback.ts — maxProviderCalls option (cap -> outcome rate_limited when the last failure was a 429, with retryAfter), Retry-After honored BEFORE moving to the next model (deadline-aware)
+- [x] T058 Wire in web/src/lib/llm/gateway.ts + web/src/app/api/llm/{fast,gen}/route.ts + web/src/lib/llm/types.ts + web/src/lib/llm/messages.ts + web/src/lib/llm/request-log.ts — effective chains (applied override else env; empty pruned category -> typed CONFIG_ERROR), RATE_LIMITED reason + message + retryAfter mapping, fast success and gen done events carry modelUsed/usedFallback/fallbackDepth, request log gains fallbackDepth
+- [x] T059 Add the fallback notice in web/src/app/page.tsx (small non-intrusive English B1 badge when usedFallback=true, cleared on navigation) + NEW dev-only web/scripts/probe-rate-limit.ts (slow, report-only, per-model vs shared-limit probe)
+- [x] T060 Run gates: test:llm, tsc, build + live npm run check:models
+

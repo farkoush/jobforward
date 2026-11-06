@@ -47,7 +47,11 @@ import { GATEWAY_MESSAGES, RETRYABLE_REASONS } from "@/lib/llm/messages";
 import type { GatewayReason } from "@/lib/llm/types";
 import { clearDraft, loadDraft, saveDraftDebounced } from "@/lib/draft";
 import { buildCoverage, extractParts } from "@/engine/flow/parts";
-import { splitBullets, type SplitCandidate } from "@/engine/flow/entry_split";
+import { type SplitCandidate } from "@/engine/flow/entry_split";
+import {
+  matchDatePattern,
+  parsePastedExperience,
+} from "@/engine/flow/entry_parse";
 import { partStates, questionOrder } from "@/engine/flow/display";
 import {
   EvaluatorOutputError,
@@ -62,9 +66,8 @@ type Screen =
   | "menu"
   | "byok_settings"
   | "entry_type"
-  | "entry_details"
-  | "entry_split"
-  | "score"
+  | "entry_paste"
+  | "entry_review"
   | "bullet_list"
   | "bullet_gate"
   | "confirm_complete"
@@ -114,20 +117,25 @@ const PART_LABELS: Record<string, string> = {
   metric: msg.PART_LABEL_METRIC,
 };
 
+// Phase 18 (spec §13.1): the structured date fields accept YYYY-MM only.
+const MONTH_FIELD_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
 /* W3 (owner look-and-feel 2026-11-05): top-of-page stage bar. Pure mapping
    from the screen state to the active flow + step index; screens outside a
    flow (gate/welcome/menu/settings) render no bar. Segments + caption only —
-   no icons (§11.1 rule 1). */
+   no icons (§11.1 rule 1). Phase 18 (§13): entry_paste + entry_review
+   replace entry_details + entry_split, the score screen is merged into
+   bullet_list, and bullet_gate sits at the SAME index as bullet_list (the
+   old mapping regressed the bar one step when a bullet opened). */
 type FlowStage = { flow: "add" | "match"; index: number };
 
 const STAGE_INDEX: Partial<Record<Screen, FlowStage>> = {
   entry_type: { flow: "add", index: 0 },
-  entry_details: { flow: "add", index: 0 },
-  entry_split: { flow: "add", index: 1 },
+  entry_paste: { flow: "add", index: 0 },
+  entry_review: { flow: "add", index: 1 },
+  bullet_list: { flow: "add", index: 2 },
   bullet_gate: { flow: "add", index: 2 },
-  confirm_complete: { flow: "add", index: 2 },
-  score: { flow: "add", index: 3 },
-  bullet_list: { flow: "add", index: 3 },
+  confirm_complete: { flow: "add", index: 3 },
   merge: { flow: "add", index: 3 },
   copy: { flow: "add", index: 3 },
   done: { flow: "add", index: 3 },
@@ -138,7 +146,12 @@ const STAGE_INDEX: Partial<Record<Screen, FlowStage>> = {
 };
 
 const FLOW_LABELS: Record<"add" | "match", string[]> = {
-  add: ["Details", "Achievements", "Questions", "Result"],
+  add: [
+    msg.STAGE_EXPERIENCE,
+    msg.STAGE_REVIEW,
+    msg.STAGE_ACHIEVEMENTS,
+    msg.STAGE_RESULT,
+  ],
   match: ["Paste", "Review", "Hard skills", "Soft skills"],
 };
 
@@ -183,10 +196,12 @@ export default function Home() {
   const [gatewayError, setGatewayError] = useState<string | null>(null);
   const [gatewayReason, setGatewayReason] = useState<GatewayReason | null>(null);
   const [byokDowngradeOffer, setByokDowngradeOffer] = useState(false);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const retryActionRef = useRef<(() => void) | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  // Entry collection (Phase 13 hybrid: paste-and-split, spec §4.2)
+  // Entry collection (Phase 18 hybrid: paste-first with a drag-and-drop
+  // review, spec §13)
   const [entryType, setEntryType] = useState<string>("");
   const [title, setTitle] = useState<string>("");
   const [company, setCompany] = useState<string>("");
@@ -194,8 +209,17 @@ export default function Home() {
   const [domain, setDomain] = useState<string>("");
   const [pasted, setPasted] = useState<string>("");
   const [splitList, setSplitList] = useState<SplitCandidate[]>([]);
-  const [splitInputFor, setSplitInputFor] = useState<number | null>(null);
-  const [splitInputValue, setSplitInputValue] = useState<string>("");
+  // Phase 18 (§13.1): structured dates + the review-screen state.
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [ongoing, setOngoing] = useState<boolean>(false);
+  const [reviewType, setReviewType] = useState<string>("");
+  // Phase 18 (§13.3/§13.4): the encouragement line shows only right after a
+  // fresh scoring; the snapshot + entry id power the no-change skip and the
+  // update-in-place re-confirm.
+  const [justScored, setJustScored] = useState<boolean>(false);
+  const [confirmedSnapshot, setConfirmedSnapshot] = useState<string | null>(null);
+  const [entryIdForUpdate, setEntryIdForUpdate] = useState<number | null>(null);
 
   // Bullet improvement flow
   const [askedThisRun, setAskedThisRun] = useState<Set<number>>(new Set());
@@ -234,6 +258,7 @@ export default function Home() {
     setGatewayError(null);
     setGatewayReason(null);
     setByokDowngradeOffer(false);
+    setFallbackNotice(null);
     setScreen(next);
   }
 
@@ -281,7 +306,13 @@ export default function Home() {
     setDomain("");
     setPasted("");
     setSplitList([]);
-    setSplitInputFor(null);
+    setStartDate("");
+    setEndDate("");
+    setOngoing(false);
+    setReviewType("");
+    setJustScored(false);
+    setConfirmedSnapshot(null);
+    setEntryIdForUpdate(null);
     setAskedThisRun(new Set());
     setMatch(null);
     setPostingText("");
@@ -371,6 +402,8 @@ export default function Home() {
         parts: ReturnType<typeof extractParts>[];
         entry_score: number;
         rubric_version: string;
+        usedFallback: boolean;
+        modelUsed: string;
       }
     | { ok: false; reason: GatewayReason; error: string }
   > {
@@ -394,7 +427,7 @@ export default function Home() {
           context: { system: BYOK_EVALUATOR_SYSTEM_PROMPT },
         }),
       }).then((r) => r.json())) as
-        | { ok: true; text: string }
+        | { ok: true; text: string; usedFallback?: boolean; modelUsed?: string }
         | { ok: false; reason: GatewayReason }
         | null;
       if (!outcome) {
@@ -449,6 +482,8 @@ export default function Home() {
           parts,
           entry_score: entryScore,
           rubric_version: DEFAULT_RUBRIC_VERSION,
+          usedFallback: outcome.usedFallback === true,
+          modelUsed: outcome.modelUsed ?? "",
         };
       } catch {
         continue; // invalid output → one more gateway attempt (retry-once)
@@ -487,6 +522,7 @@ export default function Home() {
       if (useByok) setByokDowngradeOffer(true);
       return null;
     }
+    setFallbackNotice(result.usedFallback ? "Served by fallback model" : null);
     updateSession((s) => {
       if (s.entry) applyScoreToEntry(s.entry, result, onlyBulletId);
     });
@@ -518,35 +554,37 @@ export default function Home() {
   function chooseType(t: string) {
     setEntryType(t);
     logEvent("entry_type", t, null);
-    go("entry_details");
+    go("entry_paste");
   }
 
-  /** Phase 13 (spec §4.2): run the deterministic split on the pasted
-   * experience and move to the list-editing screen. Text is never rewritten
-   * (P1); the per-candidate English boundary fires here (analyze F4). */
+  /** Phase 18 (spec §13.1): paste-first entry — ONE paste box replaces the
+   * detail fields; the deterministic parser segments the paste and
+   * auto-places ONLY the first non-marker line into Title (D36: no
+   * automatic attribution). Text is never rewritten (P1); the segment
+   * English boundary fires here. */
   function splitPaste() {
-    const trimmedTitle = title.trim();
-    if (!trimmedTitle) {
-      setError(msg.ERR_INVALID_TITLE);
-      return;
-    }
     const text = pasted.trim();
     if (!text) {
       setError(msg.ADD_PASTE_EMPTY);
       return;
     }
-    logEvent("entry_title", null, { title: trimmedTitle });
-    const candidates = splitBullets(text);
-    if (candidates.some((c) => containsNonEnglish(c.text))) {
+    const parsed = parsePastedExperience(text);
+    if (parsed.segments.some((c) => containsNonEnglish(c.text))) {
       setError(msg.ERR_NON_ENGLISH_INPUT);
       return;
     }
     setError(null);
-    setSplitList(candidates);
-    setSplitInputFor(null);
-    setSplitInputValue("");
-    clearDraft("paste"); // input is now stored in the session (FR-20)
-    go("entry_split");
+    const auto = parsed.autoTitleIndex;
+    const rest =
+      auto !== null
+        ? parsed.segments.filter((_, i) => i !== auto)
+        : parsed.segments;
+    if (auto !== null) setTitle(parsed.segments[auto].text);
+    setSplitList(rest);
+    setReviewType(entryType);
+    setEntryIdForUpdate(null);
+    setConfirmedSnapshot(null);
+    go("entry_review");
   }
 
   function updateCandidateAt(i: number, patch: Partial<SplitCandidate>) {
@@ -555,147 +593,179 @@ export default function Home() {
     );
   }
 
-  function removeCandidateAt(i: number) {
-    setSplitList((list) => list.filter((_, idx) => idx !== i));
-    setSplitInputFor(null);
+  // Phase 18 drag-and-drop (§13.1): segments move into the single-value
+  // sections; a displaced value returns to Achievements — nothing is ever
+  // lost (P1). The Dates section fills the structured fields only on an
+  // exact month-precision match and consumes the segment (§13.5); anything
+  // else becomes the legacy free-text dates value.
+  const dragIndexRef = useRef<number | null>(null);
+
+  function takeDragged(): SplitCandidate | null {
+    const i = dragIndexRef.current;
+    dragIndexRef.current = null;
+    if (i === null) return null;
+    return splitList[i] ?? null;
   }
 
-  function mergeWithNext(i: number) {
+  function dropOnTitle() {
+    const seg = takeDragged();
+    if (!seg) return;
+    const displaced = title.trim();
     setSplitList((list) => {
-      if (i >= list.length - 1) return list;
-      const joinedText = `${list[i].text} ${list[i + 1].text}`;
-      const joined: SplitCandidate = {
-        ...list[i],
-        text: joinedText,
-        splitSuggested: /\band also\b/i.test(joinedText),
-      };
-      return [...list.slice(0, i), joined, ...list.slice(i + 2)];
+      const rest = list.filter((c) => c !== seg);
+      return displaced
+        ? [...rest, { text: displaced, flagged: false, splitSuggested: false }]
+        : rest;
     });
+    setTitle(seg.text);
   }
 
-  /** Split ONE candidate into TWO at a verbatim point (spec §4.2 step 5):
-   * the user types the first words of the second achievement; the words are
-   * only moved, never rewritten (P2). */
-  function splitCandidateAt(i: number) {
-    const target = splitList[i];
-    const needle = splitInputValue.trim();
-    if (!target || !needle) return;
-    const idx = target.text.indexOf(needle);
-    if (idx <= 0) {
-      setError(msg.SPLIT_NOT_FOUND);
-      return;
+  function dropOnOrg() {
+    const seg = takeDragged();
+    if (!seg) return;
+    const displaced = company.trim();
+    setSplitList((list) => {
+      const rest = list.filter((c) => c !== seg);
+      return displaced
+        ? [...rest, { text: displaced, flagged: false, splitSuggested: false }]
+        : rest;
+    });
+    setCompany(seg.text);
+  }
+
+  function dropOnDates() {
+    const seg = takeDragged();
+    if (!seg) return;
+    const match = matchDatePattern(seg.text);
+    if (match) {
+      if (match.startDate) setStartDate(match.startDate);
+      if (match.endDate) setEndDate(match.endDate);
+      if (match.ongoing) setOngoing(true);
+    } else {
+      setDates(seg.text);
     }
-    const first = target.text.slice(0, idx).trim();
-    const second = target.text.slice(idx).trim();
-    if (!first || !second) return;
-    setSplitList((list) => [
-      ...list.slice(0, i),
-      { text: first, flagged: false, splitSuggested: /\band also\b/i.test(first) },
-      { text: second, flagged: false, splitSuggested: /\band also\b/i.test(second) },
-      ...list.slice(i + 1),
-    ]);
-    setSplitInputFor(null);
-    setSplitInputValue("");
-    setError(null);
+    setSplitList((list) => list.filter((c) => c !== seg));
   }
 
-  /** Split at the suggested " and also " connector (the connector itself is
-   * dropped as a join word — segmentation, not rewriting). */
-  function splitAtAlso(i: number) {
-    const target = splitList[i];
-    if (!target) return;
-    const m = target.text.match(/\s*and also\s*/i);
-    if (!m || m.index === undefined) return;
-    const first = target.text.slice(0, m.index).trim();
-    const second = target.text.slice(m.index + m[0].length).trim();
-    if (!first || !second) return;
-    setSplitList((list) => [
-      ...list.slice(0, i),
-      { text: first, flagged: false, splitSuggested: false },
-      { text: second, flagged: false, splitSuggested: /\band also\b/i.test(second) },
-      ...list.slice(i + 1),
-    ]);
+  /** Per-type organization label (§13.1: one unified form, labels follow
+   * the selected type). */
+  function orgLabel(type: string): string {
+    if (type === "project") return msg.ORG_LABEL_PROJECT;
+    if (type === "course") return msg.ORG_LABEL_COURSE;
+    if (type === "side_work") return msg.ORG_LABEL_SIDE_WORK;
+    return msg.ORG_LABEL_JOB;
   }
 
+  /** Phase 18 (spec §13.1/§13.4): confirm the review. Zero achievements →
+   * draft; one or more → the entry (NO upper cap on the web). A changed
+   * re-confirm UPDATES the same stored entry (the id is re-stamped — no
+   * duplicate); a NO-change re-confirm skips re-analysis (P5) and returns
+   * to the review page directly. */
   async function confirmSplit() {
-    const bullets = splitList.map((c) => c.text);
     const trimmedTitle = title.trim();
-    if (bullets.length > 6) {
-      // VR-1 stays (research D17): the confirmed list caps at six — the user
-      // decides what to keep; the textarea itself is never blocked.
-      setError(msg.SPLIT_TOO_MANY);
+    if (!trimmedTitle) {
+      setError(msg.ERR_INVALID_TITLE);
       return;
     }
-    if (bullets.length === 0) {
-      // Existing draft path: an entry with no bullets is a draft (FR-003).
-      setBusy(true);
-      const draft = await apiPost<{ entry: StoredEntry; is_draft: boolean }>(
-        "/api/entry",
-        {
-          type: entryType,
-          title: trimmedTitle,
-          bullets: [],
-          company: company.trim() || undefined,
-          dates: dates.trim() || undefined,
-          product_domain: domain.trim() || undefined,
-        }
-      );
-      setBusy(false);
-      if (draft.ok) {
-        updateSession((s) => {
-          s.entry = draft.entry;
-        });
-        setSession(getSession());
-      }
-      setMessage(msg.DRAFT_NOTICE + " " + msg.DRAFT_SUGGESTION);
-      logEvent("entry_saved_as_draft", "no_bullets", null);
-      go("menu");
+    const bullets = splitList
+      .map((c) => c.text.trim())
+      .filter((t) => t.length > 0);
+    if (
+      (startDate && !MONTH_FIELD_RE.test(startDate)) ||
+      (!ongoing && endDate && !MONTH_FIELD_RE.test(endDate))
+    ) {
+      setError(msg.ERR_DATE_FORMAT);
       return;
     }
-    if (bullets.some((b) => containsNonEnglish(b))) {
-      setError(msg.ERR_NON_ENGLISH_INPUT);
-      return;
-    }
-    setBusy(true);
-    const result = await apiPost<{ entry: StoredEntry; is_draft: boolean }>("/api/entry", {
-      type: entryType,
+    const payload = {
+      type: reviewType || entryType,
       title: trimmedTitle,
       bullets,
       company: company.trim() || undefined,
       dates: dates.trim() || undefined,
       product_domain: domain.trim() || undefined,
-    });
+      start_date: startDate || undefined,
+      end_date: ongoing ? undefined : endDate || undefined,
+      ongoing: ongoing || undefined,
+      entry_id: entryIdForUpdate ?? undefined,
+    };
+    // Phase 18 (§13.4): a NO-change re-confirm skips re-analysis (P5) — but
+    // ONLY when the previous confirm's analysis actually completed. After a
+    // failed scoring the snapshot is never saved, so the next confirm
+    // re-runs the whole pipeline (no stale unanalyzed state is ever shown).
+    const snapshot = JSON.stringify(payload);
+    const sessionEntry = getSession()?.entry ?? null;
+    const analyzed = sessionEntry !== null && sessionEntry.entry_score !== null;
+    if (entryIdForUpdate !== null && snapshot === confirmedSnapshot && analyzed) {
+      setJustScored(false);
+      go("bullet_list");
+      return;
+    }
+    if (
+      bullets.some((b) => containsNonEnglish(b)) ||
+      [trimmedTitle, company, dates, domain].some(
+        (t) => t && containsNonEnglish(t)
+      )
+    ) {
+      setError(msg.ERR_NON_ENGLISH_INPUT);
+      return;
+    }
+    setBusy(true);
+    const result = await apiPost<{ entry: StoredEntry; is_draft: boolean }>(
+      "/api/entry",
+      payload
+    );
     setBusy(false);
     if (!result.ok) {
       setError(
-        result.error === "ERR_TOO_MANY_BULLETS"
-          ? msg.ERR_TOO_MANY_BULLETS
-          : result.error === "ERR_NON_ENGLISH_INPUT"
-            ? msg.ERR_NON_ENGLISH_INPUT
-            : msg.ERR_INVALID_CHOICE
+        result.error === "ERR_NON_ENGLISH_INPUT"
+          ? msg.ERR_NON_ENGLISH_INPUT
+          : msg.ERR_INVALID_CHOICE
       );
       return;
     }
     const stored = result.entry;
+    if (entryIdForUpdate !== null) stored.id = entryIdForUpdate; // §13.4
     updateSession((s) => {
       s.entry = stored;
       s.sourceText = pasted.trim();
     });
     setSession(getSession());
-    logEvent("entry_saved", null, { bullets: stored.bullets.length, draft: result.is_draft });
-    await showScores();
+    setConfirmedSnapshot(snapshot);
+    setEntryIdForUpdate(stored.id);
+    clearDraft("paste"); // the paste is now stored in the session (FR-20)
+    logEvent("entry_saved", null, {
+      bullets: stored.bullets.length,
+      draft: result.is_draft,
+      updated: entryIdForUpdate !== null,
+    });
+    if (result.is_draft) {
+      setMessage(msg.DRAFT_NOTICE + " " + msg.DRAFT_SUGGESTION);
+      logEvent("entry_saved_as_draft", "no_bullets", null);
+      setConfirmedSnapshot(snapshot); // drafts need no analysis — final state
+      go("menu");
+      return;
+    }
+    // The snapshot is saved ONLY after the analysis pipeline succeeds — a
+    // failed scoring leaves it unset so the next confirm re-runs everything.
+    const scored = await showScores();
+    if (scored) setConfirmedSnapshot(snapshot);
   }
 
   // ---------- score view ----------
 
-  async function showScores() {
+  async function showScores(): Promise<boolean> {
     const result = await scoreAndPersist();
-    if (!result) return;
+    if (!result) return false;
     logEvent("analysis_completed", null, {
       entry_score: result.entry_score,
       rubric_version: result.rubric_version,
     });
-    go("score");
+    // Phase 18 (§13.3): the separate score screen is gone — the review
+    // page (bullet list + panel) follows the analysis directly.
+    setJustScored(true);
+    go("bullet_list");
+    return true;
   }
 
   // ---------- bullet list ----------
@@ -703,6 +773,9 @@ export default function Home() {
   function openBullet(bullet: StoredBullet) {
     if (!entry || askedThisRun.has(bullet.id)) return;
     setCurrentBulletId(bullet.id);
+    // §13.3: the encouragement line belongs to the moment right after a
+    // fresh scoring — opening a bullet ends that moment.
+    setJustScored(false);
     logEvent("bullet_selected", null, { bullet_id: bullet.id });
     go("bullet_gate");
   }
@@ -783,13 +856,13 @@ export default function Home() {
             rubric: DEFAULT_RUBRIC_VERSION,
           })
       );
-      go("score");
+      go("bullet_list");
       return;
     }
     // Nothing changed (all answers matched the original words): show the
     // re-scored state without a before/after line.
     await scoreAndPersist(bullet.id);
-    go("score");
+    go("bullet_list");
   }
 
   /** "2) No" on the bullet gate: no rewrite, no questions. */
@@ -847,7 +920,7 @@ export default function Home() {
     const result = await scoreAndPersist();
     if (!result) return;
     setMessage(msg.EDIT_BULLET_DONE);
-    go("score");
+    go("bullet_list");
   }
 
   // ---------- merge warning + copy + survey ----------
@@ -902,7 +975,7 @@ export default function Home() {
     setSession(getSession());
     const scored = await scoreAndPersist();
     if (!scored) return;
-    go("score");
+    go("bullet_list");
   }
 
   function finalText(): string {
@@ -1127,10 +1200,16 @@ export default function Home() {
             the model in use on the same screen; hidden when the deterministic
             engine runs or BYOK is off. */}
         <ModelBanner
-          active={["entry_split", "score", "bullet_list", "merge"].includes(
+          active={["entry_review", "bullet_list", "merge"].includes(
             screen
           )}
         />
+        {fallbackNotice && (
+          <div role="note" className="mb-6 text-[14px] text-neutral-600">
+            {fallbackNotice} — scores came from a non-primary model (see the
+            server log for details).
+          </div>
+        )}
 
         {needsGate && (
           <div>
@@ -1167,7 +1246,13 @@ export default function Home() {
               setDomain("");
               setPasted("");
               setSplitList([]);
-              setSplitInputFor(null);
+              setStartDate("");
+              setEndDate("");
+              setOngoing(false);
+              setReviewType("");
+              setJustScored(false);
+              setConfirmedSnapshot(null);
+              setEntryIdForUpdate(null);
               go("entry_type");
             }}
             onMatch={() => {
@@ -1195,54 +1280,12 @@ export default function Home() {
               ["side_work", "Side work"],
             ]}
             onPick={chooseType}
+            onBack={() => go("menu")}
           />
         )}
-        {screen === "entry_details" && (
+        {screen === "entry_paste" && (
           <div>
-            <h1 className="mb-4 text-2xl font-semibold">{msg.ADD_FIELDS_TITLE}</h1>
-            <label className="mb-3 block">
-              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
-                {msg.ADD_TITLE}
-              </span>
-              <input
-                className="text-input"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                autoFocus
-              />
-              <p className="mt-1 text-[13px] text-neutral-600">{msg.FIELD_HINT_TITLE}</p>
-            </label>
-            <label className="mb-3 block">
-              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
-                {msg.ADD_FIELD_COMPANY}
-              </span>
-              <input
-                className="text-input"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              />
-              <p className="mt-1 text-[13px] text-neutral-600">{msg.FIELD_HINT_COMPANY}</p>
-            </label>
-            <label className="mb-3 block">
-              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
-                {msg.ADD_FIELD_DATES}
-              </span>
-              <input
-                className="text-input"
-                value={dates}
-                onChange={(e) => setDates(e.target.value)}
-              />
-            </label>
-            <label className="mb-6 block">
-              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
-                {msg.ADD_FIELD_DOMAIN}
-              </span>
-              <input
-                className="text-input"
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-              />
-            </label>
+            <h1 className="mb-4 text-2xl font-semibold">{msg.ADD_PASTE_HEADING}</h1>
             <label className="mb-2 block">
               <span className="mb-1 block text-[14px] font-medium text-neutral-800">
                 {msg.ADD_PASTE_LABEL}
@@ -1252,143 +1295,179 @@ export default function Home() {
               </p>
               <textarea
                 className="text-input"
-                rows={10}
+                rows={12}
                 value={pasted}
                 onChange={(e) => {
                   setPasted(e.target.value);
                   saveDraftDebounced("paste", e.target.value);
                 }}
                 placeholder="Paste in English"
+                autoFocus
               />
-              <p className="mt-2 text-[13px] text-neutral-600">
-                {msg.ADD_PASTE_EXAMPLE}
-              </p>
+              <p className="mt-2 text-[13px] text-neutral-600">{msg.ADD_PASTE_EXAMPLE}</p>
               {pasted.split("\n").filter((l) => l.trim().length > 0).length > 8 && (
                 <p className="mt-2 text-[14px] font-medium text-amber-700">
                   {msg.SOFT_LIMIT_NOTE}
                 </p>
               )}
             </label>
-            <button className="btn-primary" onClick={splitPaste}>
-              {msg.ADD_PASTE_SPLIT}
-            </button>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button className="btn-primary" onClick={splitPaste}>
+                {msg.ADD_PASTE_SPLIT}
+              </button>
+              <button className="btn-secondary" onClick={() => go("entry_type")}>
+                {msg.BACK}
+              </button>
+            </div>
           </div>
         )}
-        {screen === "entry_split" && (
+        {screen === "entry_review" && (
           <div>
-            <h1 className="mb-4 text-2xl font-semibold">
+            <h1 className="mb-4 text-2xl font-semibold">{msg.REVIEW_HEADING}</h1>
+            <label className="mb-4 block">
+              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                {msg.REVIEW_TYPE_LABEL}
+              </span>
+              <select
+                className="text-input"
+                value={reviewType}
+                onChange={(e) => {
+                  setReviewType(e.target.value);
+                  setEntryType(e.target.value);
+                }}
+              >
+                <option value="job">Job</option>
+                <option value="project">Project</option>
+                <option value="course">Course</option>
+                <option value="side_work">Side work</option>
+              </select>
+            </label>
+            {/* Single-value sections are drop targets: dropping REPLACES the
+                value and the displaced text returns to Achievements (§13.1 —
+                nothing is ever lost). */}
+            <div className="mb-3 grid gap-3 sm:grid-cols-2">
+              <div
+                className="card"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={dropOnTitle}
+              >
+                <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                  {msg.REVIEW_SECTION_TITLE}
+                </span>
+                <input
+                  className="text-input"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+                <p className="mt-1 text-[13px] text-neutral-600">{msg.FIELD_HINT_TITLE}</p>
+              </div>
+              <div
+                className="card"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={dropOnOrg}
+              >
+                <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                  {orgLabel(reviewType)}
+                </span>
+                <input
+                  className="text-input"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                />
+              </div>
+            </div>
+            <div
+              className="card mb-3"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={dropOnDates}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                    {msg.FIELD_START_DATE}
+                  </span>
+                  <input
+                    className="text-input"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    placeholder="2022-04"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                    {msg.FIELD_END_DATE}
+                  </span>
+                  <input
+                    className="text-input"
+                    value={endDate}
+                    disabled={ongoing}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    placeholder={ongoing ? "—" : "2024-08"}
+                  />
+                </label>
+              </div>
+              <label className="mt-2 flex items-center gap-2 text-[15px]">
+                <input
+                  type="checkbox"
+                  checked={ongoing}
+                  onChange={(e) => {
+                    setOngoing(e.target.checked);
+                    if (e.target.checked) setEndDate("");
+                  }}
+                />
+                {msg.FIELD_ONGOING}
+              </label>
+              {(startDate && !MONTH_FIELD_RE.test(startDate)) ||
+              (!ongoing && endDate && !MONTH_FIELD_RE.test(endDate)) ? (
+                <p className="msg-error mt-2 text-[14px]">{msg.ERR_DATE_FORMAT}</p>
+              ) : null}
+            </div>
+            <label className="mb-4 block">
+              <span className="mb-1 block text-[14px] font-medium text-neutral-800">
+                {msg.ADD_FIELD_DOMAIN}
+              </span>
+              <input
+                className="text-input"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+              />
+            </label>
+            <h2 className="mb-3 text-xl font-semibold">
               {fmt(msg.SPLIT_FOUND, { n: splitList.length })}
-            </h1>
-            {splitList.length > 6 && (
-              <p className="mb-4 text-[14px] font-medium text-amber-700">
-                {msg.SPLIT_TOO_MANY}
-              </p>
-            )}
+            </h2>
             <ol className="mb-6 space-y-3">
               {splitList.map((c, i) => (
-                <li key={i} className="card">
-                  <p className="text-[16px]">{c.text}</p>
-                  {c.flagged && (
-                    <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-2">
-                      <p className="text-[14px] text-neutral-800">
-                        {msg.SPLIT_FLAG_PROMPT}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <button
-                          className="btn-secondary"
-                          onClick={() => updateCandidateAt(i, { flagged: false })}
-                        >
-                          {msg.SPLIT_KEEP}
-                        </button>
-                        <button
-                          className="btn-secondary"
-                          onClick={() => removeCandidateAt(i)}
-                        >
-                          {msg.SPLIT_DISCARD}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {c.splitSuggested && (
-                    <div className="mt-2 rounded-md border border-sky-300 bg-sky-50 p-2">
-                      <p className="text-[14px] text-neutral-800">
-                        {msg.SPLIT_SUGGESTION}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <button
-                          className="btn-secondary"
-                          onClick={() => splitAtAlso(i)}
-                        >
-                          {msg.SPLIT_ACCEPT}
-                        </button>
-                        <button
-                          className="btn-secondary"
-                          onClick={() => updateCandidateAt(i, { splitSuggested: false })}
-                        >
-                          {msg.SPLIT_KEEP_ONE}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {i < splitList.length - 1 && (
-                      <button
-                        className="btn-secondary"
-                        onClick={() => mergeWithNext(i)}
-                      >
-                        {msg.SPLIT_MERGE}
-                      </button>
-                    )}
-                    <button
-                      className="btn-secondary"
-                      onClick={() => {
-                        setSplitInputFor(i);
-                        setSplitInputValue("");
-                      }}
-                    >
-                      {msg.SPLIT_ACCEPT}
-                    </button>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => removeCandidateAt(i)}
-                    >
-                      {msg.SPLIT_DELETE}
-                    </button>
-                  </div>
-                  {splitInputFor === i && (
-                    <div className="mt-2">
-                      <p className="text-[14px] text-neutral-800">{msg.SPLIT_WHERE}</p>
-                      <input
-                        className="text-input mt-1"
-                        value={splitInputValue}
-                        onChange={(e) => setSplitInputValue(e.target.value)}
-                        autoFocus
-                      />
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <button
-                          className="btn-primary"
-                          onClick={() => splitCandidateAt(i)}
-                        >
-                          {msg.SPLIT_ACCEPT}
-                        </button>
-                        <button
-                          className="btn-secondary"
-                          onClick={() => setSplitInputFor(null)}
-                        >
-                          {msg.SPLIT_KEEP_ONE}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                <li
+                  key={i}
+                  className="card"
+                  draggable
+                  onDragStart={() => {
+                    dragIndexRef.current = i;
+                  }}
+                  onDragEnd={() => {
+                    dragIndexRef.current = null;
+                  }}
+                >
+                  <input
+                    className="text-input"
+                    value={c.text}
+                    onChange={(e) => updateCandidateAt(i, { text: e.target.value })}
+                    aria-label={msg.REVIEW_SECTION_ACHIEVEMENTS}
+                  />
                 </li>
               ))}
             </ol>
-            <button className="btn-primary" onClick={() => void confirmSplit()}>
-              {msg.SPLIT_CONFIRM}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button className="btn-primary" onClick={() => void confirmSplit()}>
+                {msg.SPLIT_CONFIRM}
+              </button>
+              <button className="btn-secondary" onClick={() => go("entry_paste")}>
+                {msg.BACK}
+              </button>
+            </div>
           </div>
         )}
-        {(screen === "score" || screen === "bullet_list" || screen === "bullet_gate") &&
+        {(screen === "bullet_list" || screen === "bullet_gate") &&
           session?.sourceText && (
             <details className="mb-4 rounded-md border border-neutral-200 bg-neutral-50 p-3">
               <summary className="cursor-pointer text-[13px] font-medium text-neutral-600">
@@ -1399,13 +1478,11 @@ export default function Home() {
               </pre>
             </details>
           )}
-        {screen === "score" && entry && (
-          <ScoreView entry={entry} onContinue={() => go("bullet_list")} />
-        )}
         {screen === "bullet_list" && entry && (
           <BulletList
             entry={entry}
             asked={askedThisRun}
+            justScored={justScored}
             onPick={openBullet}
             onEdit={(id) => {
               setEditingBulletId(id);
@@ -1417,6 +1494,7 @@ export default function Home() {
             onEditCancel={() => setEditingBulletId(null)}
             onEditSubmit={() => void submitEdit()}
             onFinish={() => void finishExperience()}
+            onBack={() => go("entry_review")}
           />
         )}
         {screen === "bullet_gate" && entry && currentBullet() && (
@@ -1427,6 +1505,7 @@ export default function Home() {
             rows={frameworkRows(currentBullet()!)}
             onAnswer={gateAnswer}
             onSubmitAnswers={submitInlineAnswers}
+            onBack={() => go("bullet_list")}
           />
         )}
         {screen === "confirm_complete" && (
@@ -1437,6 +1516,7 @@ export default function Home() {
               ["edit", "I will edit it myself"],
             ]}
             onPick={(pick) => void confirmComplete(pick === "keep")}
+            onBack={() => go("bullet_list")}
           />
         )}
         {screen === "merge" && (
@@ -1447,6 +1527,7 @@ export default function Home() {
               ["no", "Do not merge and continue"],
             ]}
             onPick={(pick) => void mergeDecision(pick === "merge")}
+            onBack={() => go("bullet_list")}
           />
         )}
         {screen === "copy" && (
@@ -1469,25 +1550,33 @@ export default function Home() {
               >
                 Continue
               </button>
+              <button className="btn-secondary" onClick={() => go("bullet_list")}>
+                {msg.BACK}
+              </button>
             </div>
           </div>
         )}
         {screen === "survey" && (
-          <Survey
-            ease={surveyEase}
-            setEase={(v) => {
-              setSurveyEase(v);
-              logEvent("survey_ease", String(v));
-            }}
-            useful={surveyUseful}
-            setUseful={(v) => {
-              setSurveyUseful(v);
-              logEvent("survey_useful", v);
-            }}
-            comment={surveyComment}
-            setComment={setSurveyComment}
-            onSubmit={submitSurvey}
-          />
+          <div>
+            <Survey
+              ease={surveyEase}
+              setEase={(v) => {
+                setSurveyEase(v);
+                logEvent("survey_ease", String(v));
+              }}
+              useful={surveyUseful}
+              setUseful={(v) => {
+                setSurveyUseful(v);
+                logEvent("survey_useful", v);
+              }}
+              comment={surveyComment}
+              setComment={setSurveyComment}
+              onSubmit={submitSurvey}
+            />
+            <button className="btn-secondary mt-4" onClick={() => go("copy")}>
+              {msg.BACK}
+            </button>
+          </div>
         )}
         {screen === "done" && (
           <div>
@@ -1640,6 +1729,9 @@ export default function Home() {
               <button className="btn-secondary" onClick={() => matchStageCancelled("hard_skills")}>
                 Cancel
               </button>
+              <button className="btn-secondary" onClick={() => go("match_review")}>
+                {msg.BACK}
+              </button>
             </div>
           </div>
         )}
@@ -1696,6 +1788,9 @@ export default function Home() {
               </button>
               <button className="btn-secondary" onClick={() => matchStageCancelled("soft_skills")}>
                 Cancel
+              </button>
+              <button className="btn-secondary" onClick={() => go("match_hard")}>
+                {msg.BACK}
               </button>
             </div>
           </div>
@@ -1821,9 +1916,8 @@ function EntryPanel({ entry }: { entry: StoredEntry }) {
         {entry.bullets.length === 1 ? "" : "s"}
         {entry.entry_score !== null && !isDraft && (
           <span className="font-mono">
-            {` — ${fmt(msg.SCORE_EXPERIENCE, {
+            {` — ${fmt(msg.PANEL_SCORE, {
               value: round2(entry.entry_score),
-              rubric: DEFAULT_RUBRIC_VERSION,
             })}`}
           </span>
         )}
@@ -1844,10 +1938,12 @@ function ChoiceScreen({
   title,
   options,
   onPick,
+  onBack,
 }: {
   title: string;
   options: Array<[string, string]>;
   onPick: (pick: string) => void;
+  onBack?: () => void;
 }) {
   return (
     <div>
@@ -1863,6 +1959,11 @@ function ChoiceScreen({
           </button>
         ))}
       </div>
+      {onBack && (
+        <button className="btn-secondary mt-6" onClick={onBack}>
+          {msg.BACK}
+        </button>
+      )}
     </div>
   );
 }
@@ -1903,57 +2004,10 @@ function ScoreRing({ value }: { value: number }) {
         </text>
       </svg>
       <p className="font-mono font-medium">
-        {fmt(msg.SCORE_OVERALL, {
+        {fmt(msg.PANEL_SCORE, {
           value: round2(clamped),
-          rubric: DEFAULT_RUBRIC_VERSION,
         })}
       </p>
-    </div>
-  );
-}
-
-function ScoreView({ entry, onContinue }: { entry: StoredEntry; onContinue: () => void }) {
-  return (
-    <div>
-      <h1 className="mb-4 text-2xl font-semibold">
-        {fmt(msg.SCORE_BULLET_HEADER, { text: entry.title, rubric: DEFAULT_RUBRIC_VERSION })}
-      </h1>
-      <p className="mb-4 text-[15px] text-neutral-700">{msg.ENCOURAGE_SCORED}</p>
-      {entry.bullets.map((bullet, i) => (
-        <div key={bullet.id} className="card mb-3">
-          <p className="mb-2 font-medium">
-            {fmt(msg.SCORE_BULLET_LINE, { n: i + 1, text: bullet.text })}
-          </p>
-          {bullet.ratings && (
-            <ul className="mb-2 font-mono text-[15px] text-neutral-800">
-              <li>{fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_CONTEXT, value: bullet.ratings.context })}</li>
-              <li>{fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_ACTION, value: bullet.ratings.role_action_clarity })}</li>
-              <li>{fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_RESULT, value: bullet.ratings.result })}</li>
-            </ul>
-          )}
-          <p className="text-sm text-neutral-600">
-            {fmt(msg.SCORE_STATUS, { status: bullet.status })}
-          </p>
-        </div>
-      ))}
-      {entry.entry_score !== null && (
-        <p className="mb-2 font-mono font-medium">
-          {fmt(msg.SCORE_EXPERIENCE, {
-            value: round2(entry.entry_score),
-            rubric: DEFAULT_RUBRIC_VERSION,
-          })}
-        </p>
-      )}
-      {entry.bullets.length > 0 && !entry.draft_reason ? (
-        <ScoreRing value={entry.entry_score ?? 0} />
-      ) : (
-        <p className="mb-6 font-medium">
-          {msg.SCORE_OVERALL_HIDDEN} {msg.SCORE_DRAFT_LINE}
-        </p>
-      )}
-      <button className="btn-primary" onClick={onContinue}>
-        Continue
-      </button>
     </div>
   );
 }
@@ -1961,6 +2015,7 @@ function ScoreView({ entry, onContinue }: { entry: StoredEntry; onContinue: () =
 function BulletList({
   entry,
   asked,
+  justScored,
   onPick,
   onEdit,
   editingId,
@@ -1969,9 +2024,11 @@ function BulletList({
   onEditCancel,
   onEditSubmit,
   onFinish,
+  onBack,
 }: {
   entry: StoredEntry;
   asked: Set<number>;
+  justScored: boolean;
   onPick: (bullet: StoredBullet) => void;
   onEdit: (id: number) => void;
   editingId: number | null;
@@ -1980,10 +2037,16 @@ function BulletList({
   onEditCancel: () => void;
   onEditSubmit: () => void;
   onFinish: () => void;
+  onBack: () => void;
 }) {
+  const draftState =
+    entry.bullets.length === 0 || entry.draft_reason !== null;
   return (
     <div>
       <h1 className="mb-2 text-2xl font-semibold">{entry.title}</h1>
+      {justScored && (
+        <p className="mb-4 text-[15px] text-neutral-700">{msg.ENCOURAGE_SCORED}</p>
+      )}
       <p className="mb-4 text-neutral-700">
         Pick a bullet to improve it. Bullets you already worked on in this run
         are done.
@@ -2002,15 +2065,6 @@ function BulletList({
                   })}
                 </p>
                 <p className="mb-2 font-medium">{bullet.text}</p>
-                {bullet.ratings && (
-                  <p className="text-[15px] text-neutral-800">
-                    {fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_CONTEXT, value: bullet.ratings.context })}{" "}
-                    ·{" "}
-                    {fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_ACTION, value: bullet.ratings.role_action_clarity })}{" "}
-                    ·{" "}
-                    {fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_RESULT, value: bullet.ratings.result })}
-                  </p>
-                )}
               </div>
               <button
                 className="btn-secondary !min-h-10 shrink-0 !px-4 !py-2 text-sm"
@@ -2056,6 +2110,22 @@ function BulletList({
       <p className="mt-3 text-sm text-neutral-600">
         Finishing checks for overlapping bullets and shows your final text.
       </p>
+      {/* Phase 18 (spec §13.3): the score panel lives at the BOTTOM of the
+          review page — the Experience score with its progress ring beside it
+          (no "Overall score" label, no rubric-version header). Drafts keep
+          the no-number state. */}
+      <div className="mt-6 border-t border-neutral-200 pt-4">
+        {!draftState && entry.entry_score !== null ? (
+          <ScoreRing value={entry.entry_score} />
+        ) : (
+          <p className="font-medium">
+            {msg.SCORE_OVERALL_HIDDEN} {msg.SCORE_DRAFT_LINE}
+          </p>
+        )}
+      </div>
+      <button className="btn-secondary mt-4" onClick={onBack}>
+        {msg.BACK}
+      </button>
     </div>
   );
 }
@@ -2350,6 +2420,7 @@ function BulletGate({
   rows,
   onAnswer,
   onSubmitAnswers,
+  onBack,
 }: {
   entry: StoredEntry;
   bullet: StoredBullet;
@@ -2357,6 +2428,7 @@ function BulletGate({
   rows: FrameworkRow[];
   onAnswer: (accepted: boolean) => void;
   onSubmitAnswers: (answers: Partial<Record<QuestionDimension, string>>) => void;
+  onBack: () => void;
 }) {
   // Inline answers per part. The sentence replaces a part only when the
   // user presses Confirm; until then the extracted display stays.
@@ -2442,8 +2514,7 @@ function BulletGate({
           <button
             aria-label={msg.COPY_BUTTON}
             title={msg.COPY_BUTTON}
-            className="btn-secondary !min-h-9 text-sm"
-            onClick={copyImproved}
+            className="btn-secondary !min-h-9 text-sm"            onClick={copyImproved}
           >
             {msg.COPY_BUTTON}
           </button>
@@ -2457,6 +2528,10 @@ function BulletGate({
           )}
         </div>
       </div>
+      {/* Phase 18 (§13.4): Back to the review page — never wipes state. */}
+      <button className="btn-secondary mb-4" onClick={onBack}>
+        {msg.BACK}
+      </button>
       <p className="mb-2 text-[16px]">
         {frameworkSentence(displayRows, states, activeKey, openPart)}
       </p>

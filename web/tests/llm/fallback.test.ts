@@ -176,6 +176,74 @@ describe("fallback chain (FR-03/04, FR-34)", () => {
     if (!result.ok) expect(result.outcome).toBe("exhausted");
   });
 
+  it("rate_limited outcome at the provider-call cap on persistent 429s (FR-44)", async () => {
+    const { runChain } = await chainModule();
+    const calls: string[] = [];
+    const promise = runChain({
+      models: ["a", "b", "c"],
+      source: "free",
+      deadlineAt: Date.now() + 120_000,
+      maxProviderCalls: 2,
+      attempt: async (model) => {
+        calls.push(model);
+        return failOutcome("retryable", { status: 429, retryAfter: 2 });
+      },
+    });
+    await vi.advanceTimersByTimeAsync(30_000);
+    const result = await promise;
+    expect(calls).toEqual(["a", "a"]); // capped at 2 provider calls
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.outcome).toBe("rate_limited");
+      expect(result.retryAfter).toBe(2);
+    }
+  });
+
+  it("treats 410 Gone like 404 — one attempt, straight to the next model", async () => {
+    const { runChain } = await chainModule();
+    const calls: string[] = [];
+    const result = await runChain({
+      models: ["gone-model", "fallback-1"],
+      source: "free",
+      deadlineAt: Date.now() + 60_000,
+      attempt: async (model) => {
+        calls.push(model);
+        if (model === "gone-model") return failOutcome("not_found", { status: 410 });
+        return okOutcome("yes");
+      },
+    });
+    expect(calls).toEqual(["gone-model", "fallback-1"]);
+    expect(result.ok).toBe(true);
+  });
+
+  it("honors Retry-After BEFORE calling the next model (shared-limit assumption, FR-44)", async () => {
+    const { runChain } = await chainModule();
+    const calls: Array<[string, number, number]> = [];
+    const startedAt = Date.now();
+    const promise = runChain({
+      models: ["a", "b"],
+      source: "free",
+      deadlineAt: startedAt + 120_000,
+      attempt: async (model, attempt) => {
+        calls.push([model, attempt, Date.now() - startedAt]);
+        if (model === "a") return failOutcome("retryable", { status: 429, retryAfter: 2 });
+        return okOutcome("ok");
+      },
+    });
+    await vi.advanceTimersByTimeAsync(30_000);
+    const result = await promise;
+    expect(calls.map(([m, a]) => [m, a])).toEqual([
+      ["a", 1],
+      ["a", 2],
+      ["b", 1],
+    ]);
+    // 2s Retry-After after a1 AND after a2 (before the next model) — both
+    // delays elapsed before "b" was called.
+    const atB = calls[2][2];
+    expect(atB).toBeGreaterThanOrEqual(4_000);
+    expect(result.ok).toBe(true);
+  });
+
   it("reports exhaustion when every model fails", async () => {
     const { runChain } = await chainModule();
     const promise = runChain({

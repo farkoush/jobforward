@@ -7,8 +7,16 @@
  * to the free path (FR-28).
  */
 
-import { budgetFor, ConfigError, getLlmConfig } from "./config";
+import {
+  budgetFor,
+  ConfigError,
+  getLlmConfig,
+  maxTokensFor,
+  mockEnabled,
+} from "./config";
+import { getAppliedChains } from "./validate-models";
 import { PROVIDERS } from "@/lib/byok/providers.config";
+import type { MockScenario, MockTransportScenario } from "./client";
 import { categoryForTask } from "./tasks";
 import {
   buildRequestLogEntry,
@@ -57,6 +65,8 @@ export interface GatewayCallOptions {
   byokKey?: string | null;
   /** The user's chosen model on the BYOK provider (advanced settings). */
   byokModel?: string | null;
+  /** Dev-only simulated failure (FR-38); honored only when mock is enabled. */
+  mockError?: MockScenario | null;
 }
 
 function messagesFor(req: GatewayRequest): ChatMessage[] {
@@ -72,12 +82,21 @@ function exhaustedReason(source: Source): GatewayFailure["reason"] {
 
 /** Map a finished chain to the typed failure the contract carries. */
 function chainFailure(result: {
-  outcome: "exhausted" | "fatal";
+  outcome: "exhausted" | "fatal" | "rate_limited";
   lastClass: "retryable" | "not_found" | "fatal" | "none";
   lastStatus?: number;
   retryAfter?: number;
   source: Source;
 }): GatewayFailure {
+  if (result.outcome === "rate_limited") {
+    // Persistent 429s across the chain reached the per-request call cap (or
+    // the deadline) — typed RATE_LIMITED with retryAfter (FR-44).
+    return failure("RATE_LIMITED", {
+      retryable: true,
+      retryAfter: result.retryAfter,
+      source: result.source,
+    });
+  }
   if (result.outcome === "fatal") {
     return failure(result.source === "byok" ? "BYOK_FAILED" : "CONFIG_ERROR", {
       retryable: false,
@@ -135,14 +154,20 @@ async function preflight(
   }
 
   const budget = budgetFor(category);
+  // Effective chain (§14 FR-39): the applied (validated + pruned) chains from
+  // startup override the raw env chains; an empty pruned category yields the
+  // typed CONFIG_ERROR result — never a request against known-invalid models.
+  const applied = getAppliedChains();
+  const rawChain = category === "GEN" ? cfg.genChain : cfg.fastChain;
   const chain =
     source === "byok"
       ? [opts.byokModel ?? ""].filter(Boolean)
-      : category === "GEN"
-        ? cfg.genChain
-        : cfg.fastChain;
+      : (applied?.[category] ?? rawChain).filter(Boolean);
   if (chain.length === 0) {
-    return { ok: false, failure: failure("INVALID_INPUT", { source }) };
+    return {
+      ok: false,
+      failure: failure(source === "byok" ? "INVALID_INPUT" : "CONFIG_ERROR", { source }),
+    };
   }
 
   return {
@@ -160,7 +185,8 @@ function attemptInput(
   pre: Preflight & { ok: true },
   model: string,
   messages: ChatMessage[],
-  opts: { maxOutputTokens: number; attemptTimeoutMs: number; stream: boolean }
+  opts: { attemptTimeoutMs: number; stream: boolean },
+  mockError: MockScenario | null
 ) {
   const cfg = getLlmConfig();
   return {
@@ -168,11 +194,17 @@ function attemptInput(
     apiKey: pre.apiKey,
     model,
     messages,
-    maxOutputTokens: opts.maxOutputTokens,
+    // §14 FR-42: reasoning-style models on FAST get the higher budget.
+    maxOutputTokens: maxTokensFor(pre.category, model),
     stream: opts.stream,
     abortAt: Math.min(Date.now() + opts.attemptTimeoutMs, pre.deadlineAt),
     firstTokenTimeoutMs: cfg.FIRST_TOKEN_TIMEOUT_MS,
     chunkSilenceTimeoutMs: cfg.CHUNK_SILENCE_TIMEOUT_MS,
+    // Dev-only (FR-38): honored only when the mock switch is on (which is
+    // itself forced off in production). No scenario → fixed success.
+    mockScenario: mockEnabled()
+      ? ((mockError ?? "success") as MockTransportScenario)
+      : null,
   };
 }
 
@@ -189,6 +221,8 @@ export async function runFastGateway(
       category: inner.category,
       model: inner.outcome.ok ? inner.outcome.model : null,
       fallbackUsed: inner.fallbackUsed,
+      fallbackDepth: inner.fallbackDepth,
+      attempts: inner.attempts,
       source: inner.outcome.source,
       inputTokens: inner.outcome.ok ? inner.outcome.usage.in : null,
       outputTokens: inner.outcome.ok ? inner.outcome.usage.out : null,
@@ -206,6 +240,8 @@ interface FastInnerResult {
   outcome: GatewayOutcome;
   category: Category | null;
   fallbackUsed: boolean;
+  fallbackDepth: number | null;
+  attempts: Array<{ model: string; result: string; status?: number }>;
 }
 
 async function runFastGatewayInner(
@@ -213,16 +249,17 @@ async function runFastGatewayInner(
   opts: GatewayCallOptions
 ): Promise<FastInnerResult> {
   const started = Date.now();
+  const attempts: Array<{ model: string; result: string; status?: number }> = [];
   let pre: Preflight | PreflightFailure;
   try {
     pre = await preflight(req, opts);
   } catch (exc) {
     if (exc instanceof BusyError)
-      return { outcome: failure("SERVICE_BUSY", { retryable: true }), category: null, fallbackUsed: false };
-    return { outcome: failure("NETWORK", { retryable: true }), category: null, fallbackUsed: false };
+      return { outcome: failure("SERVICE_BUSY", { retryable: true }), category: null, fallbackUsed: false, fallbackDepth: null, attempts };
+    return { outcome: failure("NETWORK", { retryable: true }), category: null, fallbackUsed: false, fallbackDepth: null, attempts };
   }
   if (!pre.ok) {
-    return { outcome: pre.failure, category: null, fallbackUsed: false };
+    return { outcome: pre.failure, category: null, fallbackUsed: false, fallbackDepth: null, attempts };
   }
 
   const budget = budgetFor(pre.category);
@@ -233,13 +270,25 @@ async function runFastGatewayInner(
       source: pre.source,
       deadlineAt: pre.deadlineAt,
       onProviderCall: acquireProviderSlot,
+      onAttempt: ({ model, attempt, failure }) =>
+        attempts.push({
+          model,
+          result: failure.kind ?? failure.cls,
+          status: failure.status,
+        }),
+      maxProviderCalls: getLlmConfig().MAX_PROVIDER_CALLS_PER_REQUEST,
       attempt: (model) =>
         completeOnce(
-          attemptInput(pre, model, messages, {
-            maxOutputTokens: budget.maxOutputTokens,
-            attemptTimeoutMs: budget.attemptTimeoutMs,
-            stream: false,
-          })
+          attemptInput(
+            pre,
+            model,
+            messages,
+            {
+              attemptTimeoutMs: budget.attemptTimeoutMs,
+              stream: false,
+            },
+            opts.mockError ?? null
+          )
         ),
     });
     if (result.ok) {
@@ -248,26 +297,41 @@ async function runFastGatewayInner(
           ok: true,
           text: result.text,
           model: result.model,
+          modelUsed: result.model,
+          usedFallback: result.model !== pre.chain[0],
+          fallbackDepth: Math.max(0, pre.chain.indexOf(result.model)),
           source: pre.source,
           usage: result.usage,
           ms: Date.now() - started,
         },
         category: pre.category,
         fallbackUsed: result.model !== pre.chain[0],
+        fallbackDepth: Math.max(0, pre.chain.indexOf(result.model)),
+        attempts,
       };
     }
-    return { outcome: chainFailure(result), category: pre.category, fallbackUsed: false };
+    return {
+      outcome: chainFailure(result),
+      category: pre.category,
+      fallbackUsed: false,
+      fallbackDepth: null,
+      attempts,
+    };
   } catch (exc) {
     if (exc instanceof BusyError)
       return {
         outcome: failure("SERVICE_BUSY", { retryable: true, source: pre.source }),
         category: pre.category,
         fallbackUsed: false,
+        fallbackDepth: null,
+        attempts,
       };
     return {
       outcome: failure("NETWORK", { retryable: true, source: pre.source }),
       category: pre.category,
       fallbackUsed: false,
+      fallbackDepth: null,
+      attempts,
     };
   }
 }
@@ -281,11 +345,12 @@ export async function* runGenGateway(
   opts: GatewayCallOptions
 ): AsyncGenerator<StreamEvent, void, void> {
   const started = Date.now();
+  const attempts: Array<{ model: string; result: string; status?: number }> = [];
   const category = categoryForTask(req.task);
   let source: Source = opts.byokKey ? "byok" : "free";
   let fallbackUsed = false;
   let last: StreamEvent | null = null;
-  for await (const event of runGenGatewayInner(req, opts)) {
+  for await (const event of runGenGatewayInner(req, opts, attempts)) {
     if (event.type === "done") {
       source = event.source;
       let chainHead = "";
@@ -309,6 +374,9 @@ export async function* runGenGateway(
       category,
       model: ok && last && last.type === "done" ? last.model : null,
       fallbackUsed,
+      fallbackDepth:
+        last && last.type === "done" ? last.fallbackDepth : null,
+      attempts,
       source: last ? last.source : source,
       inputTokens: ok && last && last.type === "done" ? last.usage.in : null,
       outputTokens: ok && last && last.type === "done" ? last.usage.out : null,
@@ -330,7 +398,8 @@ export async function* runGenGateway(
  */
 async function* runGenGatewayInner(
   req: GatewayRequest,
-  opts: GatewayCallOptions
+  opts: GatewayCallOptions,
+  attempts: Array<{ model: string; result: string; status?: number }>
 ): AsyncGenerator<StreamEvent, void, void> {
   const started = Date.now();
   let pre: Preflight | PreflightFailure;
@@ -382,11 +451,16 @@ async function* runGenGatewayInner(
       let usage: CompletionUsage = { in: null, out: null };
       try {
         for await (const ev of streamCompletion(
-          attemptInput(pre, model, messages, {
-            maxOutputTokens: budget.maxOutputTokens,
-            attemptTimeoutMs: budget.attemptTimeoutMs,
-            stream: true,
-          })
+          attemptInput(
+            pre,
+            model,
+            messages,
+            {
+              attemptTimeoutMs: budget.attemptTimeoutMs,
+              stream: true,
+            },
+            opts.mockError ?? null
+          )
         )) {
           if (ev.kind === "delta") {
             committed = true;
@@ -398,6 +472,9 @@ async function* runGenGatewayInner(
         yield {
           type: "done",
           model,
+          modelUsed: model,
+          usedFallback: model !== pre.chain[0],
+          fallbackDepth: Math.max(0, pre.chain.indexOf(model)),
           source: pre.source,
           usage,
           ms: Date.now() - started,
@@ -416,6 +493,20 @@ async function* runGenGatewayInner(
               ? "retryable"
               : "retryable";
         lastFailure = { cls, retryAfter: exc instanceof StreamAttemptError ? exc.failure.retryAfter : undefined };
+        attempts.push({
+          model,
+          result: exc instanceof StreamAttemptError && exc.failure.kind ? exc.failure.kind : cls,
+          status: exc instanceof StreamAttemptError ? exc.failure.status : undefined,
+        });
+        // Operator-facing per-attempt visibility (same rationale as the
+        // one-shot chain in fallback.ts).
+        console.warn(
+          `[llm] gen attempt: model=${model} attempt=${attempt} -> ${cls}${
+            exc instanceof StreamAttemptError && exc.failure.status
+              ? ` (HTTP ${exc.failure.status})`
+              : ""
+          }`
+        );
         if (cls === "fatal") {
           yield {
             type: "error",
