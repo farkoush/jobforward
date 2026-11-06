@@ -301,3 +301,38 @@ them through (VR-1 1–6 bullets and VR-8 English boundary UNCHANGED — D17).
 Confirm produces the final `bullets: string[]` (1–6, VR-1) which enters the
 EXISTING per-bullet pipeline unchanged; analysis output for a given bullet
 text is identical whether it came from paste-and-split or one-by-one entry.
+
+## Addendum: Phase 18 entry UX (2026-11-06, web-only)
+
+Spec §13. The web entry gains structured date fields; everything else
+persisted is unchanged. Old documents and old localStorage sessions load
+unchanged (fields absent by default; never backfilled — P5).
+
+### ExperienceEntry (web engine) — new optional fields
+
+| Field | Type | Rules |
+|---|---|---|
+| start_date | str \| null | `YYYY-MM`; filled only from a segment the USER drags into the Dates section on an exact pattern match, else empty (never parsed from unparsed paste text — P1) |
+| end_date | str \| null | `YYYY-MM`; null when `ongoing` |
+| ongoing | bool | "I still work here" — true removes the end date (display "… – present") |
+
+- The legacy free-text `dates` field is RETAINED: (a) the load-compat
+  fallback for pre-Phase-18 documents; (b) the holder for pasted date
+  text that does not parse to `YYYY-MM` (nothing the user pasted is
+  dropped — P1).
+- Display rule: when the structured fields are present, dates render as
+  "start – end" or "start – present"; otherwise the legacy string renders
+  verbatim.
+- `AddEntryRequestSchema` accepts them as optional (`start_date`/`end_date`
+  regex `^\d{4}-(0[1-9]|1[0-2])$`, `ongoing` boolean) plus an optional
+  entry id so a Back-and-reconfirm UPDATES the stored entry instead of
+  duplicating it (§13.4, D34). VR-8 (English boundary) UNCHANGED; the
+  1–6 bullet cap is REMOVED on the web (min 1; 0 = draft) per the owner
+  clarify 2026-11-06 — the terminal's VR-1 stays frozen.
+
+### Transient (not persisted)
+
+- `parsePastedExperience` output (fields + achievements text) is
+  session-only review state; only what the user confirms is stored.
+- `SplitCandidate.flagged`/`splitSuggested` keep existing in the engine
+  type but no longer drive any UI control (D30).

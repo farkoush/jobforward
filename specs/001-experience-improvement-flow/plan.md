@@ -628,3 +628,168 @@ test files) · parity PARITY OK with terminal present · skip-simulation:
 temporarily rename `terminal/` → parity prints the skip message and exits 0
 → rename back · web gates unchanged (test:engine, tsc, test:byok 23/24,
 scan) · `git log --follow` proves history followed a moved file.
+
+---
+
+## Phase 18 Addendum (entry & review UX simplification, 2026-11-06)
+
+Spec §13 (clarified 2026-11-06: per-experience paste; editable-text-only
+split review). WEB-ONLY flow/presentation phase: Python engine, terminal,
+`messages.py`, parity corpus UNTOUCHED; the analysis pipeline (§2–§6) is
+untouched. Tasks start at **T133** (T091/T092 remain open).
+
+### Clarify integration (2026-11-06 — supersedes parts of the design below)
+
+The plan-stage clarify session (4 owner answers; recorded in the spec's
+Clarifications 2026-11-06) changed the review mechanics: the conservative
+header parser described under "Deterministic paste parser" is SUPERSEDED
+by a **drag-and-drop segment review** — the `splitBullets` output becomes
+draggable items; ONLY the first non-marker line auto-places (into Title);
+every other segment starts in Achievements; the tool never attributes
+organization or dates on its own (a segment the USER drags into the Dates
+section fills the structured fields only on an exact date-pattern match).
+Further owner answers: the 1–6 cap is REMOVED on the web (SPLIT_TOO_MANY
+joins the removed strings; terminal VR-1 stays frozen); a NO-change
+re-confirm skips re-analysis (P5); a type switcher joins the review
+screen (labels swap, segments carry over). `entry_parse.ts` becomes a
+THIN wrapper — `parsePastedExperience(pasted)` = `splitBullets` + the
+first-line marker check, PLUS `matchDatePattern(text)` (the deterministic
+MONTH-PRECISION drop-time matcher per the §13.1 pinned grammar — a
+matched segment is consumed into the structured fields; a bare year /
+year-only range / prose date → the legacy free-text `dates`, never a
+month invention) — with tests for the placement rules, the matcher, and
+the absence of any AUTOMATIC date attribution (analyze remediations
+F1–F3 applied 2026-11-06: the spec §13.4 update-in-place sentence, the
+§13.1 grammar pin, the §13.5 consumption criterion). FILE LIST rows 1,
+2, 8, 9 read accordingly
+(row 9 also drops the per-type DATE strings and adds the type-switcher
+label); everything else stands.
+
+### Design additions
+
+- **Paste-first entry (`entry_details` → `entry_paste`)** — after
+  `entry_type` (unchanged), the entry screen is ONE paste box (the whole
+  experience: title, organization, dates, achievements — as written in
+  the resume) + the kept 8-line soft-limit note; the discrete detail
+  fields are gone from entry time. The paste textarea keeps the existing
+  draft autosave (`web/src/lib/draft.ts`, cleared only on success — P18).
+- **Deterministic paste parser (NEW `web/src/engine/flow/entry_parse.ts`)**
+  — `parsePastedExperience(pasted)` separates the parts BEFORE the split:
+  the FIRST line, when it is not `-`/`•`-prefixed, is the header line —
+  split on `|`, en/em dash, hyphen, and comma separators; a segment
+  matching a date pattern (`YYYY-MM`, `YYYY`, `YYYY–YYYY`,
+  "present"/"current") is the dates segment; the first non-date segment
+  pre-fills the title, the second the organization. Nothing is dropped or
+  invented (P1): unrecognized header segments flow into the achievements
+  text, and date text that does not parse to `YYYY-MM` is stored in the
+  legacy free-text `dates` field (display fallback). A marker-prefixed
+  first line means no header — all fields stay empty. `product_domain` is
+  NEVER parsed. The remaining lines feed the EXISTING `splitBullets`
+  unchanged.
+- **Post-paste review screen (NEW `entry_review`; `entry_split` removed)**
+  — one screen shows every part separately and editable: the ONE unified
+  form component (same fields for every type; the organization label
+  follows the type — Job "Company", Project "Project name", Course
+  "Provider", Side work "Client") plus the achievements list ("I found N
+  achievements. Is that correct?") as numbered, individually editable
+  text blocks. The Merge with next / Split / Delete buttons and the
+  Keep/Discard + "and also" suggestion UI are REMOVED (`splitBullets`
+  itself is UNCHANGED — it keeps computing `flagged`/`splitSuggested`;
+  the UI just no longer renders controls for them, so the Phase 13 engine
+  tests stay green). Cleared rows are dropped at confirm; confirmed
+  bullets are verbatim paste lines or the user's own edits (P2).
+- **Structured dates (web-additive)** — `start_date`/`end_date`
+  (`YYYY-MM`, validated text inputs with a B1 format error — not a native
+  month picker) + an `ongoing` checkbox ("I still work here" — checked
+  clears and disables the end field; dates display "2022-04 – present").
+  The legacy free-text `dates` field is RETAINED as (a) the load-compat
+  fallback for old documents and (b) the holder for unparseable pasted
+  date text; display rule: the structured pair when present, else the
+  legacy string. Old documents load unchanged (additive, never
+  backfilled — P5).
+- **Score screen merged into the bullet list (`score` removed)** —
+  `bullet_list` becomes the review page: the unchanged bullet list + the
+  score panel at the BOTTOM — `ScoreRing` (§11.5 styling unchanged)
+  showing `entry_score` beside "Experience score: {value}/100" (NEW panel
+  string WITHOUT the rubric version). The "Overall score" label
+  (`SCORE_OVERALL`) and the rubric-version header are retired from
+  DISPLAY; `SCORE_OVERALL_HIDDEN` + `SCORE_DRAFT_LINE` carry the draft
+  no-number state; `ENCOURAGE_SCORED` renders only right after a fresh
+  scoring (same condition as today's score screen). Per-bullet dimension
+  lines leave the summary; per-part detail stays inside BulletGate
+  (§5.2/§6.2). The rubric version string stays STORED with every score
+  (§3 unchanged).
+- **Back on every stage** — a text-only "Back" control (no arrows/icons,
+  §11.1 rule 1) on: entry_type→menu · entry_paste→entry_type ·
+  entry_review→entry_paste · bullet_list→entry_review ·
+  bullet_gate→bullet_list · confirm_complete→bullet_list ·
+  merge→bullet_list · copy→bullet_list · survey→copy · match_hard→
+  match_review · match_soft→match_hard (gate/welcome/menu/done keep none;
+  the existing match-flow Cancels already cover paste/review; byok
+  settings keeps its Back). Going back never wipes state (all flow state
+  is component state that survives `go()`; the paste additionally
+  autosaves) — this promotes the deferred Phase 15 item (8) Back clause;
+  auto-save of ANSWERS stays deferred.
+- **Re-confirm semantics (P5 note)** — re-confirming `entry_review` after
+  going back UPDATES the same stored entry (the client keeps the entry id
+  from the first confirm and re-sends with it; the API/schema gain an
+  optional entry id → update-in-place) instead of duplicating it;
+  unchanged bullet text produces identical deterministic scores. This is
+  the §13.4 "re-runs exactly as a fresh confirm" rule.
+- **Stage bar fix + labels** — FLOW_LABELS (add flow) become
+  `Experience / Review / Achievements / Result`; STAGE_INDEX:
+  entry_type+entry_paste=0, entry_review=1, bullet_list+bullet_gate=2
+  (fixes today's regression — bullet_gate maps to index 2 while being
+  reached from bullet_list at index 3), confirm_complete+merge+copy=3;
+  match labels unchanged; no bar on gate/welcome/menu/settings/survey/
+  done (as today).
+
+### Files to modify (complete list — user rule: file list before coding)
+
+| # | File | Change |
+|---|---|---|
+| 1 | `web/tests/engine/entry_parse.test.ts` | NEW — failing tests first (P9): header parse, date patterns (YYYY-MM / range / present / unparseable→legacy `dates`), marker-first & single-line pastes, unattributed segments preserved, domain never guessed |
+| 2 | `web/src/engine/flow/entry_parse.ts` | NEW — deterministic `parsePastedExperience` (web-only input shaping — no twin, no parity coupling; the D24 pattern) |
+| 3 | `web/src/engine/types.ts` | ExperienceEntry optional `start_date`/`end_date`/`ongoing` |
+| 4 | `web/src/engine/flow/pathService.ts` | pass the three fields; update-in-place on re-confirm (optional entry id) |
+| 5 | `web/src/lib/schemas.ts` | AddEntryRequestSchema: optional `start_date`/`end_date` (regex `^\d{4}-(0[1-9]|1[0-2])$`)/`ongoing` + optional entry id |
+| 6 | `web/src/app/api/entry/route.ts` | pass-through (+ update path) |
+| 7 | `web/src/lib/client.ts` | StoredEntry optional new fields |
+| 8 | `web/src/app/page.tsx` | entry_paste + entry_review screens; entry_split/score screens REMOVED; unified form (per-type labels, structured dates + ongoing), editable achievements list; score panel into bullet_list; Back on all listed screens; STAGE_INDEX/FLOW_LABELS fix |
+| 9 | `web/src/engine/messages.ts` | NEW: paste label/instruction, review heading, per-type org labels (×4), Start/End/"I still work here", date-format error, "Back", panel score line, stage labels; REMOVED: SPLIT_MERGE/SPLIT_DELETE/SPLIT_ACCEPT/SPLIT_KEEP/SPLIT_DISCARD/SPLIT_KEEP_ONE/SPLIT_WHERE/SPLIT_SUGGESTION/SPLIT_FLAG_PROMPT; KEPT: SPLIT_FOUND/SPLIT_CONFIRM/SOFT_LIMIT_NOTE/ADD_PASTE_*/draft strings |
+| 10 | docs: plan/research/data-model/quickstart/tasks (+ spec already amended) | Phase 18 records |
+
+`web/src/engine/flow/entry_split.ts`, `parts.ts`, the Python engine,
+terminal, parity harnesses: UNTOUCHED. contracts/: no change — no external
+interface contract covers the web entry API (the zod schema is the
+validation source, as since Phase 13).
+
+### Constitution check (Phase 18) — constitution v4.0.0
+
+No violations. P1 (pre-fill from conservative patterns only, never
+guessed; unattributable text preserved — nothing lost, nothing invented),
+P2 (every shaping decision is the user's own edit; confirm required), P3
+(scoring untouched), P4 (no rubric change; the version stays stored — only
+the display drops it), P5 (additive fields never backfilled;
+update-in-place avoids duplicate entries; unchanged text → identical
+deterministic scores), P7 (existing entry events continue; an
+update-in-place logs the same entry_saved shape — no new event family), P8
+(simplification — screens and controls REMOVED; no new dependencies;
+native text inputs), P9 (entry_parse tests written first, failing), P10/
+P16 (all new strings English B1), P17 (tsc strict), §11.1 (Back is
+text-only — no icons/arrows; warm tokens only), P12–P14 (no LLM surface
+touched), P18 (Back never wipes; draft autosave unchanged; confirm
+persists server-side independently of any model outcome).
+
+### Expected gates
+
+`npm run test:engine` green (new entry_parse tests TDD red-first + existing
+split 11 + theme 6 + display 6) · `tsc --noEmit` clean · `next build`
+exit 0 · parity PARITY OK (corpus unchanged) · `npm run test:byok` 23/23
+baseline (BYOK_SKIP_LIVE=1) · `npm run scan:byok` passed ·
+`PYTHONUTF8=1 python -m pytest` 213 green from terminal/ · walkthrough:
+paste a full experience → review shows pre-filled fields + YYYY-MM dates +
+ongoing checkbox + editable achievements (no shaping buttons) → clear a
+row → confirm → review page shows the panel (Experience score + ring
+only) → Back at every stage returns with state intact → re-confirm
+updates the entry (no duplicate) → 0 achievements → draft.

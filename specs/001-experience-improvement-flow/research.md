@@ -551,3 +551,125 @@ each with its rationale and rejected alternatives.
   the record of what was done when; the note preserves truthfulness.
 - **Alternatives rejected**: global find/replace over tasks.md (falsifies
   history).
+
+## Addendum: Phase 18 entry & review UX decisions (2026-11-06)
+
+### D29 — Paste covers ONE experience (owner clarification)
+
+- **Decision**: the paste-first screen collects ONE experience's whole
+  text (the type selection stays in front of it); the whole-work-history
+  (multi-job) paste is out of scope for this phase.
+- **Rationale**: owner's AskUserQuestion answer 2026-11-06 (recommended
+  option) — keeps the one-experience-per-run architecture and the §4.1
+  pipeline unchanged.
+- **Alternatives rejected**: whole-history paste with a multi-entry split
+  (a larger flow restructure — deferred).
+
+### D30 — Editable-text-only split review (owner clarification)
+
+- **Decision**: every found achievement is a plain editable text block;
+  Merge with next / Split / Delete AND Keep/Discard (and the "and also"
+  suggestion) are removed from the UI; cleared rows drop at confirm.
+- **Rationale**: owner's AskUserQuestion answer 2026-11-06 — the button
+  clusters were confusing; direct text editing is simpler and covers
+  join/break/delete by editing the text itself.
+- **Alternatives rejected**: editable text + a delete-only button;
+  controls hidden under a "More options" toggle (both add back complexity
+  the owner rejected).
+- **Engine note**: `splitBullets` is UNCHANGED (`flagged`/`splitSuggested`
+  stay computed; the UI ignores them) so the Phase 13 tests and the
+  verbatim/user-edit guarantee (P2) hold as-is.
+
+### D31 — Conservative paste parsing (entry_parse)
+
+- **Decision**: the header line = the FIRST line when it is not
+  `-`/`•`-prefixed; separators `|`, en/em dash, hyphen, comma; the dates
+  segment = a `YYYY-MM` / `YYYY` / `YYYY–YYYY` / "present"/"current"
+  match; title/org = the first/second non-date segments; unrecognized
+  header segments flow into the achievements text; date text that does
+  not parse to `YYYY-MM` is stored in the legacy free-text `dates` field
+  (display fallback) so nothing is dropped; `product_domain` is never
+  parsed; fields not found stay EMPTY (never guessed — P1).
+- **Rationale**: spec §13.1 requires pre-fill "where the tool found it"
+  with zero invention and zero loss; conservative patterns are
+  deterministic and testable.
+- **Alternatives rejected**: multi-line header parsing (ambiguous); a
+  native `<input type="month">` (inconsistent browser chrome — a
+  validated text input with a B1 error is deterministic and testable);
+  NLP-style field extraction (violates P1 conservatism).
+  (SUPERSEDED 2026-11-06 by D36 — the parser no longer attributes
+  organization or dates; see below.)
+
+### D32 — Structured dates are web-additive
+
+- **Decision**: `start_date`/`end_date` (`YYYY-MM`) + `ongoing` on the
+  web entry; the legacy free-text `dates` is retained for load-compat and
+  as the unparseable-text holder; display = the structured pair
+  ("2022-04 – present" when ongoing) else the legacy string verbatim.
+- **Rationale**: spec §13.1 + the §4 data-model note (additive; old
+  documents load unchanged); the owner asked for year–month precision and
+  an ongoing state.
+- **Alternatives rejected**: replacing `dates` outright (breaks old
+  documents); full date objects with days (the owner pinned year–month).
+
+### D33 — Score panel merge mechanics
+
+- **Decision**: the `score` screen is removed; the panel (Experience
+  score + `ScoreRing`, §11.5 styling) renders at the bottom of
+  `bullet_list`; `SCORE_OVERALL` and the rubric-version header leave the
+  DISPLAY (the version string stays stored per §3); drafts keep the
+  no-number state; `ENCOURAGE_SCORED` shows only right after a fresh
+  scoring.
+- **Rationale**: owner review 2026-11-06 — both labels showed the SAME
+  `entry_score`; one label + one ring is the honest minimum (P4
+  transparency: the number's meaning stays unambiguous).
+- **Alternatives rejected**: keeping the per-bullet dimension cards on
+  the summary (the owner asked for the Experience score only; per-part
+  detail already lives inside BulletGate).
+
+### D34 — Back mapping and re-confirm semantics
+
+- **Decision**: a text-only "Back" on every stage with the mapping in the
+  plan addendum; Back never wipes state; re-confirming `entry_review`
+  UPDATES the same stored entry via an optional entry id
+  (update-in-place, no duplicate), re-running the pipeline as a fresh
+  confirm (§13.4).
+- **Rationale**: owner requirement "برگشت به صفحه قبل در هر مرحله"; this
+  promotes the deferred Phase 15 item (8) Back clause; without
+  update-in-place a Back-and-reconfirm would duplicate stored entries.
+- **Alternatives rejected**: a navigation history stack (overkill — the
+  flow is a linear stage list; a static previous-stage map is
+  deterministic); back-wipes-state (explicitly forbidden by the owner).
+
+### D35 — Stage labels and the bullet_gate regression
+
+- **Decision**: add-flow stage labels become Experience / Review /
+  Achievements / Result; `bullet_gate` maps to the same index as
+  `bullet_list` (2), fixing today's one-step regression (the bar moved
+  backwards when a bullet opened); no bar on gate/welcome/menu/settings/
+  survey/done (unchanged).
+- **Rationale**: the merged flow has four natural stages; the §11.5 bar
+  must not regress mid-flow.
+- **Alternatives rejected**: keeping "Details" (the details form no
+  longer exists); a fifth stage (the review screen is one stage).
+
+### D36 — Drag-and-drop segment review (supersedes D31's attribution; owner clarify 2026-11-06)
+
+- **Decision**: the owner rejected automatic attribution ("a simple model
+  cannot reliably place the date or split the text"): ONLY the first
+  non-marker line auto-places (into Title); every other segment starts in
+  Achievements; the user moves segments between the fixed section labels
+  by drag-and-drop (a drop onto a single-value section displaces the old
+  segment back to Achievements — nothing is lost); a user-dragged
+  Dates-section segment fills the structured `YYYY-MM` fields only on an
+  exact date-pattern match. Also from the same session: the 1–6 cap is
+  REMOVED on the web (terminal VR-1 frozen); a no-change re-confirm
+  skips re-analysis (P5); a type switcher on the review screen swaps the
+  labels only.
+- **Rationale**: owner clarify answers 2026-11-06 (spec Clarifications
+  session) — the user is the decision-maker (P2), the split stays
+  deterministic (P1), and the structured dates stay user-controlled.
+- **Alternatives rejected**: the D31 conservative header parser
+  (superseded); full auto-placement with drag as mere correction (the
+  owner chose first-line-only); keeping the 1–6 cap (the owner removed
+  it).

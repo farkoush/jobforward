@@ -29,9 +29,9 @@ export const ADD_FIELD_COMPANY = "Company:";
 export const ADD_FIELD_DATES = "Dates (e.g. 2022-2024):";
 export const ADD_FIELD_DOMAIN =
   "Product domain (e.g. fintech, healthcare, e-commerce):";
-export const ADD_PASTE_LABEL = "Achievement text:";
+export const ADD_PASTE_LABEL = "Paste this experience:";
 export const ADD_PASTE_INSTRUCTION =
-  "Write each achievement on a separate line, starting with - or •";
+  "Paste the whole experience exactly as it appears in your resume: the title, the company, the dates, and each achievement on its own line (start achievements with - or •).";
 export const ADD_PASTE_EXAMPLE =
   "Example: New users could not find the items they saved, so I rebuilt the saved items page, resulting in more users coming back.";
 export const ADD_PASTE_EMPTY = "Looks like the text box is still empty - paste your experience and we'll take it from there.";
@@ -39,22 +39,34 @@ export const ADD_PASTE_SPLIT = "Split into achievements";
 export const SOFT_LIMIT_NOTE =
   "Put your best achievements first; you can add the rest later.";
 export const SPLIT_FOUND = "I found {n} achievements. Is that correct?";
-export const SPLIT_FLAG_PROMPT =
-  "This line does not look like an achievement — keep it or discard it?";
-export const SPLIT_SUGGESTION =
-  "This line may hold two achievements — split it into two?";
-export const SPLIT_WHERE = "Type the first words of the second achievement:";
 export const SPLIT_NOT_FOUND =
   "Those words are not in this line — check and try again.";
-export const SPLIT_KEEP = "Keep";
-export const SPLIT_DISCARD = "Discard";
-export const SPLIT_ACCEPT = "Split";
-export const SPLIT_KEEP_ONE = "Keep as one";
-export const SPLIT_MERGE = "Merge with next";
-export const SPLIT_DELETE = "Delete";
-export const SPLIT_TOO_MANY =
-  "Keep your best 6 achievements — delete or merge the rest.";
 export const SPLIT_CONFIRM = "Let's see what we get";
+// --- Phase 18 (spec §13, clarified 2026-11-06): paste-first entry with a
+// drag-and-drop review — WEB-ONLY strings (terminal display frozen; the
+// same divergence pattern as the Phase 13/15 sections above). The shaping
+// buttons (merge/split/delete/keep/discard) are REMOVED per the owner's
+// decision; their strings are gone with them. ---
+export const ADD_PASTE_HEADING = "Add your experience";
+export const REVIEW_HEADING =
+  "Check the parts below - drag each line to the right place.";
+export const REVIEW_TYPE_LABEL = "Experience type:";
+export const REVIEW_SECTION_TITLE = "Title:";
+export const REVIEW_SECTION_ACHIEVEMENTS = "Achievements";
+export const ORG_LABEL_JOB = "Company:";
+export const ORG_LABEL_PROJECT = "Project name:";
+export const ORG_LABEL_COURSE = "Provider:";
+export const ORG_LABEL_SIDE_WORK = "Client:";
+export const FIELD_START_DATE = "Start (YYYY-MM):";
+export const FIELD_END_DATE = "End (YYYY-MM):";
+export const FIELD_ONGOING = "I still work here";
+export const ERR_DATE_FORMAT = "Use the year and month, like 2022-04.";
+export const BACK = "Back";
+export const PANEL_SCORE = "Experience score: {value}/100";
+export const STAGE_EXPERIENCE = "Experience";
+export const STAGE_REVIEW = "Review";
+export const STAGE_ACHIEVEMENTS = "Achievements";
+export const STAGE_RESULT = "Result";
 export const SOURCE_PASTE_TITLE = "Your original text";
 export const DRAFT_NOTICE = "Saved as a draft for now (no bullets) - you can finish it anytime.";
 export const DRAFT_SUGGESTION = "Add at least one bullet and I can score this experience.";
@@ -296,13 +308,13 @@ export const COPY_END = "----- COPY TO HERE -----";
 export const COPY_NOTICE = "You can copy the text above.";
 
 // --- Scores (SCORE_*, FR-005/FR-008) ---
-export const SCORE_BULLET_HEADER = "Scores for experience '{text}' (rubric version {rubric}):";
+// Phase 18 (spec §13.3): the "Overall score" label and the rubric-version
+// header are retired from DISPLAY (the rubric version string stays STORED
+// with every score, §3); the panel shows the Experience score only.
 export const SCORE_BULLET_LINE = "Bullet {n}: {text}";
 export const SCORE_DIMENSION = "  {dimension}: {value}/2";
-export const SCORE_EXPERIENCE = "Experience score: {value}/100 (rubric version {rubric})";
-export const SCORE_OVERALL = "Overall score: {value}/100 (rubric version {rubric})";
 export const SCORE_OVERALL_HIDDEN =
-  "Overall score: not shown yet (no experience with scored bullets).";
+  "Experience score: not shown yet (no experience with scored bullets).";
 export const SCORE_BEFORE_AFTER =
   "Before: {before}  ->  After: {after} (rubric version {rubric})";
 export const SCORE_STATUS = "  Status: {status}";

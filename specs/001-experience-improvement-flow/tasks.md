@@ -1385,3 +1385,206 @@ live data moves intact.
   terminal/README.md (frozen baseline). Rename-tracking proof lands in the
   Phase 16 commit (git detects the staged renames; `git log --follow` on
   terminal/pyproject.toml verified post-commit).
+
+## Phase 18: Entry & Review UX Simplification (spec §13, clarified 2026-11-06)
+
+**Purpose**: the web add flow is simplified per the product owner's UX
+review — paste-first entry (ONE paste box replaces the detail-fields
+form), a post-paste review screen whose FIXED per-type section labels hold
+the split segments as **drag-and-drop** items (ONLY the first non-marker
+line auto-places into Title; the tool never attributes organization or
+dates on its own — owner decision 2026-11-06), plain editable achievements
+with ALL shaping buttons removed, the 1–6 cap REMOVED on the web (terminal
+VR-1 frozen), a type switcher on the review screen, structured YYYY-MM
+dates with an "I still work here" ongoing option, the separate score
+screen merged into the bullet list (Experience score + ring ONLY — no
+"Overall score", no rubric-version header), and a text-only Back control
+on every stage that never wipes state (a NO-change re-confirm skips
+re-analysis, P5). WEB-ONLY: Python engine, terminal, messages.py, parity
+corpus UNTOUCHED; `splitBullets` itself is UNCHANGED (the UI stops
+rendering controls for `flagged`/`splitSuggested`). Tasks start at T133
+(T091/T092 remain open).
+
+### Setup & Foundational
+
+- [X] T133 Record the product-owner decisions governing this phase
+  (2026-11-06): the 7-point UX review → spec §13; TWO pre-plan clarify
+  answers (per-experience paste — not the multi-job history; editable-
+  text-only review with ALL shaping buttons removed) + FOUR plan-stage
+  clarify answers (drag-and-drop segment review with first-line-only
+  auto-place — automatic attribution REJECTED by the owner; the 1–6 cap
+  REMOVED on the web, terminal VR-1 frozen; a NO-change re-confirm skips
+  re-analysis (P5); a type switcher on the review screen) — evidence:
+  spec §13 + Clarifications Session 2026-11-06 (6 bullets) + §9 Phase 18
+  criteria + Input supersession note, research D29–D36, plan Phase 18
+  Addendum + its Clarify-integration block (10-item FILE LIST), quickstart
+  Phase 18 validation
+
+### Tests First (P9 — failing before implementation)
+
+- [X] T134 Write the failing tests in NEW
+  `web/tests/engine/entry_parse.test.ts`: (a) `parsePastedExperience` —
+  segments are EXACTLY the `splitBullets` output (no re-splitting, no
+  rewriting, nothing dropped); `autoTitleIndex` = the first segment's
+  index when the paste's first line has no `-`/`•` marker, else null;
+  the return carries NO organization/date/domain attribution and runs NO
+  date parsing (marker-first and single-line pastes covered); (b)
+  `pathService.addEntry` — 7 confirmed bullets are ACCEPTED (the web 1–6
+  upper cap is REMOVED; 0 bullets still routes to the draft path);
+  `start_date`/`end_date`/`ongoing` pass through to the stored entry; an
+  optional entry id UPDATES the same stored entry in place (no
+  duplicate); (c) `AddEntryRequestSchema` — `start_date`/`end_date` must
+  match `^\d{4}-(0[1-9]|1[0-2])$` ("2022-4", "2022-13", "April 2022"
+  rejected); `ongoing` boolean; entry id optional; (d) the drop-time
+  matcher `matchDatePattern(text)` — "2022-04" → {startDate};
+  "2022-04 to 2024-08" → {startDate, endDate}; "2022-04 – present" →
+  {startDate, ongoing}; "present" → {ongoing}; "2022", "2022-2024",
+  "April 2022", "2022-13" → null (free-text — a month is never
+  invented, P1)
+
+### Implementation (web-only — engine/flow/UI)
+
+- [X] T135 Implement NEW `web/src/engine/flow/entry_parse.ts`:
+  `parsePastedExperience(pasted)` → `{ segments: SplitCandidate[],
+  autoTitleIndex: number | null }` — a THIN deterministic wrapper over
+  the UNCHANGED `splitBullets` plus the first-line marker check, AND
+  `matchDatePattern(text)` — the deterministic MONTH-PRECISION drop-time
+  matcher per the §13.1 pinned grammar (a matched segment is consumed
+  into the structured fields; a bare year / year-only range / prose date
+  → null) (web-only input shaping — no Python twin, no parity coupling;
+  D36); green the T134 tests
+- [X] T136 [P] Add the optional fields to `web/src/engine/types.ts`
+  ExperienceEntry: `start_date: string | null` and `end_date: string |
+  null` (each `YYYY-MM`), `ongoing: boolean` — additive; old documents
+  load unchanged (never backfilled, P5)
+- [X] T137 Extend `web/src/lib/schemas.ts` AddEntryRequestSchema:
+  optional `start_date`/`end_date` (regex `^\d{4}-(0[1-9]|1[0-2])$`),
+  optional `ongoing` boolean, optional entry id for update-in-place
+- [X] T138 Update `web/src/engine/flow/pathService.ts`: pass the three
+  new fields through; REMOVE the web 1–6 upper cap (min 1 confirmed
+  bullet; the 0-bullet draft path stays caller-side; the terminal's
+  frozen VR-1 is untouched); an optional entry id UPDATES the same
+  stored entry in place — fields + bullets replaced, id/created kept,
+  analysis re-run as a fresh confirm, the SAME entry_saved event shape
+  logged (no new event family, P7)
+- [X] T139 [P] Update `web/src/app/api/entry/route.ts`: pass the new
+  fields through and branch on the optional entry id (update-in-place)
+- [X] T140 [P] Update `web/src/lib/client.ts`: StoredEntry optional
+  `start_date`/`end_date`/`ongoing`; the update call carries the entry id
+- [X] T141 [P] Update `web/src/engine/messages.ts` (English B1, no emoji
+  — theme guard stays green): ADD paste label/instruction, review-screen
+  heading, per-type organization labels (Job "Company" / Project "Project
+  name" / Course "Provider" / Side work "Client"), Start / End / "I still
+  work here", the date-format error, "Back", the type-switcher label, the
+  panel score line "Experience score: {value}/100" (NO rubric version),
+  and the stage labels Experience / Review / Achievements / Result;
+  REMOVE SPLIT_MERGE, SPLIT_DELETE, SPLIT_ACCEPT, SPLIT_KEEP,
+  SPLIT_DISCARD, SPLIT_KEEP_ONE, SPLIT_WHERE, SPLIT_SUGGESTION,
+  SPLIT_FLAG_PROMPT, SPLIT_TOO_MANY (cap removed), SCORE_BULLET_HEADER,
+  SCORE_OVERALL, SCORE_EXPERIENCE (replaced by the panel string); KEEP
+  SPLIT_FOUND, SPLIT_CONFIRM, SOFT_LIMIT_NOTE, ADD_PASTE_*,
+  SCORE_OVERALL_HIDDEN + SCORE_DRAFT_LINE (the draft no-number state),
+  ENCOURAGE_SCORED
+- [X] T142 Rework `web/src/app/page.tsx` per spec §13 (the plan FILE LIST
+  row 8 as amended by the Clarify-integration block): (a) `entry_details`
+  → `entry_paste` — ONE paste box + the soft-limit note, draft autosave
+  unchanged, Back→entry_type; (b) NEW `entry_review` replaces
+  `entry_split` — fixed per-type section labels, segments rendered as
+  draggable items (HTML5 drag-and-drop, NO new dependency), ONLY the
+  first non-marker line auto-places into Title, everything else starts in
+  Achievements, a drop onto a single-value section (Title/organization)
+  REPLACES it and the displaced segment returns to Achievements (nothing
+  lost), every segment editable text, cleared rows dropped at confirm,
+  the type switcher swaps only the labels, the Dates section = Start/End
+  `YYYY-MM` validated text inputs (B1 format error) + the "I still work
+  here" checkbox (clears/disables the end field) + a user-dragged segment
+  filling the structured fields ONLY on an exact MONTH-PRECISION
+  date-pattern match — a matched segment is CONSUMED into the fields
+  (the free item is removed; the words live on in the fields, nothing
+  lost); a bare year / year-only range / prose date becomes the
+  free-text `dates` value), product domain
+  field, Back→entry_paste, Confirm → 0 achievements = draft / ≥1 = entry
+  with NO upper cap; (c) REMOVE the `score` screen — `bullet_list` gains
+  the bottom score panel: ScoreRing (§11.5 styling) + "Experience score:
+  {value}/100" beside it (no "Overall score", no rubric-version header),
+  ENCOURAGE_SCORED only right after a fresh scoring, drafts keep the
+  no-number state, per-bullet dimension lines leave the summary,
+  Back→entry_review; (d) Back controls per the plan map:
+  entry_type→menu, bullet_gate→bullet_list, confirm_complete→bullet_list,
+  merge→bullet_list, copy→bullet_list, survey→copy, match_hard→
+  match_review, match_soft→match_hard — text-only "Back", no arrows/icons
+  (§11.1 rule 1); (e) STAGE_INDEX/FLOW_LABELS fix — Experience / Review /
+  Achievements / Result with bullet_list AND bullet_gate at index 2
+  (regression fix) and confirm_complete/merge/copy at index 3; (f)
+  NO-change re-confirm skip — snapshot the confirmed fields + segments;
+  an unchanged re-confirm returns to the review page WITHOUT re-analysis
+  (P5); any change re-runs the pipeline as a fresh confirm via the entry
+  id (update-in-place)
+
+### Verification (gates + walkthrough)
+
+- [X] T143 Run all gates and record evidence: TDD red-first confirmed
+  (T134 failing before T135/T137/T138); `npm run test:engine` green (new
+  entry_parse tests + existing split 11 + theme guard 6 + display 6);
+  `tsc --noEmit` clean; `next build` exit 0; parity PARITY OK (corpus
+  unchanged — engine untouched); `npm run test:byok` 23/23 baseline
+  (BYOK_SKIP_LIVE=1); `npm run scan:byok` passed; `PYTHONUTF8=1 python
+  -m pytest` 213 green from `terminal/` (Python untouched); the quickstart
+  Phase 18 walkthrough: paste a full experience → review shows the
+  drag-and-drop sections (first line in Title, rest in Achievements) →
+  drag a date segment into Dates (exact pattern fills YYYY-MM) → switch
+  the type (labels swap, segments carry) → clear a row → confirm → the
+  bullet list shows the panel (Experience score + ring only) → Back at
+  every stage with state intact → confirm again WITHOUT changes → no
+  re-analysis → change a segment → confirm → the SAME entry updated (no
+  duplicate) → 0 achievements → draft; record the changed-files list
+  against the plan FILE LIST (10 rows).
+  **Gates as-run 2026-11-06: TDD red-first confirmed** (module-missing
+  fail → 10 new tests); then all green — `npm run test:engine` **33/33**
+  (23 prior + 10 entry_parse: verbatim segmentation, first-line
+  auto-Title, no-attribution shape, the month-precision matcher incl. the
+  P1 no-invention cases, 7-bullet cap removal, structured-date
+  passthrough, id reuse, schema regex); `tsc --noEmit` clean;
+  `next build` exit 0; parity **PARITY OK**; `npm run test:byok` **23/23**
+  (BYOK_SKIP_LIVE=1); `npm run scan:byok` passed; **pytest 213 green from
+  terminal/** (Python untouched). Implementation notes: entry_parse.ts =
+  the splitBullets wrapper + matchDatePattern (separators "to" / en dash /
+  em dash with optional spaces / SPACED hyphen — a bare hyphen never
+  splits a YYYY-MM token); pathService.addEntry lost the >6 cap (the
+  header comment records the divergence; terminal path_service.py
+  untouched) and gained context.start_date/end_date/ongoing + existingId
+  re-stamping; the route passes entry_id; the review screen = type
+  switcher + Title/Org/Dates/domain drop cards + draggable editable
+  segments (HTML5 DnD, no dependency) + the live "I found N achievements"
+  count; confirm = the no-change skip (JSON snapshot compare) → draft
+  (0 bullets) or entry with the id re-stamped; clearDraft moved from
+  split to CONFIRM so Back never wipes the paste (§13.4); the score
+  screen DELETED — the panel (ScoreRing + PANEL_SCORE, no rubric version)
+  sits at the bottom of BulletList with ENCOURAGE_SCORED only when
+  justScored (cleared on openBullet and on the no-change skip); Back on
+  entry_type/paste/review/list/gate/confirm_complete/merge/copy/survey +
+  match_hard/match_soft; STAGE_INDEX fix (bullet_list+bullet_gate=2;
+  confirm_complete/merge/copy=3); ModelBanner active list updated
+  (entry_review/bullet_list/merge). Changed files:
+  tests/engine/entry_parse.test.ts + engine/flow/entry_parse.ts (NEW),
+  types.ts, flow/pathService.ts, lib/schemas.ts, lib/client.ts,
+  api/entry/route.ts, engine/messages.ts (13 strings removed incl.
+  SPLIT_TOO_MANY/SCORE_OVERALL/SCORE_EXPERIENCE; 21 added), app/page.tsx —
+  the plan FILE LIST exactly. REMAINING (owner step): the interactive
+  quickstart walkthrough needs the password-gated dev server
+  (GATE_PASSWORD lives only in the owner's .env.local) — run
+  `npm run dev` from web/ and follow quickstart.md Phase 18.
+  **Post-walkthrough fix (2026-11-06, owner-reported): the no-change skip
+  could bypass analysis after a FAILED scoring** — the snapshot was saved
+  at confirm time, so Confirm-again after the NVIDIA 403 banner skipped
+  re-analysis and reached bullet_list with an unanalyzed entry (all parts
+  empty → all-Missing placeholders, no score). Fixed: the snapshot saves
+  only after `showScores()` succeeds (drafts save immediately — no
+  analysis needed) and the skip additionally requires
+  `entry_score !== null`; spec §13.4/§13.5 amended. Verified same day:
+  the deterministic engine (py AND ts, byte-identical) extracts
+  need+result for the owner's reported bullet while feature/action stay
+  empty — "collaborated" is NOT in the rubric-3.1.0 ACTION_VERB marker
+  list (both engines) so the collab clause is orphaned (§2.2 coverage
+  block shows it) — a rubric marker-list change = rubric-3.2.0 owner
+  decision, NOT fixed silently.

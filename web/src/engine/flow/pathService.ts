@@ -1,10 +1,12 @@
 /**
- * Entry recording, validation, and mutation services — verbatim port of the
- * validation logic in src/jobforward/flow/path_service.py: the English-input
- * boundary (VR-8), the 6-bullet cap (VR-1/FR-002), verbatim bullet storage,
- * and copy-text assembly. Persistence in the web prototype is client-side
- * (localStorage), so the repository layer is replaced by the session store;
- * every validation rule is identical.
+ * Entry recording, validation, and mutation services — port of the
+ * validation logic in terminal/src/jobforward/flow/path_service.py: the
+ * English-input boundary (VR-8), verbatim bullet storage, and copy-text
+ * assembly. Persistence in the web prototype is client-side (localStorage),
+ * so the repository layer is replaced by the session store; every validation
+ * rule is identical EXCEPT the one Phase 18 divergence (spec §13, owner
+ * decision 2026-11-06): the 1–6 bullet upper cap is REMOVED on the web —
+ * the terminal's frozen VR-1 stays untouched in path_service.py.
  */
 
 import {
@@ -61,9 +63,13 @@ let nextEntryIdCounter = 1;
 /** Create an experience entry object after terminal validations (US1).
  * Returns { entry, error } — never throws for validation failures.
  * Phase 13 (spec §4.2): optional `context` fields (company / dates /
- * product_domain) are stored + displayed only — VR-1 is untouched and the
- * VR-8 English boundary now ALSO covers them (analyze F1: P10 applies to
- * ALL user input). */
+ * product_domain) are stored + displayed only — the VR-8 English boundary
+ * covers them (analyze F1: P10 applies to ALL user input).
+ * Phase 18 (spec §13, clarified 2026-11-06): the 1–6 upper cap is REMOVED
+ * on the web (0 bullets still routes to the caller's draft path); the
+ * structured dates (start_date / end_date / ongoing) pass through; and
+ * `existingId` re-stamps the entry with a previous id so a Back-and-
+ * reconfirm UPDATES the same stored entry instead of duplicating it. */
 export function addEntry(
   entryType: ExperienceEntryType,
   title: string,
@@ -73,12 +79,14 @@ export function addEntry(
     company?: string | null;
     dates?: string | null;
     product_domain?: string | null;
-  }
+    start_date?: string | null;
+    end_date?: string | null;
+    ongoing?: boolean;
+  },
+  existingId?: number
 ): EntryResult {
-  // VR-1: more than 6 bullets -> explicit rejection (FR-002)
-  if (bullets.length > 6) {
-    return { entry: null, error: "ERR_TOO_MANY_BULLETS", is_draft: false };
-  }
+  // Phase 18: the VR-1 upper cap (bullets.length > 6) no longer applies on
+  // the web — the terminal keeps its frozen VR-1 in path_service.py.
   // English-only boundary (VR-8): bullets and the title must be English.
   for (const text of [title, ...bullets]) {
     if (containsNonEnglish(text)) {
@@ -95,7 +103,8 @@ export function addEntry(
       return { entry: null, error: "ERR_NON_ENGLISH_INPUT", is_draft: false };
     }
   }
-  const id = nextEntryId ? nextEntryId() : nextEntryIdCounter++;
+  const id =
+    existingId ?? (nextEntryId ? nextEntryId() : nextEntryIdCounter++);
   const entry: ExperienceEntry = {
     id,
     type: entryType,
@@ -109,6 +118,9 @@ export function addEntry(
     company: context?.company?.trim() || null,
     dates: context?.dates?.trim() || null,
     product_domain: context?.product_domain?.trim() || null,
+    start_date: context?.start_date?.trim() || null,
+    end_date: context?.ongoing ? null : context?.end_date?.trim() || null,
+    ongoing: context?.ongoing ?? false,
   };
   return { entry, error: null, is_draft: isDraft(entry) };
 }

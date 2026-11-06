@@ -153,6 +153,14 @@ export interface ExperienceEntry {
   company?: string | null;
   dates?: string | null;
   product_domain?: string | null;
+  /** Phase 18 (spec §13.1): structured dates — filled only from a segment
+   * the USER drags into the Dates section on an exact month-precision
+   * match; `ongoing` ("I still work here") removes the end date. Additive;
+   * the legacy free-text `dates` stays the fallback + unparseable-text
+   * holder; old entries load unchanged (never backfilled, P5). */
+  start_date?: string | null;
+  end_date?: string | null;
+  ongoing?: boolean;
 }
 
 /** Draft iff no bullets (FR-003) or the user saved it as a draft. */

@@ -34,8 +34,9 @@ export const QuestionDimensionSchema = z.enum([
   "metric",
 ]);
 
-// --- /api/entry (VR-1 fires below via the engine port; zod accepts more
-// than 6 only so the specific ERR_TOO_MANY_BULLETS message can be returned) ---
+// --- /api/entry (Phase 18, spec §13: the 1–6 upper cap is REMOVED on the
+// web — addEntry accepts any positive count; 0 stays the draft path. The
+// terminal's frozen VR-1 is untouched.) ---
 export const AddEntryRequestSchema = z.object({
   type: ExperienceEntryTypeSchema,
   title: z.string(),
@@ -45,6 +46,20 @@ export const AddEntryRequestSchema = z.object({
   company: z.string().optional(),
   dates: z.string().optional(),
   product_domain: z.string().optional(),
+  // Phase 18 (spec §13.1): structured dates — YYYY-MM only (the regex
+  // rejects a bare year / year-only range; a month is never invented).
+  start_date: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+    .optional(),
+  end_date: z
+    .string()
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+    .optional(),
+  ongoing: z.boolean().optional(),
+  // Phase 18 (spec §13.4): re-confirm updates the SAME stored entry — the
+  // client re-stamps the returned entry with this id (no duplicate).
+  entry_id: z.number().int().optional(),
 });
 
 // --- /api/score ---

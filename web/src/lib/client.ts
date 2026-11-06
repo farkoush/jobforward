@@ -97,6 +97,11 @@ export interface StoredEntry {
   company?: string | null;
   dates?: string | null;
   product_domain?: string | null;
+  /** Phase 18 (spec §13.1): structured dates — additive; old sessions load
+   * unchanged. */
+  start_date?: string | null;
+  end_date?: string | null;
+  ongoing?: boolean;
 }
 
 export interface SessionState {

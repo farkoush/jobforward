@@ -354,3 +354,41 @@ Repository root contains only the edition folders (`terminal/`, `web/`),
 shared governance (`specs/`, `.specify/`, `docs/`), and repo meta;
 `git log --follow` on a moved file proves history followed the rename; the
 live data files are byte-identical after the move.
+
+## Addendum: Phase 18 validation (2026-11-06, spec §13) — WEB-ONLY walkthrough
+
+From `web/`: `npm run dev` (port 3100) → gate → menu → Add experience.
+
+1. **Paste-first**: pick a type → the screen shows ONE paste box (no
+   detail fields). Paste a full experience (header line + `- ` bullets).
+   Past 8 lines the soft-limit note appears and never blocks.
+2. **Review**: the review screen shows the FIXED per-type section labels
+   (Title / Company or the type's equivalent / Dates / Achievements) with
+   the split segments as movable items — ONLY the first non-marker line
+   auto-places (into Title), everything else starts in Achievements; drag
+   a segment into Company or Dates to place it (a segment dragged into
+   Dates fills the `YYYY-MM` fields only on the exact pattern match;
+   anything else becomes the free-text dates value); the type switcher
+   swaps only the labels; Start/End accept `YYYY-MM` (invalid input → the
+   B1 format error) and "I still work here" clears/disables the end
+   field; the achievements are editable text with NO merge/split/delete/
+   keep/discard buttons. Clear one row → confirm → that row is absent
+   from the analysis. Confirming with NO change → no re-analysis
+   (returns directly).
+3. **Review page**: the old score screen is gone — the bullet list shows
+   the panel at the bottom: Experience score + ring only, no "Overall
+   score", no rubric-version header; a draft shows the no-number state.
+4. **Back everywhere**: Back returns entry_type→menu, paste→type,
+   review→paste, list→review, bullet→list, and the final screens→list —
+   with all entered state intact at every step.
+5. **Re-confirm**: from the review page go Back → confirm WITHOUT any
+   change → no re-analysis runs and the review page returns directly;
+   change something → confirm → the SAME stored entry is updated (no
+   duplicate in the menu list) and the panel re-renders with the
+   re-scored entry.
+
+Gates: `npm run test:engine` green (incl. the new entry_parse tests, TDD
+red-first) · `tsc --noEmit` clean · `npm run build` exit 0 · parity
+PARITY OK (unchanged corpus) · `npm run test:byok` 23/23
+(BYOK_SKIP_LIVE=1) · `npm run scan:byok` passed · `PYTHONUTF8=1 python
+-m pytest` 213 green from `terminal/`. Terminal untouched.

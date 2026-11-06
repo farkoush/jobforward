@@ -4,9 +4,9 @@
 
 **Created**: 2026-10-23
 
-**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning); amended 2026-11-05 — platform theme and voice (Phase 14, cross-cutting; complete web adoption, Tailwind-variant-only, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — five-part analysis UX: glance row, underline sentence, focused one-question loop (Phase 15, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — repository layout: two view editions, one governance root (Phase 16, clarified 2026-11-05 — root siblings, optional-skip parity, matcher/ deleted; ready for planning); amended 2026-11-05 — warm UX and voice wiring (Phase 17, light path, §11.5; owner look-and-feel groups accepted, implemented and gated)
+**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning); amended 2026-11-05 — platform theme and voice (Phase 14, cross-cutting; complete web adoption, Tailwind-variant-only, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — five-part analysis UX: glance row, underline sentence, focused one-question loop (Phase 15, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — repository layout: two view editions, one governance root (Phase 16, clarified 2026-11-05 — root siblings, optional-skip parity, matcher/ deleted; ready for planning); amended 2026-11-05 — warm UX and voice wiring (Phase 17, light path, §11.5; owner look-and-feel groups accepted, implemented and gated); amended 2026-11-06 — entry and review UX simplification (Phase 18, web-only, §13: paste-first entry, per-part editable review, structured year–month dates with an "I still work here" option, editable-text achievements review, merged score panel, Back on every stage; clarified 2026-11-06 ×6 (per-experience paste; editable-text-only review; drag-and-drop segment review with first-line-only auto-place; web 1–6 cap removed; no-change re-confirm skip; type switcher); implemented and gated 2026-11-06 — web-only, terminal untouched)
 
-**Input**: User description: "A text-flow prototype (no graphical interface) that guides an entry-level product manager job seeker through one complete path for improving a single experience entry. The user adds an experience entry (type: job, project, course, side work), a title, and 1–6 free‑text English bullets. The tool scores each bullet on three dimensions (Context, Specific Action, Result) and rewrites bullets using a five‑part framework (User Need → Product Feature → Action → Result → Metric)."
+**Input**: User description: "A text-flow prototype (no graphical interface) that guides an entry-level product manager job seeker through one complete path for improving a single experience entry. The user adds an experience entry (type: job, project, course, side work), a title, and 1–6 free‑text English bullets. The tool scores each bullet on three dimensions (Context, Specific Action, Result) and rewrites bullets using a five‑part framework (User Need → Product Feature → Action → Result → Metric)." [Phase 18, 2026-11-06: the "1–6 free-text English bullets" cap in this original description is SUPERSEDED on the web — no upper cap (Clarifications 2026-11-06); the terminal keeps 1–6.]
 
 **Language note**: Version 1 is a text‑based terminal flow; all tool text is English at B1 level (prd §4/§6; spec‑original Specs 1–3). All user input — bullets, answers, and any metric values — must be in English; Persian input is rejected. Persian UI and Persian resumes are planned for later versions and are out of scope here.
 
@@ -39,6 +39,17 @@ Phase 14 (platform theme and voice, §11) is specified 2026-11-05 and NOT yet
 implemented; the three fonts are already vendored (web/src/fonts/, with OFL
 licenses). It is pending the two §11 clarifications, then plan and tasks
 (T115+; T091/T092 remain open). Until it lands, the current look stands.
+
+## Clarifications
+
+### Session 2026-11-06 (Phase 18 — two pre-plan answers + four plan-stage answers)
+
+- Q (pre-plan): What does the user paste on the entry screen? → A: The whole text of ONE experience (not the multi-job history); the type selection stays in front of the paste.
+- Q (pre-plan): What happens to the Merge with next / Split / Delete buttons on the "I found N achievements" review? → A: They are ALL removed (Keep/Discard too) — every achievement becomes plain editable text; cleared rows drop at confirm.
+- Q: How many leading non-marker lines does the tool read as a "header" to pre-fill the fields? → A: NONE beyond the first — automatic attribution is not trusted (owner: a simple model cannot reliably place the date or split the text). The review screen instead shows the split segments as items the user moves between the fixed section labels via DRAG-AND-DROP; only the first non-marker line auto-places (into Title); every other segment starts in Achievements; nothing is ever dropped.
+- Q: What happens at confirm when more than 6 achievements remain? → A: The 1–6 cap is REMOVED on the web — zero confirmed achievements saves a draft, one or more saves the entry with no upper cap; the terminal keeps its frozen 1–6 (VR-1); the "keep the best 6" message is retired.
+- Q: Does a re-confirm with no changes re-run the analysis? → A: NO — unchanged fields and segments skip re-analysis (P5, incremental analysis) and return to the review page directly; any change re-runs the pipeline as a fresh confirm.
+- Q: Where does the user change the experience type after pasting? → A: A type switcher on the review screen — switching swaps ONLY the fixed section labels; all segments carry over unchanged (no Back-and-repaste needed).
 
 ## 1. Goal
 
@@ -184,7 +195,7 @@ deterministic code (constitution P4); the model returns only 0/1/2 ratings.
 - `follow_up_questions` (0–5)
 - `user_answers`, `rewrite_proposal`
 - `rewrite_status`: Unanswered, draft, proposed, approved, or rejected.
-- Entry-level (Phase 13, §4.2): `company`, `dates`, `product_domain` — short separate fields collected on the entry screen; optional and additive so old documents load unchanged.
+- Entry-level (Phase 13, §4.2): `company`, `dates`, `product_domain` — short separate fields collected on the entry screen; optional and additive so old documents load unchanged. **Phase 18 (§13.1, web-only):** the entry-time form is superseded — these become editable per-part review fields after the paste, and `dates` becomes structured start/end year–month (`start_date`, `end_date`) with an `ongoing` flag — still optional and additive; old documents load unchanged.
 
 ## 4.1 Workflow
 
@@ -216,6 +227,14 @@ and produces its bullet list.
 only — the terminal's entry flow and display are unchanged (the same pattern
 as Phases 11–12; `messages.py` untouched). The terminal keeps its
 bullet-by-bullet entry.
+
+[Phase 18, 2026-11-06]: on the web this section's ENTRY and SPLIT REVIEW are
+SUPERSEDED by §13 — one paste box replaces the detail-fields form; the paste
+is separated into parts shown separately and editable (one unified form
+component with per-type labels; structured year–month dates with an ongoing
+option); the merge/split/delete and keep/discard buttons are replaced by
+plain editable text. WEB-ONLY — the terminal is untouched. The text below is
+kept as a record.
 
 Entry fields (each a short separate input):
 
@@ -462,6 +481,8 @@ These rules apply only during the rewriting stage; when displaying the framework
 - Paste-and-split (§4.2): a pasted experience is split into candidate bullets, the count is confirmed with the user ("I found 4 achievements. Is that correct?"), and every keep/discard, merge, split, and delete decision is the user's; splitting never rewrites text — every confirmed bullet is a verbatim line from the paste or a verbatim re-join of lines.
 - The confirmed bullet list feeds the §4.1 workflow unchanged; analyzing a bullet through paste-and-split produces exactly the same analysis, scores, questions, and coverage as entering the same text bullet by bullet.
 - The new entry fields (`company`, `dates`, `product_domain`) are optional and additive — documents saved before Phase 13 load unchanged — and text beyond 8 lines shows the soft-limit message without ever blocking input; the original pasted text stays visible during every bullet's analysis.
+- **Phase 18 (§13.1–13.2): the web entry screen after type selection is ONE paste box for the whole experience; the split segments appear on one review screen with fixed per-type section labels — only the first non-marker line auto-places (Title), everything else starts in Achievements, and segments move between sections by DRAG-AND-DROP (displaced segments return to Achievements; the tool never guesses); a type switcher swaps only the labels; start/end dates are year–month with an "I still work here" ongoing option, filled only from a user-dragged segment on an exact date-pattern match; the found-achievements review is plain editable text — no Merge/Split/Delete and no Keep/Discard buttons — and a cleared row is dropped at confirm.**
+- **Phase 18 (§13.3–13.4): the separate score screen is merged into the bullet-list review page, which shows only the Experience score with its progress ring beside it (no "Overall score" label, no rubric-version header; drafts keep the no-number state); every stage has a Back control to the previous stage that never wipes answers; a re-confirmed stage re-runs its pipeline like a fresh confirm EXCEPT a no-change re-confirm, which skips re-analysis (P5); the web has NO upper cap on confirmed achievements (zero → draft; the terminal keeps its frozen 1–6).**
 
 ## 10. Open Items for Planning
 
@@ -477,6 +498,7 @@ These rules apply only during the rewriting stage; when displaying the framework
 - DEFERRED UX items (owner's review 2026-11-05, not in Phase 15 — candidates for later phases): (4) fewer/better suggestions — grounded suggestion first, generic under "other suggestion", cursor to the first "…" gap; (5) one-line warm ambiguity reason with the fuller guidance hidden behind "Why?"; (6) metric without pressure — a clear "I don't have a number" skip + an encouraging line + a gentle "is this a measured number?" check on guess-like input ("about", "roughly"); (7) progress line "N of 5 complete" next to "Achievement n of total" + a final clean card with the improved sentence beside the original text (copy/continue exist); (8) Enter-to-next, a Back button that never wipes answers, and auto-saved answers across refreshes.
 - Repository layout — two view editions, one governance root (§12, Phase 16) — spec'd and clarified 2026-11-05 (root siblings; optional-skip parity; matcher/ + its two legacy tests deleted); **executes BEFORE the pending Phase 15 implementation per product-owner priority**; then plan and tasks from T127 (T091/T092 remain open).
 - Warm UX & voice (§11.5, Phase 17) — owner look-and-feel review 2026-11-05, all four accepted groups; LIGHT PATH (no spec-kit commands, owner-approved before/after tone table); **DONE 2026-11-05** — implemented and gated (pytest 213 from terminal/, test:engine 23/23, tsc clean, next build exit 0, PARITY OK), committed as e69186c, f93965a, d926dda, fab9ee4, 5f5b1af.
+- Entry and review UX simplification (§13, Phase 18) — owner UX review 2026-11-06; spec'd the same day, clarified ×2 pre-plan (per-experience paste; editable-text-only review, ALL shaping buttons removed) and ×4 in the plan-stage clarify session (drag-and-drop segment review with first-line-only auto-place — the owner rejected automatic attribution; the 1–6 cap REMOVED on the web, terminal VR-1 frozen; no-change re-confirm skips re-analysis; a type switcher on the review screen); WEB-ONLY scope (terminal untouched); promotes the deferred item (8) Back-button clause ("never wipes answers" — auto-save of answers stays deferred); then plan and tasks from T133 (T091/T092 remain open). **DONE 2026-11-06** — implemented and gated (T133–T143; test:engine 33/33 incl. 10 entry_parse tests, tsc clean, build exit 0, PARITY OK, test:byok 23/23, scan passed, pytest 213 from terminal/; analyze 0 CRITICAL with F1–F3 remediated pre-implement; the password-gated manual walkthrough is the owner's step).
 
 ## 12. Repository Layout: Two View Editions, One Governance Root (Phase 16, 2026-11-05)
 
@@ -681,3 +703,190 @@ placements above (the score screen line and the post-improvement line) are
 the accepted final interpretation of "a short encouraging sentence after
 each stage"; no additional transitions get encouragement lines. More
 placements remain a future decision through a new phase.
+
+## 13. Entry and Review UX Simplification (Phase 18, 2026-11-06)
+
+Product-owner UX review 2026-11-06, after walking the live add flow: the
+entry and review steps had grown complicated (a five-field entry form,
+button clusters for merge/split/delete and keep/discard, a separate score
+screen showing the same number twice, no way back). This phase simplifies
+the WEB flow only — the terminal (§4.1 entry, §5 display) is untouched, as
+in Phases 11–15. The analysis, scoring, questions, rewrite, and coverage
+record (§2–§6) are untouched: flow and presentation scope (P1/P2 hold
+unchanged; every text change remains the user's own). Two decisions
+clarified with the product owner the same day: the paste covers ONE
+experience (not the whole multi-job history), and the achievements review
+becomes plain editable text with ALL shaping buttons removed.
+
+### 13.1 Paste-first entry with a drag-and-drop review (supersedes §4.2's detail-fields form on the web)
+
+- After the experience-type selection (§4.2's `entry_type` screen,
+  unchanged), the entry screen is ONE large paste box with a short
+  instruction — no discrete entry-time form fields. The user pastes the
+  whole text of that ONE experience exactly as it appears in their resume:
+  title, organization, dates, and achievements, all at once. The 8-line
+  soft-limit note (§4.2) stays on the box.
+- The tool splits the paste into SEGMENTS (deterministic, line-based;
+  segmentation only — constitution P1; list markers are formatting and are
+  stripped; text is never rewritten or invented) and shows the segments as
+  movable items on ONE post-paste review screen whose section labels are
+  FIXED per the experience type:
+  - ONE unified form structure serves every experience type — Title, the
+    type-specific organization section (for example Job "Company",
+    Project "Project name", Course "Provider", Side work "Client"; exact
+    B1 strings pinned at plan time), the Dates section, product domain,
+    and Achievements.
+  - **Initial placement is minimal by design** (product-owner answer
+    2026-11-06 — automatic attribution is NOT trusted: a simple model
+    cannot reliably tell where the date or the company goes): ONLY the
+    first line, when it has no `-`/`•` marker, auto-places into Title;
+    EVERY other segment starts in Achievements. Organization and dates
+    start empty — the tool never guesses what a segment is.
+  - **Drag-and-drop correction**: same-type (text) segments move between
+    sections by dragging. Dropping onto a single-value section
+    (Title / organization) replaces its content — the displaced segment
+    returns to Achievements, so nothing is ever lost (P1). Achievements
+    hold any number of segments; every segment stays editable text
+    (§13.2's rules apply per segment).
+  - **Type switcher on the review screen** (product-owner answer
+    2026-11-06): switching the type swaps ONLY the fixed section labels;
+    all segments carry over unchanged — no Back-and-repaste needed.
+  - **Dates are structured**: the Dates section holds a start and an end
+    field, each YEAR–MONTH (`YYYY-MM`), plus an **"I still work here"
+    checkbox** — when checked, no end date is asked and the dates read
+    "2024-03 – present". A segment the USER drags into the Dates section
+    fills the structured fields only when its text exactly matches a
+    MONTH-PRECISION date pattern — a `YYYY-MM` token; a two-token range
+    joined by "to", "–", "—" or "-" where both ends are `YYYY-MM` (or
+    one end is "present"/"current" → start + ongoing); or a bare
+    "present"/"current" (ongoing). A matched segment is CONSUMED: its
+    text moves into the structured fields and the free item is removed —
+    the words are preserved in the fields, so nothing is lost (P1). A
+    bare year ("2022"), a year-only range ("2022-2024"), or prose dates
+    ("April 2022") NEVER fill the structured fields (a month would have
+    to be invented — P1) — they become the free-text dates value (the
+    legacy `dates` field), as does any other dragged text. Text the user
+    did not place there is never parsed into dates (P1 — the tool never
+    guesses). This supersedes §4.2's single
+    free-text `dates` field on the web (§4 note); the structured fields
+    are optional and additive — old documents with free-text `dates`
+    load unchanged.
+- Future storage direction (product-owner note 2026-11-06, NO change in
+  this phase): each experience type's content will be stored separately in
+  its own post type (per-type records) in a future database version; the
+  unified component with per-type labels prepares for that. The
+  prototype's document storage is unchanged.
+- The review screen's Confirm keeps §4.2's confirm behavior: zero
+  achievements saves a draft; one or more confirmed achievements enter
+  the §4.1 workflow unchanged (extraction, scoring, questions, rewrite,
+  and the coverage record are untouched) — with NO upper cap on the web
+  (product-owner answer 2026-11-06; the terminal keeps its frozen 1–6,
+  VR-1). The pasted original text stays visible at the top during each
+  bullet's analysis (§4.2).
+
+### 13.2 Achievements review — plain editable text (supersedes §4.2's split controls on the web)
+
+- The "I found 4 achievements. Is that correct?" review becomes ONE simple
+  list: each found achievement is a numbered, individually EDITABLE text
+  block, pre-filled with its split line.
+- Segments move between the sections by drag-and-drop (§13.1); within
+  Achievements the editing rules below are unchanged — text edited in
+  place, cleared rows dropped at confirm.
+- The **Merge with next / Split / Delete buttons AND the flagged-line
+  Keep / Discard buttons are REMOVED** on the web. Shaping happens in the
+  text itself: the user edits a line, joins or breaks lines by editing, or
+  CLEARS a line to drop it — cleared rows are dropped when the list is
+  confirmed. Every change is the user's own edit (P2); the tool never
+  rewrites or re-splits on its own.
+- §4.2's flag rule and "and also" split-suggestion rule stop driving any
+  UI on the web (a passive hint is a planning decision; default none).
+  The "I found N achievements" heading and the confirm CTA stay, and
+  §4.2's step 5–6 guarantees hold with editing replacing the buttons:
+  every confirmed bullet is a verbatim paste line or the user's own edit,
+  and the confirmed list feeds the §4.1 workflow unchanged.
+- Back (13.4) returns to the paste box; re-pasting starts the split again.
+
+### 13.3 One review page — the score panel moves to the improvement list (supersedes the separate score screen)
+
+- The separate "Scores for experience '…' (rubric version …):" screen is
+  MERGED into the following bullet-list page. The next page is the base:
+  entry title, the instruction line, and the bullet list (Improve / Done /
+  "Edit this bullet myself") exactly as today.
+- The score panel moves to the BOTTOM of that page — the page where each
+  achievement is improved: the **Experience score** value with the
+  **progress ring beside it showing that value** (the §11.5 ring styling —
+  JetBrains Mono digits, brand-red stroke on the warm track).
+- **Only the Experience score is shown.** The duplicate "Overall score"
+  label is retired from display (both labels showed the same
+  `entry_score`; the ring now reads as the Experience score). The
+  rubric-version text leaves the display with the old header; the rubric
+  version string stays STORED with every score (§3, unchanged).
+- The per-bullet dimension lines (Context / Role and Action Clarity /
+  Result) leave the summary page; the per-part detail lives inside each
+  bullet's improvement screen (§5.2 status row + sentence), where it
+  already exists.
+- The encouragement line (§11.5, `ENCOURAGE_SCORED`) keeps its accepted
+  placement — now on the merged review page after scoring. Drafts with no
+  score keep the no-number draft state ("Draft experience - excluded from
+  the overall score." behavior) in the panel.
+- After an inline improvement the panel re-renders with the re-scored
+  entry; the before/after line stays on the bullet screen (§6.1/§6.2).
+
+### 13.4 Back on every stage
+
+- Every stage of both flows (add and match) exposes a Back control
+  returning to the immediately previous stage (for example: entry review →
+  paste box → type selection → menu; bullet screen → review page; match
+  stages chain backward). This promotes the deferred Phase 15 item (8)
+  Back-button clause; auto-saving answers across refreshes stays deferred.
+- Going back NEVER wipes the user's answers or edits — moving forward
+  again finds the entered state intact.
+- When a returned-to stage is re-confirmed (re-paste, re-split, edited
+  achievements), the pipeline re-runs exactly as a fresh confirm of that
+  stage — no stale scores or analyses are ever shown. A changed
+  re-confirm UPDATES the same stored entry (the entry id is reused) —
+  no duplicate entry is ever created.
+- Confirming the review again with NO change to the fields or segments
+  skips re-analysis entirely (P5 — incremental analysis; product-owner
+  answer 2026-11-06): the confirm returns to the review page directly.
+  Only an actual change re-runs the pipeline as a fresh confirm. The skip
+  applies ONLY when the previous confirm's analysis actually completed —
+  after a failed analysis the confirm re-runs the whole pipeline, so no
+  stale unanalyzed state is ever shown (fix 2026-11-06, owner-reported).
+
+### 13.5 Acceptance criteria (Phase 18)
+
+- After type selection the web entry screen shows ONE paste box and no
+  discrete entry-time form fields; the split segments appear on one
+  review screen with fixed per-type section labels; ONLY the first
+  non-marker line auto-places (into Title) and every other segment
+  starts in Achievements; segments move between sections by drag-and-
+  drop, displaced segments return to Achievements (nothing is lost), and
+  the tool never guesses what a segment is.
+- The review screen carries a type switcher that swaps only the section
+  labels; the segments carry over unchanged.
+- Dates: a segment dragged into the Dates section fills the structured
+  `YYYY-MM` fields only on an exact MONTH-PRECISION match (`YYYY-MM`
+  token, a month-precision range, or "present"/"current" → ongoing) and
+  the matched segment is consumed into the fields (nothing lost); a bare
+  year, a year-only range, or prose dates never invent a month — they
+  become the free-text dates value; "I still work here" removes the end
+  date; old documents with free-text `dates` load unchanged.
+- Dates are year–month start/end with an "I still work here" checkbox that
+  removes the end date; old documents with free-text `dates` load
+  unchanged.
+- The found-achievements review is plain editable text: no Merge with
+  next, Split, Delete, Keep, or Discard buttons; cleared rows drop at
+  confirm; every confirmed bullet is verbatim paste text or the user's own
+  edit; the web has NO upper cap on confirmed achievements (zero → draft;
+  the terminal keeps its frozen 1–6).
+- The review page merges the score panel: Experience score + progress ring
+  only, no "Overall score" label and no rubric-version header; the rubric
+  version stays stored; drafts show the no-number state.
+- Every stage has Back to the previous stage; back never wipes answers; a
+  re-confirmed stage re-runs its pipeline like a fresh confirm — EXCEPT a
+  no-change re-confirm, which skips re-analysis (P5) and returns to the
+  review page directly; the skip requires the previous analysis to have
+  completed.
+- Standing gates stay green; the terminal edition is untouched (web-only
+  phase).

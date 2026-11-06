@@ -3,10 +3,11 @@ import { AddEntryRequestSchema } from "@/lib/schemas";
 import { isAuthorized, rateLimited, sessionIdOf } from "@/lib/serverAuth";
 import { addEntry } from "@/engine/flow/pathService";
 
-/** Entry recording with the terminal's server-side checks (VR-1 six-bullet
- * cap, VR-8 English boundary). Validation failures return the terminal's
- * error ids so the UI shows the exact same friendly texts and lets the
- * user retry. */
+/** Entry recording with the server-side checks (VR-8 English boundary; the
+ * Phase 18 web flow has no 1–6 upper cap — spec §13). Validation failures
+ * return the terminal's error ids so the UI shows the exact same friendly
+ * texts and lets the user retry. The optional entry_id marks an
+ * update-in-place re-confirm (the client re-stamps the returned entry). */
 export async function POST(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
@@ -28,7 +29,11 @@ export async function POST(request: NextRequest) {
       company: body.data.company ?? null,
       dates: body.data.dates ?? null,
       product_domain: body.data.product_domain ?? null,
-    }
+      start_date: body.data.start_date ?? null,
+      end_date: body.data.end_date ?? null,
+      ongoing: body.data.ongoing ?? false,
+    },
+    body.data.entry_id
   );
   if (result.error) {
     return NextResponse.json({ ok: false, error: result.error });
