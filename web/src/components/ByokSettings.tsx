@@ -22,12 +22,25 @@ import {
   setUseForScoring,
 } from "@/lib/byok/client";
 
-export function ByokSettings({ onBack }: { onBack: () => void }) {
+export function ByokSettings({
+  onBack,
+  failureMode = false,
+  onSaved,
+}: {
+  onBack: () => void;
+  /** §15 FR-51: true when this visit came from a no-way-forward failure —
+   * saving then enables use-for-analysis (failure path ONLY) and returns
+   * the user to the origin stage with a one-tap retry ask. */
+  failureMode?: boolean;
+  onSaved?: () => void;
+}) {
   const [state, setState] = useState(getByokState());
   const [keyInput, setKeyInput] = useState("");
   const [saved, setSaved] = useState(false);
   const [modelText, setModelText] = useState("");
-  const provider = PROVIDERS.openrouter;
+  // §16 FR-63: the DISPLAYED provider is Google AI Studio (others hidden,
+  // not deleted).
+  const provider = PROVIDERS.google_ai_studio;
 
   useEffect(() => {
     initByok();
@@ -43,6 +56,14 @@ export function ByokSettings({ onBack }: { onBack: () => void }) {
     const trimmed = keyInput.trim();
     if (!trimmed) return;
     setKey(trimmed, false); // memory-only — FR-29 forbids browser storage
+    if (failureMode) {
+      // §15 FR-51 (failure path only): the save enables use-for-analysis and
+      // returns the user to the origin stage for the one-tap retry ask.
+      // Menu-initiated visits never touch the preference.
+      setUseForScoring(true);
+      onSaved?.();
+      return;
+    }
     setSaved(true);
     setKeyInput("");
   }
@@ -58,7 +79,7 @@ export function ByokSettings({ onBack }: { onBack: () => void }) {
       </p>
 
       <section className="mb-6">
-        <h2 className="mb-3 text-lg font-semibold">1) Your OpenRouter key</h2>
+        <h2 className="mb-3 text-lg font-semibold">1) Your Google AI Studio key</h2>
         <p className="mb-2 text-[15px] text-neutral-700">{provider.keyFormatHint}</p>
         <input
           className="text-input mb-2"

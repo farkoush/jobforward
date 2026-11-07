@@ -32,7 +32,10 @@ import {
 } from "@/lib/client";
 import { logEvent } from "@/lib/logger";
 import { ByokSettings } from "@/components/ByokSettings";
-import { ModelBanner } from "@/components/ModelBanner";
+import { ModelBanner, type ConnStatus } from "@/components/ModelBanner";
+import { GuidanceBox } from "@/components/GuidanceBox";
+import { LlmSettingsSection } from "@/components/settings/LlmSettingsSection";
+import { ByokQuickModal } from "@/components/byok/ByokQuickModal";
 import {
   getRawKeyForGateway,
   getByokState,
@@ -43,7 +46,20 @@ import {
   BYOK_EVALUATOR_SYSTEM_PROMPT,
   buildEvaluatorUserPrompt,
 } from "@/lib/byok/prompts";
-import { GATEWAY_MESSAGES, RETRYABLE_REASONS } from "@/lib/llm/messages";
+import {
+  GATEWAY_MESSAGES,
+  GATE_SERVICE_UNAVAILABLE,
+  RETRY_ASK,
+  TRANSFER_EXPLANATION,
+} from "@/lib/llm/messages";
+import { failureClass } from "@/lib/llm/failure-class";
+import {
+  autoCheckPolicy,
+  loadStoredCheck,
+  nextStatusAfterFailure,
+  saveCheckResult,
+  statusFromOutcome,
+} from "@/lib/llm/connection-client";
 import type { GatewayReason } from "@/lib/llm/types";
 import { clearDraft, loadDraft, saveDraftDebounced } from "@/lib/draft";
 import { buildCoverage, extractParts } from "@/engine/flow/parts";
@@ -64,7 +80,7 @@ type Screen =
   | "gate"
   | "welcome"
   | "menu"
-  | "byok_settings"
+  | "llm_settings"
   | "entry_type"
   | "entry_paste"
   | "entry_review"
@@ -200,6 +216,23 @@ export default function Home() {
   const retryActionRef = useRef<(() => void) | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  // §15 FR-45/46/52: the content-free connection check (once per session
+  // from the menu screen) + the truthful 4-state status. Purely informational
+  // — the check NEVER gates navigation (FR-52).
+  const [connStatus, setConnStatus] = useState<ConnStatus>("checking");
+  const [checkBusy, setCheckBusy] = useState(false);
+  const checkStartedRef = useRef(false);
+  const clientCheckFailuresRef = useRef(0);
+  // §15 FR-50/51: transfer to the LLM settings on no-way-forward failures —
+  // ALWAYS preceded by the explanation (never a silent jump), origin stage
+  // remembered, and the one-tap retry ask on a saved return.
+  const [transferNotice, setTransferNotice] = useState<string | null>(null);
+  const [settingsMode, setSettingsMode] = useState<"menu" | "failure">("menu");
+  const [originScreen, setOriginScreen] = useState<Screen | null>(null);
+  const [retryAsk, setRetryAsk] = useState(false);
+  // §16 FR-61: the quick BYOK modal, openable from the header on ANY page.
+  const [quickByokOpen, setQuickByokOpen] = useState(false);
+
   // Entry collection (Phase 18 hybrid: paste-first with a drag-and-drop
   // review, spec §13)
   const [entryType, setEntryType] = useState<string>("");
@@ -262,6 +295,116 @@ export default function Home() {
     setScreen(next);
   }
 
+  // ---------- §15 connection check (FR-45/46/52) ----------
+
+  /** The ONE content-free check per browser session, fired from the menu
+   * screen; explicit re-checks pass force=true. The status NEVER blocks
+   * navigation (FR-52). After a reload the SAVED status is restored —
+   * no extra provider contact and no stuck "Checking…" (owner bug report
+   * 2026-11-07; logic pinned in connection-client.test.ts). */
+  async function runConnectionCheckOnce(force = false) {
+    if (!force) {
+      // §16 FR-64B: restore a saved status ONLY when it was "available";
+      // a bad (or missing) status runs ONE fresh check per page load so
+      // the banner recovers by itself when the network returns.
+      const stored = loadStoredCheck(window.sessionStorage);
+      if (autoCheckPolicy(stored) === "restore") {
+        setConnStatus(stored!.status);
+        return;
+      }
+      if (checkStartedRef.current) return;
+      checkStartedRef.current = true;
+    }
+    setCheckBusy(true);
+    setConnStatus("checking");
+    try {
+      const response = await fetch("/api/llm/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        // §16 FR-64A: the client can never hang on "Checking…" — a stale
+        // request aborts at 20 s and lands in the failure path below.
+        signal: AbortSignal.timeout(20_000),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { ok: boolean; state?: unknown }
+        | null;
+      if (statusFromOutcome(body?.state) === "available") {
+        clientCheckFailuresRef.current = 0;
+        setConnStatus("available");
+        saveCheckResult(window.sessionStorage, "available");
+      } else {
+        clientCheckFailuresRef.current += 1;
+        const next = nextStatusAfterFailure(connStatus);
+        setConnStatus(next);
+        saveCheckResult(window.sessionStorage, next);
+      }
+    } catch {
+      // Browser↔platform link failed — status hint only (FR-52; the VPN
+      // guidance belongs to the failure box, never to a blocking state).
+      clientCheckFailuresRef.current += 1;
+      const next = nextStatusAfterFailure(connStatus);
+      setConnStatus(next);
+      saveCheckResult(window.sessionStorage, next);
+    }
+    setCheckBusy(false);
+  }
+
+  useEffect(() => {
+    if (screen === "menu") void runConnectionCheckOnce();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
+  // ---------- §15 transfer / origin / one-tap retry (FR-50/51) ----------
+
+  function startTransfer() {
+    // NEVER a silent jump: the explanation shows first; the transfer then
+    // proceeds after 5 s or on a single tap, whichever comes first.
+    setTransferNotice(TRANSFER_EXPLANATION);
+  }
+
+  function doTransfer() {
+    setTransferNotice(null);
+    setOriginScreen(screen);
+    setSettingsMode("failure");
+    go("llm_settings");
+  }
+
+  useEffect(() => {
+    if (!transferNotice) return;
+    const timer = setTimeout(() => doTransfer(), 5000);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => clearTimeout(timer);
+  }, [transferNotice]);
+
+  /** Back from the settings: to the menu after a menu-initiated visit; to
+   * the exact origin stage after a failure-initiated one (input intact —
+   * the draft never moved). saved=true (failure mode) shows the one-tap
+   * ask once; cancel returns with no ask (FR-51). */
+  function returnToOrigin(saved: boolean) {
+    const origin = originScreen ?? "menu";
+    setOriginScreen(null);
+    setSettingsMode("menu");
+    setTransferNotice(null);
+    go(origin);
+    if (saved && settingsMode === "failure") setRetryAsk(true);
+  }
+
+  /** "Use my own key" on a failure (FR-008): a saved key is offered
+   * immediately (no pointless detour); otherwise the explained transfer. */
+  function handleOwnKey() {
+    const byok = getByokState();
+    if (byok.hasKey && byok.model) {
+      setUseForScoring(true);
+      setGatewayError(null);
+      setGatewayReason(null);
+      setByokDowngradeOffer(false);
+      retryActionRef.current?.();
+      return;
+    }
+    startTransfer();
+  }
+
   // ---------- access gate (shared password; token only, never the password) ----------
 
   const [gatePassword, setGatePassword] = useState("");
@@ -277,13 +420,15 @@ export default function Home() {
       .catch(() => null)) as { ok: boolean; error?: string; token?: string } | null;
     setBusy(false);
     if (!result) {
-      // Empty/non-JSON response: the server itself failed (FR-23).
-      setGatewayError(GATEWAY_MESSAGES.CONFIG_ERROR);
+      // Empty/non-JSON response: the server itself failed (FR-23). §15
+      // FR-47: a gate failure NEVER claims an AI outage — gate-specific
+      // text only; the named cause stays in the server log (P19).
+      setGatewayError(GATE_SERVICE_UNAVAILABLE);
       return;
     }
     if (!result.ok) {
       if (result.error === "CONFIG_ERROR") {
-        setGatewayError(GATEWAY_MESSAGES.CONFIG_ERROR);
+        setGatewayError(GATE_SERVICE_UNAVAILABLE);
       } else {
         setError("WRONG_PASSWORD");
       }
@@ -517,9 +662,24 @@ export default function Home() {
     );
     setBusy(false);
     if (!result.ok) {
+      // §16 FR-57: dev-only sanitized browser-console summary — the typed
+      // outcome carries no keys and no user text (P14); production stays
+      // silent.
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[llm] request failed:", {
+          class: failureClass(result.reason),
+          reason: result.reason,
+          byok: useByok,
+        });
+      }
       setGatewayError(result.error);
       setGatewayReason(result.reason);
       if (useByok) setByokDowngradeOffer(true);
+      // §15 FR-52 (R14): a no-way-forward analysis failure is the honest
+      // "unavailable" signal — the banner goes red immediately.
+      if (failureClass(result.reason) === "NO_WAY_FORWARD") {
+        setConnStatus("unavailable");
+      }
       return null;
     }
     setFallbackNotice(result.usedFallback ? "Served by fallback model" : null);
@@ -1154,55 +1314,98 @@ export default function Home() {
             {errorText(error, matchParams)}
           </div>
         )}
-        {gatewayError && (
+        {/* §15 FR-49: the class-matched guidance box replaces the bare error
+            text — advice + actions at the failing stage, never console-only. */}
+        {gatewayError && gatewayReason && (
+          <GuidanceBox
+            reason={gatewayReason}
+            showDowngradeOffer={byokDowngradeOffer}
+            onRetry={() => {
+              setGatewayError(null);
+              setGatewayReason(null);
+              setByokDowngradeOffer(false);
+              retryActionRef.current?.();
+            }}
+            onOwnKey={handleOwnKey}
+            onFreePath={() => {
+              // Explicit user confirmation (FR-28): switch scoring to the
+              // free gateway path and retry the same input.
+              setUseForScoring(false);
+              setByokDowngradeOffer(false);
+              setGatewayError(null);
+              setGatewayReason(null);
+              retryActionRef.current?.();
+            }}
+            onOpenSettings={() => {
+              setSettingsMode("menu");
+              go("llm_settings");
+            }}
+          />
+        )}
+        {gatewayError && !gatewayReason && (
           <div role="alert" className="msg-error mb-6">
             <p>{gatewayError}</p>
-            {gatewayReason && RETRYABLE_REASONS.has(gatewayReason) && (
+          </div>
+        )}
+        {/* §15 FR-50: the transfer explanation — NEVER a silent jump; the
+            transfer proceeds after 5 s or on a single tap. */}
+        {transferNotice && (
+          <div role="alert" className="msg-error mb-6">
+            <p>{transferNotice}</p>
+            <button className="btn-primary mt-3" onClick={doTransfer}>
+              Continue
+            </button>
+          </div>
+        )}
+        {/* §15 FR-51: the one-tap ask shown once after a saved return from a
+            failure-initiated settings visit. */}
+        {retryAsk && (
+          <div role="note" className="card mb-6 p-4">
+            <p className="font-medium">{RETRY_ASK}</p>
+            <div className="mt-3 flex flex-wrap gap-3">
               <button
-                className="btn-primary mt-3"
-                onClick={() => retryActionRef.current?.()}
-              >
-                Retry
-              </button>
-            )}
-            {gatewayReason &&
-              (gatewayReason === "QUOTA_USER" || gatewayReason === "QUOTA_GLOBAL") && (
-                <button
-                  className="btn-secondary mt-3"
-                  onClick={() => go("byok_settings")}
-                >
-                  Use my own key
-                </button>
-              )}
-            {byokDowngradeOffer && (
-              <button
-                className="btn-secondary mt-3"
+                className="btn-primary"
                 onClick={() => {
-                  // Explicit user confirmation (FR-28): switch scoring to the
-                  // free gateway path and retry the same input.
-                  setUseForScoring(false);
-                  setByokDowngradeOffer(false);
-                  setGatewayError(null);
-                  setGatewayReason(null);
+                  setRetryAsk(false);
                   retryActionRef.current?.();
                 }}
               >
-                Continue with the free path
+                Retry now
               </button>
-            )}
+              <button className="btn-secondary" onClick={() => setRetryAsk(false)}>
+                Not now
+              </button>
+            </div>
           </div>
         )}
         {message && (
           <div className="msg-success mb-6">{message}</div>
         )}
 
-        {/* Screens where a model call can happen (scoring flows): announce
-            the model in use on the same screen; hidden when the deterministic
-            engine runs or BYOK is off. */}
+        {/* §15 FR-52/53: the persistent banner — every screen from the menu
+            onward, source + connection color state + in-place switching.
+            Purely informational; it never gates navigation. */}
+        {/* §16 FR-61: the persistent header on EVERY page (gate/welcome
+            included) — source label, status, in-place switching, and the
+            quick BYOK entry. */}
         <ModelBanner
-          active={["entry_review", "bullet_list", "merge"].includes(
-            screen
-          )}
+          visible={true}
+          status={connStatus}
+          checkBusy={checkBusy}
+          onCheckAgain={() => void runConnectionCheckOnce(true)}
+          onOpenSettings={() => {
+            setSettingsMode("menu");
+            go("llm_settings");
+          }}
+          onQuickByok={() => setQuickByokOpen(true)}
+        />
+        <ByokQuickModal
+          open={quickByokOpen}
+          onClose={() => setQuickByokOpen(false)}
+          onOpenFullSettings={() => {
+            setSettingsMode("menu");
+            go("llm_settings");
+          }}
         />
         {fallbackNotice && (
           <div role="note" className="mb-6 text-[14px] text-neutral-600">
@@ -1264,12 +1467,29 @@ export default function Home() {
               go("done");
             }}
             onByok={() => {
-              logEvent("menu_choice", "byok_settings");
-              go("byok_settings");
+              logEvent("menu_choice", "llm_settings");
+              setSettingsMode("menu");
+              go("llm_settings");
             }}
           />
         )}
-        {screen === "byok_settings" && <ByokSettings onBack={() => go("menu")} />}
+        {/* §15 FR-54: the independent LLM settings section — status card +
+            BYOK card; menu visits return to the menu, failure visits to the
+            origin stage (FR-50/51). */}
+        {screen === "llm_settings" && (
+          <LlmSettingsSection
+            onBack={() => returnToOrigin(false)}
+            status={connStatus}
+            checkBusy={checkBusy}
+            onCheckAgain={() => void runConnectionCheckOnce(true)}
+          >
+            <ByokSettings
+              failureMode={settingsMode === "failure"}
+              onSaved={() => returnToOrigin(true)}
+              onBack={() => returnToOrigin(false)}
+            />
+          </LlmSettingsSection>
+        )}
         {screen === "entry_type" && (
           <ChoiceScreen
             title={msg.ADD_TYPE}
@@ -1897,7 +2117,7 @@ function Menu({
           3) Finish for now
         </button>
         <button className="btn-secondary !border-neutral-400 text-[15px] text-neutral-600" onClick={onByok}>
-          Model settings (advanced — use your own API key)
+          LLM settings (use your own API key)
         </button>
       </div>
     </div>
@@ -2065,6 +2285,18 @@ function BulletList({
                   })}
                 </p>
                 <p className="mb-2 font-medium">{bullet.text}</p>
+                {/* Phase 18 amendment (owner decision 2026-11-07): the
+                    per-bullet 0/1/2 dimension ratings are displayed again —
+                    they were computed and stored all along (§13.3 note). */}
+                {bullet.ratings && (
+                  <p className="text-[15px] text-neutral-800">
+                    {fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_CONTEXT, value: bullet.ratings.context })}{" "}
+                    ·{" "}
+                    {fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_ACTION, value: bullet.ratings.role_action_clarity })}{" "}
+                    ·{" "}
+                    {fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_RESULT, value: bullet.ratings.result })}
+                  </p>
+                )}
               </div>
               <button
                 className="btn-secondary !min-h-10 shrink-0 !px-4 !py-2 text-sm"
@@ -2550,6 +2782,16 @@ function BulletGate({
               : st === "vague"
                 ? msg.STATUS_VAGUE
                 : msg.STATUS_COMPLETE;
+          // Phase 18 amendment (owner decision 2026-11-07): the stored 0/1/2
+          // rating rides beside the state label. Need and Feature share the
+          // Context rating; Metric is optional and carries no number (§6).
+          const dimKey = PART_KEY_TO_DIM[r.key];
+          const cellRating =
+            bullet.ratings === null || dimKey === "metric"
+              ? null
+              : dimKey === "feature"
+                ? bullet.ratings.context
+                : bullet.ratings[dimKey];
           return (
             <button
               key={r.key}
@@ -2561,6 +2803,11 @@ function BulletGate({
                 {r.label}
               </span>
               {stateText}
+              {cellRating !== null && (
+                <span className="font-mono text-[11px] font-normal">
+                  {fmt(msg.RATING_CELL, { value: cellRating })}
+                </span>
+              )}
             </button>
           );
         })}

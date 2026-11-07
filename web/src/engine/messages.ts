@@ -63,6 +63,9 @@ export const FIELD_ONGOING = "I still work here";
 export const ERR_DATE_FORMAT = "Use the year and month, like 2022-04.";
 export const BACK = "Back";
 export const PANEL_SCORE = "Experience score: {value}/100";
+// Phase 18 amendment (owner decision 2026-11-07): the per-part 0/1/2 rating
+// beside the state label in the five-cell row (no emoji — theme guard).
+export const RATING_CELL = " · {value}/2";
 export const STAGE_EXPERIENCE = "Experience";
 export const STAGE_REVIEW = "Review";
 export const STAGE_ACHIEVEMENTS = "Achievements";

@@ -83,3 +83,50 @@ typed failure or stream cut it preserves the input and offers Retry/continue
 without retyping; on reload it restores the draft. The BYOK key is never written
 next to the draft. The top-level error guard (`web/src/app/error.tsx`) never clears
 user state.
+
+## POST /api/llm/check  (maxDuration = 30) — §15 FR-45/46/52
+
+Content-free connection check. The ONLY new provider contact outside analysis
+stages (owner-approved exception; no user data is sent or returned). The
+client fires it once per session from the menu screen and on explicit
+"Check again".
+
+Request: empty JSON body `{}`; auth via the gate cookie (`isAuthorized`),
+else `401 { ok:false, error:"UNAUTHORIZED" }`.
+
+Response — ALWAYS typed JSON, never HTML, never model names or keys:
+
+```json
+{
+  "ok": true,
+  "state": "available" | "unavailable",
+  "configOk": true,
+  "chains": { "GEN": 2, "FAST": 2 },
+  "checkedAt": "2026-11-07T10:00:00.000Z"
+}
+```
+
+- `state:"available"` — the provider answered `/models` and at least one
+  valid ID remains in each category's pruned chain (applied chains updated).
+- `state:"unavailable"` with `configOk:false` — free-path env config failed
+  to load (ConfigError); the named cause goes to the server log only (P19).
+- `state:"unavailable"` with `configOk:true` — the provider was unreachable
+  or every ID was pruned; raw env chains remain in effect for analysis
+  calls (§14 skip behavior).
+- `chains` carries valid-ID COUNTS only (diagnostic without disclosure).
+- LLM_MOCK=true (dev-only): the mock transport answers; state available.
+
+Client consumption: success → banner green; failure → yellow
+(needs-retry), red after two consecutive failures or a NO_WAY_FORWARD
+analysis error (R14). The response never blocks navigation (FR-52).
+
+## UI contract: failure classes → guidance (§15 FR-48/49, single source)
+
+`lib/llm/failure-class.ts` is the only mapping the UI may consult:
+TRANSIENT → wait-and-retry guidance, Retry primary, own-key option beside;
+NO_WAY_FORWARD → own-key path, transfer with advance explanation
+(Continue + 5 s auto-advance), origin remembered, one-tap "Retry with your
+own key?" after save; BROWSER_UNREACHABLE → check-internet/VPN advice (the
+ONLY place VPN wording may appear); OWN_KEY → fix-key advice with the
+free-path option visible. Gate failures (FR-47) show
+`GATE_SERVICE_UNAVAILABLE` — no AI wording, no technical detail.

@@ -9,7 +9,7 @@
  * per-minute limiter (FR-31).
  */
 
-import type { ClassifiedFailure } from "./errors";
+import { bodyExcerpt, type ClassifiedFailure } from "./errors";
 import type { CompletionUsage } from "./client";
 import type { Source } from "./types";
 
@@ -83,7 +83,7 @@ export async function runChain(options: ChainOptions): Promise<ChainResult> {
   let lastStatus: number | undefined;
   let lastRetryAfter: number | undefined;
 
-  for (const model of options.models) {
+  for (const [modelIndex, model] of options.models.entries()) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       // Deadline gate: no new attempt starts after the overall deadline.
       if (Date.now() >= options.deadlineAt) {
@@ -117,10 +117,15 @@ export async function runChain(options: ChainOptions): Promise<ChainResult> {
       // that 404s every model surfaces only as ALL_MODELS_FAILED in the
       // request log, hiding the cause (§13 lesson, 2026-11-06). The kind
       // (e.g. empty_response) is preferred when present (FR-42).
+      // §16 FR-56: one line carrying model id, status, class, attempt
+      // number, fallback flag and the truncated provider error body.
+      const fallbackUsed = modelIndex > 0 || attempt > 1;
       console.warn(
-        `[llm] attempt ${attemptsMade}: model=${model} attempt=${attempt} -> ${
-          failure.kind ?? failure.cls
-        }${failure.status ? ` (HTTP ${failure.status})` : ""}`
+        `[llm] attempt ${attemptsMade}: model=${model} attempt=${attempt} status=${
+          failure.status ?? "-"
+        } class=${failure.kind ?? failure.cls} fallback=${
+          fallbackUsed ? "yes" : "no"
+        }${failure.body ? ` body="${bodyExcerpt(failure.body)}"` : ""}`
       );
       options.onAttempt?.({ model, attempt, failure });
       if (failure.cls === "fatal") {

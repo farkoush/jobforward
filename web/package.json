@@ -12,7 +12,9 @@
     "check:models": "tsx scripts/check-models.ts",
     "probe:rate-limit": "tsx scripts/probe-rate-limit.ts",
     "scan:byok": "node scripts/byok-security-scan.mjs",
-    "test:llm": "vitest run tests/llm"
+    "test:llm": "vitest run tests/llm",
+    "check:connection": "tsx scripts/check-connection.ts",
+    "test:live": "tsx scripts/test-live.ts"
   },
   "dependencies": {
     "@vercel/kv": "1.0.1",

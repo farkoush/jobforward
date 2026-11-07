@@ -1588,3 +1588,11 @@ rendering controls for `flagged`/`splitSuggested`). Tasks start at T133
   list (both engines) so the collab clause is orphaned (§2.2 coverage
   block shows it) — a rubric marker-list change = rubric-3.2.0 owner
   decision, NOT fixed silently.
+  **Post-walkthrough amendment 2 (owner decision 2026-11-07): the numeric
+  per-bullet ratings returned to BOTH displays** — the compact
+  Context/Action/Result line under each bullet in the review list AND the
+  rating number (" · n/2", new RATING_CELL string) beside the state label
+  in the §5.2 five-cell row (need/feature share the Context rating;
+  metric carries none — §6). The ratings were computed and stored all
+  along; only the display had been removed. Gates re-run green (tsc,
+  test:engine 33/33, build exit 0).

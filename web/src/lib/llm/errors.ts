@@ -20,6 +20,16 @@ export interface ClassifiedFailure {
   /** Seconds to wait before retrying, when the provider sent Retry-After. */
   retryAfter?: number;
   status?: number;
+  /** §16 FR-56: provider error BODY excerpt (single line, ≤300 chars) for
+   * the terminal log. Provider error bodies never echo request content, so
+   * no user text can enter here; keys never do (P14). */
+  body?: string;
+}
+
+/** §16 FR-56: bound a provider error body to a single ≤300-char line. */
+export function bodyExcerpt(raw: string): string {
+  const oneLine = raw.replace(/\s+/g, " ").trim();
+  return oneLine.length > 300 ? oneLine.slice(0, 300) : oneLine;
 }
 
 /** Extract Retry-After (seconds) from response headers or an error body. */

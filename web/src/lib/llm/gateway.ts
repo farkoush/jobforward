@@ -11,8 +11,10 @@ import {
   budgetFor,
   ConfigError,
   getLlmConfig,
+  getLlmCoreConfig,
   maxTokensFor,
   mockEnabled,
+  type LlmConfig,
 } from "./config";
 import { getAppliedChains } from "./validate-models";
 import { PROVIDERS } from "@/lib/byok/providers.config";
@@ -46,10 +48,12 @@ import {
   type StreamEvent,
 } from "./types";
 
-// Single BYOK provider (FR-27): the URL is the provider registry's declared
-// endpoint (providers.config) — a public endpoint, not a secret; keys stay
-// env-only/user-request-only (P13/P14).
-const OPENROUTER_BASE_URL = PROVIDERS.openrouter.baseUrl;
+// Single BYOK provider (FR-27; §16 FR-63 supersedes the DISPLAY to Google
+// AI Studio): the URL is the registry's declared OpenAI-compatible gateway
+// endpoint — a public endpoint, not a secret; keys stay user-request-only
+// (P13/P14). Other registry providers stay (hidden, not deleted).
+const BYOK_BASE_URL =
+  PROVIDERS.google_ai_studio.gatewayBaseUrl ?? PROVIDERS.google_ai_studio.baseUrl;
 
 export interface GatewayRequest {
   task: string;
@@ -129,9 +133,12 @@ async function preflight(
   const category = categoryForTask(req.task);
   if (!category) return { ok: false, failure: failure("INVALID_TASK") };
 
-  let cfg;
+  // §15 FR-55: the CORE config (limits/timeouts/gate) loads first; the BYOK
+  // path never needs the provider block, so a missing or broken free-path
+  // provider configuration cannot block a user-key request.
+  let core;
   try {
-    cfg = getLlmConfig();
+    core = getLlmCoreConfig();
   } catch (exc) {
     if (exc instanceof ConfigError) {
       return { ok: false, failure: failure("CONFIG_ERROR") };
@@ -139,11 +146,23 @@ async function preflight(
     throw exc;
   }
 
-  if (req.input.length > cfg.MAX_INPUT_CHARS) {
+  if (req.input.length > core.MAX_INPUT_CHARS) {
     return { ok: false, failure: failure("INPUT_TOO_LONG") };
   }
 
   const source: Source = opts.byokKey ? "byok" : "free";
+  // Free path only: the full config (provider envs + chains) may fail fast.
+  let cfg: LlmConfig | null = null;
+  if (source === "free") {
+    try {
+      cfg = getLlmConfig();
+    } catch (exc) {
+      if (exc instanceof ConfigError) {
+        return { ok: false, failure: failure("CONFIG_ERROR", { source }) };
+      }
+      throw exc;
+    }
+  }
   const limits = await checkRequestLimits({
     identity: opts.identity,
     source,
@@ -154,15 +173,24 @@ async function preflight(
   }
 
   const budget = budgetFor(category);
-  // Effective chain (§14 FR-39): the applied (validated + pruned) chains from
-  // startup override the raw env chains; an empty pruned category yields the
+  // Effective chain (§14 FR-39): the applied (validated + pruned) chains
+  // override the raw env chains; an empty pruned category yields the
   // typed CONFIG_ERROR result — never a request against known-invalid models.
   const applied = getAppliedChains();
-  const rawChain = category === "GEN" ? cfg.genChain : cfg.fastChain;
-  const chain =
-    source === "byok"
-      ? [opts.byokModel ?? ""].filter(Boolean)
-      : (applied?.[category] ?? rawChain).filter(Boolean);
+  let chain: string[];
+  let baseUrl: string;
+  let apiKey: string;
+  if (source === "byok") {
+    chain = [opts.byokModel ?? ""].filter(Boolean);
+    baseUrl = BYOK_BASE_URL;
+    apiKey = opts.byokKey as string;
+  } else {
+    const full = cfg as LlmConfig; // loaded above for the free path only
+    const rawChain = category === "GEN" ? full.genChain : full.fastChain;
+    chain = (applied?.[category] ?? rawChain).filter(Boolean);
+    baseUrl = full.NVIDIA_BASE_URL;
+    apiKey = full.NVIDIA_API_KEY;
+  }
   if (chain.length === 0) {
     return {
       ok: false,
@@ -175,8 +203,8 @@ async function preflight(
     category,
     source,
     chain,
-    baseUrl: source === "byok" ? OPENROUTER_BASE_URL : cfg.NVIDIA_BASE_URL,
-    apiKey: source === "byok" ? (opts.byokKey as string) : cfg.NVIDIA_API_KEY,
+    baseUrl,
+    apiKey,
     deadlineAt: Date.now() + budget.deadlineMs,
   };
 }
@@ -188,7 +216,7 @@ function attemptInput(
   opts: { attemptTimeoutMs: number; stream: boolean },
   mockError: MockScenario | null
 ) {
-  const cfg = getLlmConfig();
+  const cfg = getLlmCoreConfig();
   return {
     baseUrl: pre.baseUrl,
     apiKey: pre.apiKey,
@@ -276,7 +304,7 @@ async function runFastGatewayInner(
           result: failure.kind ?? failure.cls,
           status: failure.status,
         }),
-      maxProviderCalls: getLlmConfig().MAX_PROVIDER_CALLS_PER_REQUEST,
+      maxProviderCalls: getLlmCoreConfig().MAX_PROVIDER_CALLS_PER_REQUEST,
       attempt: (model) =>
         completeOnce(
           attemptInput(
@@ -498,14 +526,17 @@ async function* runGenGatewayInner(
           result: exc instanceof StreamAttemptError && exc.failure.kind ? exc.failure.kind : cls,
           status: exc instanceof StreamAttemptError ? exc.failure.status : undefined,
         });
-        // Operator-facing per-attempt visibility (same rationale as the
-        // one-shot chain in fallback.ts).
+        // §16 FR-56: operator-facing per-attempt line with the full field
+        // set (same format as the one-shot chain in fallback.ts).
+        const genBody = exc instanceof StreamAttemptError ? exc.failure.body : undefined;
         console.warn(
-          `[llm] gen attempt: model=${model} attempt=${attempt} -> ${cls}${
+          `[llm] gen attempt: model=${model} attempt=${attempt} status=${
             exc instanceof StreamAttemptError && exc.failure.status
-              ? ` (HTTP ${exc.failure.status})`
-              : ""
-          }`
+              ? exc.failure.status
+              : "-"
+          } class=${exc instanceof StreamAttemptError && exc.failure.kind ? exc.failure.kind : cls} fallback=${
+            model !== pre.chain[0] || attempt > 1 ? "yes" : "no"
+          }${genBody ? ` body="${genBody}"` : ""}`
         );
         if (cls === "fatal") {
           yield {

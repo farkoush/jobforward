@@ -32,7 +32,7 @@ function mockFetch(
 }
 
 const NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const BYOK_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 
 describe("gateway (US1, FR-16/23/26/27/28)", () => {
   beforeEach(() => {
@@ -136,7 +136,7 @@ describe("gateway (US1, FR-16/23/26/27/28)", () => {
       { task: "scoring_ratings", input: "score these" },
       { identity: "anon-1", byokKey: "sk-or-user-key", byokModel: "user-chosen-model" }
     );
-    expect(calls.every((c) => c.url === OPENROUTER_URL)).toBe(true);
+    expect(calls.every((c) => c.url === BYOK_URL)).toBe(true);
     expect(
       calls.every(
         (c) =>
@@ -155,12 +155,61 @@ describe("gateway (US1, FR-16/23/26/27/28)", () => {
       { task: "scoring_ratings", input: "score these" },
       { identity: "anon-1", byokKey: "sk-or-user-key", byokModel: "user-chosen-model" }
     );
-    expect(calls.every((c) => c.url === OPENROUTER_URL)).toBe(true);
+    expect(calls.every((c) => c.url === BYOK_URL)).toBe(true);
     expect(outcome.ok).toBe(false);
     if (!outcome.ok) {
       expect(outcome.reason).toBe("BYOK_FAILED");
       expect(outcome.source).toBe("byok");
     }
+  });
+
+  it("§15 FR-55: BYOK succeeds even with the free-path provider envs REMOVED", async () => {
+    for (const key of [
+      "NVIDIA_API_KEY",
+      "NVIDIA_BASE_URL",
+      "GEN_MODEL",
+      "GEN_FALLBACKS",
+      "FAST_MODEL",
+      "FAST_FALLBACKS",
+    ]) {
+      delete process.env[key];
+    }
+    const { resetLlmConfigForTests } = await import("@/lib/llm/config");
+    resetLlmConfigForTests();
+    const calls = mockFetch(() => Response.json(openAiCompletion("byok answer")));
+    const { runFastGateway } = await gatewayModule();
+    const outcome = await runFastGateway(
+      { task: "scoring_ratings", input: "score these" },
+      { identity: "anon-1", byokKey: "sk-or-user-key", byokModel: "user-chosen-model" }
+    );
+    // Only OpenRouter was contacted — the broken NVIDIA config never blocked it.
+    expect(calls.every((c) => c.url === BYOK_URL)).toBe(true);
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.source).toBe("byok");
+  });
+
+  it("§15 FR-55: without a key, a broken free-path config yields typed CONFIG_ERROR (no crash, no empty body)", async () => {
+    for (const key of [
+      "NVIDIA_API_KEY",
+      "NVIDIA_BASE_URL",
+      "GEN_MODEL",
+      "GEN_FALLBACKS",
+      "FAST_MODEL",
+      "FAST_FALLBACKS",
+    ]) {
+      delete process.env[key];
+    }
+    const { resetLlmConfigForTests } = await import("@/lib/llm/config");
+    resetLlmConfigForTests();
+    const calls = mockFetch(() => Response.json(openAiCompletion("nope")));
+    const { runFastGateway } = await gatewayModule();
+    const outcome = await runFastGateway(
+      { task: "scoring_ratings", input: "score these" },
+      { identity: "anon-1" }
+    );
+    expect(calls).toHaveLength(0); // no provider call against known-broken config
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("CONFIG_ERROR");
   });
 
   it("rejects unknown tasks and over-long input before any provider call", async () => {

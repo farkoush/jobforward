@@ -30,7 +30,14 @@ const csv = (name: string) =>
       message: `${name} must list at least one fallback model (comma-separated)`,
     });
 
-const gatewayEnvSchema = z.object({
+/**
+ * §15 FR-55: the free-path provider block is SEPARATE from the core schema —
+ * the BYOK request path loads ONLY the core (limits/timeouts/gate/mock/
+ * chain-policy) and succeeds even when the free-path provider configuration
+ * is missing or broken. getLlmConfig() (core+provider) stays the free-path
+ * and operator loader with its fail-fast behavior.
+ */
+const providerEnvSchema = z.object({
   // Free path provider (NVIDIA, OpenAI-compatible)
   NVIDIA_API_KEY: z
     .string()
@@ -42,7 +49,9 @@ const gatewayEnvSchema = z.object({
   GEN_FALLBACKS: csv("GEN_FALLBACKS"),
   FAST_MODEL: z.string().min(1, "FAST_MODEL is required"),
   FAST_FALLBACKS: csv("FAST_FALLBACKS"),
+});
 
+const coreEnvSchema = z.object({
   // Entry gate (FR-36)
   GATE_PASSWORD: z.string().min(1, "GATE_PASSWORD is required"),
   GATE_COOKIE_SECRET: z.string().min(1, "GATE_COOKIE_SECRET is required"),
@@ -101,12 +110,17 @@ const gatewayEnvSchema = z.object({
   MAX_PROVIDER_CALLS_PER_REQUEST: int(4),
 });
 
+const gatewayEnvSchema = coreEnvSchema.extend(providerEnvSchema.shape);
+
+export type CoreLlmConfig = z.infer<typeof coreEnvSchema>;
+
 export type LlmConfig = z.infer<typeof gatewayEnvSchema> & {
   genChain: string[];
   fastChain: string[];
 };
 
 let cached: LlmConfig | null = null;
+let coreCached: CoreLlmConfig | null = null;
 
 export class ConfigError extends Error {
   constructor(message: string) {
@@ -120,7 +134,7 @@ export function getLlmConfig(): LlmConfig {
   const parsed = gatewayEnvSchema.safeParse(process.env);
   if (!parsed.success) {
     const missing = parsed.error.issues
-      .map((issue) => issue.message)
+      .map((issue) => `${issue.path.join(".") || "config"}: ${issue.message}`)
       .join("; ");
     throw new ConfigError(`Gateway configuration incomplete: ${missing}`);
   }
@@ -133,9 +147,28 @@ export function getLlmConfig(): LlmConfig {
   return cached;
 }
 
+/**
+ * Core-only loader (§15 FR-55): succeeds without any provider env — the BYOK
+ * request path and every internal reader of limits/timeouts/token budgets
+ * uses this, so a broken free-path configuration never blocks BYOK.
+ */
+export function getLlmCoreConfig(): CoreLlmConfig {
+  if (coreCached) return coreCached;
+  const parsed = coreEnvSchema.safeParse(process.env);
+  if (!parsed.success) {
+    const missing = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "config"}: ${issue.message}`)
+      .join("; ");
+    throw new ConfigError(`Gateway core configuration incomplete: ${missing}`);
+  }
+  coreCached = parsed.data;
+  return coreCached;
+}
+
 /** Test hook: drop the memoized config so new env values are read. */
 export function resetLlmConfigForTests(): void {
   cached = null;
+  coreCached = null;
 }
 
 let productionMockWarned = false;
@@ -164,7 +197,7 @@ export function budgetFor(category: "GEN" | "FAST"): {
   deadlineMs: number;
   maxOutputTokens: number;
 } {
-  const cfg = getLlmConfig();
+  const cfg = getLlmCoreConfig();
   return category === "GEN"
     ? {
         attemptTimeoutMs: cfg.ATTEMPT_TIMEOUT_MS_GEN,
@@ -184,7 +217,7 @@ export function budgetFor(category: "GEN" | "FAST"): {
  * spend the normal cap thinking and return empty content.
  */
 export function maxTokensFor(category: "GEN" | "FAST", model: string): number {
-  const cfg = getLlmConfig();
+  const cfg = getLlmCoreConfig();
   if (category === "FAST") {
     const lower = model.toLowerCase();
     const reasoning = cfg.REASONING_MODEL_PATTERNS.some((pattern) =>

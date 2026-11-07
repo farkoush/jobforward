@@ -261,3 +261,66 @@ describe("fallback chain (FR-03/04, FR-34)", () => {
     }
   });
 });
+
+describe("§16 FR-56 per-attempt terminal log line", () => {
+  beforeEach(() => {
+    setGatewayTestEnv();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    clearGatewayEnv();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  async function chainModule() {
+    return import("@/lib/llm/fallback");
+  }
+
+  it("logs model, attempt, status, class, fallback flag and the body excerpt", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { runChain } = await chainModule();
+    const result = await runChain({
+      models: ["model-a", "model-b", "model-c"],
+      source: "free",
+      deadlineAt: Date.now() + 60_000,
+      attempt: async (model) =>
+        model === "model-a"
+          ? { ok: false, failure: { cls: "not_found" as const, status: 404, body: "upstream exploded with diagnostics" } }
+          : model === "model-b"
+            ? { ok: false, failure: { cls: "not_found" as const, status: 500, body: "second model also gone" } }
+            : okOutcome("recovered"),
+    });
+    expect(result.ok).toBe(true);
+    const lines = warn.mock.calls.map((c) => String(c[0]));
+    const lineA = lines.find((l) => l.includes("model=model-a"));
+    expect(lineA).toBeDefined();
+    expect(lineA).toContain("attempt=1");
+    expect(lineA).toContain("status=404");
+    expect(lineA).toContain("class=not_found");
+    expect(lineA).toContain("fallback=no");
+    expect(lineA).toContain('body="upstream exploded with diagnostics"');
+    const lineB = lines.find((l) => l.includes("model=model-b"));
+    expect(lineB).toContain("fallback=yes");
+  });
+
+  it("body is truncated to 300 chars; keys and user text never appear (P14)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { runChain } = await chainModule();
+    await runChain({
+      models: ["m1"],
+      source: "free",
+      deadlineAt: Date.now() + 60_000,
+      attempt: async () => ({
+        ok: false,
+        failure: { cls: "fatal" as const, status: 401, body: "x".repeat(900) },
+      }),
+    });
+    const line = warn.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(line).toContain('body="' + "x".repeat(300) + '"');
+    expect(line).not.toContain("x".repeat(301));
+    expect(line).not.toContain("nvapi-");
+    expect(line).not.toContain("Bearer");
+    expect(line).not.toContain("sk-or-");
+  });
+});

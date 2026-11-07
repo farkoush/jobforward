@@ -11,7 +11,7 @@
  * provider limiter.
  */
 
-import { getLlmConfig } from "./config";
+import { getLlmCoreConfig } from "./config";
 import { getRateStore } from "./rate-store";
 import type { Category, GatewayReason, Source } from "./types";
 
@@ -60,7 +60,7 @@ export interface LimitContext {
  * expires at 00:00 UTC anyway).
  */
 export async function checkRequestLimits(ctx: LimitContext): Promise<LimitDecision> {
-  const cfg = getLlmConfig();
+  const cfg = getLlmCoreConfig();
   const store = getRateStore();
   const dayWindow = msToUtcMidnight();
   const day = utcDayKey();
@@ -118,7 +118,7 @@ export async function checkRequestLimits(ctx: LimitContext): Promise<LimitDecisi
  * request is rejected with SERVICE_BUSY.
  */
 export async function acquireProviderSlot(): Promise<void> {
-  const cfg = getLlmConfig();
+  const cfg = getLlmCoreConfig();
   const store = getRateStore();
   const deadline = Date.now() + cfg.BUSY_QUEUE_MS;
   for (;;) {

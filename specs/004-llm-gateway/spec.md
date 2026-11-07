@@ -147,6 +147,41 @@
   deadline — and is rejected with the "service busy" message (input
   preserved) only if no slot frees in time.
 
+### Session 2026-11-07
+
+(Decisions from the retired spec 005 clarify session — absorbed into §15.)
+
+- Q: When the whole free chain fails (ALL_MODELS_FAILED) at an analysis stage,
+  which behavior applies? → A: No-way-forward with Retry kept visible — the own-key
+  path is offered prominently (automatic transfer when no key is saved), and the
+  Retry button stays available next to it.
+- Q: When and how does the provider connection check run, without slowing the first
+  analysis? → A: A single content-free background check starts on the first screen
+  after the gate ("What would you like to do today?"), runs once per session (plus
+  explicit user-triggered re-checks), never blocks any navigation, and its result is
+  consumed by the first analysis (with a short-cap fallback if the user gets there
+  first). A visible status shows the truth at all times: checking, available
+  (green), needs-retry, or unavailable with the own-key suggestion. Owner-approved
+  exception to "provider contact only at analysis stages": this one connection
+  check carries no user content.
+- Q: After the user returns from the own-key settings to the stage where the failure
+  happened, does the failed action retry automatically? → A: Yes, once — refined by
+  the next answer: only after an explicit one-tap confirm.
+- Q: Should the platform silently assume the saved key should be used for that
+  retry? → A: No — on return the platform asks once, "Retry with your own key?";
+  confirming runs the failed action once with the own key, dismissing leaves the
+  user at the stage. The "use my key for analysis" preference is only auto-enabled
+  along this failure path (menu-initiated settings visits never touch it).
+- Owner decision (2026-11-07): the automatic transfer to the own-key settings is
+  never a silent jump — a short explanation (why / where / promise of return) is
+  shown first, and the transfer proceeds after a brief visible moment or a single
+  tap, whichever comes first.
+- Owner decision (2026-11-07): one persistent banner from the menu onward shows the
+  active answering source, the connection state as a color (green / yellow / red),
+  and switches the source in place.
+- Owner decision (2026-11-07): the BYOK configuration becomes a fully independent
+  "LLM settings" section with its own screens, reachable from everywhere.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Reliable request routing with automatic fallback (Priority: P1)
@@ -583,6 +618,10 @@ Per constitution P11, this spec inherits and MUST comply with:
 
 ### FR-37 — Model-ID validation
 
+*(Superseded 2026-11-07, §15 FR-45/46: the server-startup trigger is REMOVED —
+validation runs through the content-free check route `POST /api/llm/check` and
+the operator CLI; `npm run check:models` stays unchanged.)*
+
 - At server startup AND via `npm run check:models` (scripts/check-models.ts), the
   gateway fetches the provider model list from GET {NVIDIA_BASE_URL}/models and
   compares every configured ID (GEN_MODEL, GEN_FALLBACKS, FAST_MODEL,
@@ -675,3 +714,328 @@ and tests written. Standing contracts unchanged: typed results, fatal 400/401/40
 
 Assumption: audit warnings/errors are operator-facing logs in English (server-side;
 FR-15 unaffected).
+
+## §15 Error Honesty, Connection Check & LLM Settings Section (2026-11-07, owner brief; absorbs retired spec 005)
+
+Provenance: on the live Vercel deployment a gate configuration failure was shown
+to testers with the AI-outage text ("The AI service is unavailable...") at the
+access-code screen — no AI was involved; and the §13 startup validation contacts
+the provider during cold start, so the first page load can stall for seconds and
+provider contact happens outside analysis stages. The owner brief (2026-11-07)
+adds honest error UX, a visible connection check, and an independent LLM settings
+section. Owner decision: spec 004 is the PRIMARY spec for everything
+model-related, including this web experience — the separate spec 005 is retired
+and absorbed here. Scope: web prototype only (terminal flow stays frozen).
+All user-facing texts: English B1 (P16); technical detail stays in server logs
+(P19). The user's data is never lost by any flow below (P18, FR-22 stays).
+
+### FR-45 — Provider contact only at analysis stages (one approved exception)
+
+- Zero provider contact during entry-page load and access-code submission; the
+  page renders without waiting for any provider call. The §13 startup validation
+  NO LONGER runs in the page-entry/server-start path (FR-46 replaces its trigger).
+- Exactly ONE content-free connection check per session may run in the
+  background, starting on the first screen after the gate ("What would you like
+  to do today?") — it carries no user data — plus explicit user-triggered
+  re-checks. Owner-approved exception (clarify 2026-11-07).
+- All remaining provider contact happens only when the user triggers an analysis
+  action (scoring, generation, matching).
+
+### FR-46 — Connection check: endpoint, caching, consumption
+
+- A typed, content-free check endpoint performs the §13/§14 validation (pruned
+  chains) and returns reachability + state; it never returns HTML or user data.
+- The result is cached per server instance (reuses the applied-chains store);
+  the client runs it once per session from the menu screen and on explicit
+  re-checks ("Check again").
+- The first analysis action consumes the cached result; if the check has not
+  finished, the action proceeds with a short capped wait or the raw env chains
+  (§14 skip behavior) — never a long stall.
+- A check that reports available is a status hint, never a guarantee: analysis
+  failures still surface typed at the analysis point.
+
+### FR-47 — Gate error messages separated (no false AI outage)
+
+- A broken gate configuration shows a gate-specific message ("the service is not
+  available right now, please try again later") — NEVER AI wording, no variable
+  names, status codes, or model names (named cause stays in the server log,
+  FR-23/P19).
+- A wrong access code keeps its existing distinct message.
+
+### FR-48 — Failure-class taxonomy (single source for the UI)
+
+- Every GatewayReason maps to exactly one class: TRANSIENT (SERVICE_BUSY,
+  MINUTE_LIMIT, RATE_LIMITED), NO-WAY-FORWARD (QUOTA_USER, QUOTA_GLOBAL,
+  ALL_MODELS_FAILED, CONFIG_ERROR), BROWSER-UNREACHABLE (client-side NETWORK /
+  page-load failure), OWN-KEY (BYOK_FAILED, BYOK_LIMIT). INVALID_INPUT,
+  INVALID_TASK, UNAUTHORIZED keep their own handling (no class redirect).
+- ALL_MODELS_FAILED is no-way-forward WITH the Retry button kept visible (the
+  gateway has already tried every model before showing it).
+- This mapping is the single source the UI consumes for messages, guidance, and
+  available actions.
+
+### FR-49 — Guidance box at the failing stage
+
+- Every AI failure at an analysis stage shows an in-page guidance box at that
+  same stage (never console-only, never a dead-end text alone), content matched
+  to the class: wait-and-retry for transient (Retry stays primary); own-key path
+  for no-way-forward; check-internet/VPN advice ONLY for browser-unreachable;
+  fix-key advice for own-key failures (with the free-path retry option visible —
+  the user is never trapped between two dead ends).
+- VPN wording NEVER appears for server-side AI failures (a user-side VPN does
+  not affect the server-to-provider link); only when the browser-to-platform
+  link fails.
+- Texts: English B1, no status codes, model names, variable names, or file
+  paths; exact wording drafted at planning, owner-reviewed.
+
+### FR-50 — No-way-forward transfer with advance explanation
+
+- The transfer to the LLM settings section (FR-54) is preceded by a short
+  explanation — why the free path cannot continue, where the user is going, and
+  that they will return to the same stage — then proceeds after a brief visible
+  moment or a single tap, whichever comes first. Never a silent jump.
+- The origin stage is remembered. If a working key is already saved, the
+  platform offers using it immediately instead of a pointless transfer.
+
+### FR-51 — Return + one-tap retry (failure path only)
+
+- After saving a key in a failure-initiated settings visit: return to the exact
+  origin stage with input intact and ask once, "Retry with your own key?" —
+  confirming runs the failed action once with the own key; dismissing leaves the
+  user at the stage. Cancelling the settings without saving returns with no ask.
+- Along this failure path only, saving a key also enables the use-for-analysis
+  preference; menu-initiated visits never change it. Every other retry in the
+  platform remains an explicit user action.
+
+### FR-52 — Connection status: four truthful states, never blocking
+
+- From the menu onward the connection state shows as one of: checking,
+  available (green), needs-retry (yellow, with Check again), unavailable (red,
+  with the own-key suggestion). Truthful to the check's and the last analysis
+  result's state at all times.
+- The check NEVER disables, delays, or hides any navigation control; status
+  changes never interrupt the current screen. No "why is Next stuck?" state can
+  exist.
+
+### FR-53 — Persistent model banner (upgrade of the existing ModelBanner)
+
+- One banner at the top of every screen from the menu onward: the active
+  answering source ("Free service" or "Your key: MODEL") plus the connection
+  color state (FR-52).
+- In-place switch without leaving the screen: use your key (when a key is
+  saved), use the free service, open model settings. A switch takes effect for
+  the next analysis action with no reload and no loss of place; choosing the
+  own key without a saved key leads to the settings with the origin remembered.
+- Switching is never blocked by status; the banner keeps reporting the free
+  path's state truthfully even while the own key is selected. Selecting a
+  broken path is allowed — the honest failure appears at the point of action.
+
+### FR-54 — LLM settings: BYOK as a fully independent settings section
+
+- A self-contained "LLM settings" section with its own screens: key management
+  (save / replace / clear), model choice, use-for-analysis preference, and the
+  connection status display with Check again.
+- Reachable from everywhere: the menu (as today), the banner (FR-53), and the
+  failure transfers (FR-50).
+- Entering and leaving NEVER disturbs flow state or drafts; a menu-initiated
+  visit returns to the menu (today's behavior); only a failure-initiated visit
+  returns to the origin stage (FR-51).
+- Standing contracts unchanged: single BYOK provider (OpenRouter, FR-27), key
+  per-request and never persisted server-side (FR-29), P14.
+
+### FR-55 — BYOK servable without free-path configuration (preflight decoupling)
+
+- Preflight MUST NOT require the free-path provider configuration for BYOK
+  requests: with NVIDIA credentials missing or broken, a valid own-key request
+  still succeeds; a no-key request returns the typed CONFIG_ERROR with the
+  no-way-forward guidance (FR-49) — never a crash, a hang, or an empty body.
+- Limits, deadlines, and privacy-safe logging behave identically for both paths.
+
+### §15 Entities introduced
+
+- Failure class: transient / no-way-forward / browser-unreachable / own-key —
+  decides message, guidance, and available actions (FR-48).
+- Origin stage: the screen and in-progress state a user came from when the
+  settings were opened from a failure; remembered until save/cancel, then
+  restored (FR-50/51).
+- Guidance box: in-page error + class-matched advice + actions (FR-49).
+- Connection check: the one content-free background request per session plus
+  re-checks; cached per server instance (FR-46).
+- Connection status state: checking / available / needs-retry / unavailable,
+  shown as the banner's color state (FR-52/53).
+- LLM settings section: the independent BYOK settings area (FR-54).
+
+### §15 Measurable outcomes
+
+- SC-011: Cold server + unreachable provider -> entry page renders and the
+  access code passes with ZERO provider requests logged; exactly one
+  content-free connection check appears from the menu screen onward.
+- SC-012: First page load shows no multi-second stall attributable to provider
+  checks (the previous cold-start wait is gone).
+- SC-013: For every failure class, the guidance box appears at the failing
+  stage in 100% of covered test scenarios; zero VPN wording in server-side AI
+  failure texts.
+- SC-014: From a forced no-way-forward failure, the guided journey (advance
+  explanation -> settings -> save -> return -> one-tap retry) completes on the
+  same stage with input intact and succeeds with the saved key.
+- SC-015: With free-path credentials removed, an own-key analysis request
+  succeeds and a no-key request returns the typed guidance failure (no crash,
+  no empty response).
+- SC-016: Zero occurrences of AI wording in gate-stage error texts; all new
+  texts pass the simple-English review.
+- SC-017: The status reaches a final state within a typical menu visit; the
+  checking state makes any remaining wait self-explanatory.
+- SC-018: Navigation completes immediately regardless of check state — zero
+  blocked or delayed Next/continue controls in covered scenarios.
+- SC-019: The banner reflects a state change within one screen update, and an
+  in-place source switch applies to the next analysis action in 100% of
+  covered scenarios without reload or loss of place.
+
+Assumptions (§15): the automatic-transfer (no-way-forward) vs side-by-side-offer
+(transient) split is a deliberate owner decision (2026-11-07); web-prototype
+only — the terminal flow is frozen and untouched; exact B1 texts are drafted at
+planning and owner-reviewed before implementation; the owner-approved
+connection-check exception to "provider contact only at analysis stages" is
+recorded in the 2026-11-07 clarify session.
+
+## §16 Diagnostics, Live Smoke Test & BYOK Quick Access (2026-11-07, owner fix brief)
+
+Owner brief after the §15 live session (post the .env.local incident). ALL
+changes are additive — no existing feature is removed or rewritten without
+an explicit owner decision (standing rule, owner brief 2026-11-07). Two
+standing rules recorded verbatim from the brief: (1) NEVER edit or append
+to `.env.local` — propose changes as a diff; (2) do not delete features
+that were built earlier — ask first.
+
+### FR-56 — Failure logging contract (server terminal)
+
+- EVERY LLM failure attempt is logged to the server terminal with: model id,
+  HTTP status (when present), error class (retryable/not_found/fatal/timeout/
+  empty_response/malformed/network), the provider error BODY truncated
+  (~300 chars), the attempt number within the request, and whether fallback
+  was used.
+- NEVER logged: API keys, resume/user text, cookie secrets (P14, FR-08/09 —
+  the existing JSONL redaction contract is unchanged and stays the audit
+  record; this FR adds the human-readable terminal line).
+- The final gateway outcome keeps its existing one-line summary log.
+
+### FR-57 — Dev browser-console failure logging
+
+- In development ONLY (never production), the browser logs the same
+  sanitized failure summary to the console: failure class, reason code,
+  responding model (when present), attempt results — no keys, no user text.
+- Production browsers log nothing beyond the existing UI surfaces.
+
+### FR-58 — Startup configuration echo + duplicate warning
+
+- At server startup the resolved GEN and FAST chain IDs (primary +
+  fallbacks) are logged to the server terminal — model ids only, NEVER keys.
+  This is a config echo, NOT a provider contact (FR-45's zero-contact rule
+  is unaffected: no fetch happens at startup).
+- In development, the startup also reads `.env.local` and WARNS with LINE
+  NUMBERS when any variable is defined more than once (the 2026-11-07
+  incident guard, now at startup where the operator actually looks).
+
+### FR-59 — Live smoke test (`npm run test:live`)
+
+- NEW operator command: sends a 1-token chat completion to EVERY configured
+  chain model (GEN primary + fallbacks, FAST primary + fallbacks) using the
+  real `.env.local`, and prints a per-model OK/FAIL table with HTTP status
+  and the (truncated) error body on failure.
+- Manual, live-key tool like check:connection — NEVER part of the automated
+  test suite; may consume a tiny amount of the account's quota.
+
+### FR-60 — check:connection upgraded to a live smoke test
+
+- `npm run check:connection` keeps its timings + list-membership report and
+  ADDS the FR-59 per-model 1-token smoke for the configured chains, so one
+  command answers both "is the network up?" and "is every configured model
+  actually servable?".
+
+### FR-61 — BYOK quick access from every page
+
+- A visible "Use my own API key" entry lives in the TOP BAR/HEADER on every
+  page (the §15 banner becomes the persistent header element, shown on ALL
+  screens including the gate and welcome screens), plus the existing main
+  menu item — BYOK is reachable everywhere, not only via the settings page.
+- The header shows the ACTIVE SOURCE at all times with the labels
+  "Default free" or "My key" (supersedes the §15 labels "Free service" /
+  "Your key" for the header display; the in-place source switching and
+  status colors of FR-52/53 are unchanged).
+- NEW quick path: a small panel/modal opened from the header — paste key,
+  choose model, save, done — without navigating to the full settings page
+  (which keeps its place for advanced use: status card, clearing, details).
+- BYOK stays fully independent of the NVIDIA default configuration (FR-55
+  decoupling unchanged; the quick save keeps the key memory-only per FR-29).
+
+### FR-62 — BYOK failure: explicit resend with the default combo
+
+- When the user's own model fails, the UI shows the error AND a button to
+  RESEND that same request with the default free combo — per request only,
+  never an automatic fallback (extends FR-28/§15's own-key guidance; the
+  button is labeled as an explicit resend of the failed request).
+
+### §16 Measurable outcomes
+
+- SC-020: 100% of failure attempts produce a terminal line carrying all six
+  FR-56 fields; a redaction guard test proves no key/resume text can appear.
+- SC-021: dev browser console shows the sanitized failure summary; the
+  production build logs nothing extra (guard-tested via build mode).
+- SC-022: startup log lists every resolved chain ID and zero keys; a planted
+  duplicate variable produces a startup warning WITH line numbers.
+- SC-023: `npm run test:live` prints one OK/FAIL row per configured model;
+  `check:connection` includes the same per-model smoke.
+- SC-024: from EVERY page the BYOK quick modal is reachable in one click,
+  saves a key + model without leaving the page, and the header always shows
+  "Default free" or "My key".
+- SC-025: after a BYOK failure, the resend-with-default button retries the
+  exact failed request on the free path in 100% of covered scenarios; zero
+  automatic fallbacks (SC-008 unchanged).
+
+Assumptions (§16): terminal-only logging addition — the JSONL request log
+contract is untouched; "startup" echo runs in dev and production (ids only);
+`test:live`/`check:connection` smoke are operator-run (manual, real key);
+the §15 once-per-session menu check and banner status colors are unchanged;
+label supersession (Free service/Your key → Default free/My key) is
+owner-mandated wording for the header display.
+
+### FR-63 — Active BYOK provider display: Google AI Studio (owner decision 2026-11-07)
+
+- The BYOK surfaces (quick modal, settings page, key hints) present EXACTLY
+  ONE provider for now: **Google AI Studio**; the gateway BYOK path targets
+  Google AI Studio's OpenAI-compatible endpoint
+  (https://generativelanguage.googleapis.com/v1beta/openai, Bearer key).
+- The other registry providers (OpenRouter, Ollama, Groq, …) are HIDDEN from
+  the UI — NOT deleted; re-activating one is a config-level change.
+  (Supersedes the FR-27 OpenRouter-only DISPLAY; the single-active-provider
+  rule itself is unchanged.)
+- The key stays memory-only per FR-29; P14 unchanged; BYOK independence from
+  the NVIDIA config (FR-55) unchanged.
+
+### §16.1 — Approved cleanup S1 (owner: "S1 + S2 اجرا کن؛ S3/S4 نه؛ هیچ حذف دیگری")
+
+- DELETE the leftover temp file `web/probe-phase18.tmp.ts` (untracked, zero
+  references).
+- Add `/node_modules/` to the ROOT .gitignore and unstage the staged junk
+  (vitest/npx cache at repo root).
+- NOTHING else is deleted: S3 (legacy byok stack) and S4 (GEN route) are
+  explicitly NOT approved; every other file/feature stays.
+
+### FR-64 — Client check resilience: timeout + auto-recovery (owner decision 2026-11-07, "A+B")
+
+- **A — client timeout:** the browser's check request to `/api/llm/check`
+  MUST carry a 20-second abort signal; a timeout is treated exactly like a
+  failed check (needs-retry, then unavailable on repetition) — the client
+  can never hang on "Checking…" because the request never resolves.
+- **B — auto-recovery:** a SAVED status is restored without a provider
+  contact ONLY when it is "available"; when the last known status is
+  needs-retry or unavailable (or there is no saved status), the menu mount
+  runs ONE fresh check per page load, so the banner recovers by itself when
+  the network returns. This amends the §15 once-per-session rule exactly to
+  this extent (owner-approved; the §15 content-free exception unchanged).
+- Server side unchanged: the 15-second provider abort (§15) already bounds
+  every server response.
+
+Assumption: the per-load auto-check when unhealthy adds at most one
+content-free request per page load during outages — accepted by the owner
+explicitly (option B).

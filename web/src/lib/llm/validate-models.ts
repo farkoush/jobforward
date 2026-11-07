@@ -179,3 +179,85 @@ export async function runValidationReporting(
   if (result.skipped) return true; // indeterminate is not a failure
   return result.errors.length === 0;
 }
+
+// --- §15 FR-45/46 connection check: typed, content-free, per-instance. ---
+
+import { ConfigError, getLlmConfig, mockEnabled } from "./config";
+
+export interface ConnectionCheckResult {
+  state: "available" | "unavailable";
+  configOk: boolean;
+  /** Valid-ID COUNTS only — never the IDs themselves (P14, FR-52). */
+  chains: { GEN: number; FAST: number };
+  checkedAt: string;
+  /** Client mapping (R14): 1 → needs-retry, 2+ → unavailable. */
+  consecutiveFailures: number;
+}
+
+let lastCheck: ConnectionCheckResult | null = null;
+
+export function resetConnectionCheckForTests(): void {
+  lastCheck = null;
+}
+
+/**
+ * The §15 connection check (the ONLY provider contact outside analysis
+ * stages, owner-approved): runs the full validation, applies the pruned
+ * chains, and returns a client-safe typed result — no model names, no keys,
+ * never throws for expected failure modes. available = the provider answered
+ * AND both categories retain at least one valid (non-forbidden) ID.
+ */
+export async function runConnectionCheck(
+  log: Pick<Console, "warn" | "error"> = console
+): Promise<ConnectionCheckResult> {
+  const checkedAt = new Date().toISOString();
+  // Mock mode (FR-38, dev-only): no provider is contacted; the mock answers.
+  if (mockEnabled()) {
+    lastCheck = {
+      state: "available",
+      configOk: true,
+      chains: { GEN: 1, FAST: 1 },
+      checkedAt,
+      consecutiveFailures: 0,
+    };
+    return lastCheck;
+  }
+
+  let configOk = true;
+  let result: ModelValidation | null = null;
+  try {
+    const cfg = getLlmConfig();
+    result = await validateConfiguredModels(cfg);
+  } catch (exc) {
+    if (exc instanceof ConfigError) {
+      configOk = false;
+    } else {
+      throw exc;
+    }
+  }
+
+  if (result) {
+    if (result.skipped) resetAppliedChainsForTests();
+    else applyValidatedChains(result.chains);
+    for (const warning of result.warnings) log.warn(`[llm] model check: ${warning}`);
+    for (const error of result.errors) log.error(`[llm] model check: ${error}`);
+  } else {
+    // Broken free-path configuration: drop any stale applied override so the
+    // free path fails typed instead of using remembered chains.
+    resetAppliedChainsForTests();
+    log.error("[llm] connection check: free-path configuration is incomplete");
+  }
+
+  const available = result !== null && !result.skipped && result.errors.length === 0;
+  lastCheck = {
+    state: available ? "available" : "unavailable",
+    configOk,
+    chains: result && !result.skipped
+      ? // Indeterminate (skipped) reports zero — nothing was validated.
+        { GEN: result.chains.GEN.length, FAST: result.chains.FAST.length }
+      : { GEN: 0, FAST: 0 },
+    checkedAt,
+    consecutiveFailures: available ? 0 : (lastCheck?.consecutiveFailures ?? 0) + 1,
+  };
+  return lastCheck;
+}

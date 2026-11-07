@@ -473,7 +473,7 @@ These rules apply only during the rewriting stage; when displaying the framework
 - The web display renders the one-sentence format of §5.1 with the closed connector set, and the sentence never contradicts the score. **Phase 15 (§5.2): on the web the parts render as soft underlines with dotted placeholders for missing slots (no brackets), a five-cell status row (Complete/Vague/Missing, text+weight only, no icons) sits above the sentence, and the coverage block (§2.2) is unchanged; the terminal keeps §5 exactly.**
 - Every submitted improvement yields a before/after score pair computed by the same pipeline as first-time scoring.
 - **Phase 15 (§6.2): exactly one question is expanded at a time in the order missing → vague → metric (fixed part order within each group); Next and fragment-click navigation work; typing updates the sentence live; confirmed parts remain visible and clickable; complete bullets skip the loop (confirmation only); zero confirmed answers still means no rewrite.**
-- The model disclosure banner appears exactly on the screens where a model call can happen while model scoring is active, and never otherwise.
+- The model disclosure banner appears exactly on the screens where a model call can happen while model scoring is active, and never otherwise. **Superseded 2026-11-07: spec-004 §15 FR-53 — the banner now shows on EVERY screen from the menu onward (active source + connection color state + in-place source switching), not only on model-call screens.**
 - The platform theme (§11) renders on every web screen with the three vendored fonts and no external font requests, and the tone guard test passes (no emoji in message strings; key tokens present).
 - Coverage (§2.2): the coverage record lists, per part, its exact extracted words with status and reason, and every word of the bullet that no part claims appears in exactly one orphaned span with a reason; no word is claimed by two parts (the §2.1 feature-inside-action overlap excepted — such words are claimed by the action and never orphaned) and orphaned spans never change scores, questions, or statuses.
 - The coverage record (§4) carries quotation, status, and reason for all five parts and every orphaned chunk; a missing part's quotation is empty and its reason states why the part is missing.
@@ -821,10 +821,14 @@ becomes plain editable text with ALL shaping buttons removed.
   `entry_score`; the ring now reads as the Experience score). The
   rubric-version text leaves the display with the old header; the rubric
   version string stays STORED with every score (§3, unchanged).
-- The per-bullet dimension lines (Context / Role and Action Clarity /
-  Result) leave the summary page; the per-part detail lives inside each
-  bullet's improvement screen (§5.2 status row + sentence), where it
-  already exists.
+- [Owner decision 2026-11-07 — supersedes the earlier Phase 18 removal]:
+  the numeric per-bullet ratings (0/1/2 per dimension) are DISPLAYED in
+  both places — the compact line under each bullet in the review list
+  (Context / Role and Action Clarity / Result, each /2) AND beside the
+  state label in the §5.2 five-cell row inside each bullet's improvement
+  screen. Need and Feature share the Context rating; Metric is optional
+  and carries no number (§6). The ratings were computed and stored all
+  along — only the display had been removed with the score-screen merge.
 - The encouragement line (§11.5, `ENCOURAGE_SCORED`) keeps its accepted
   placement — now on the merged review page after scoring. Drafts with no
   score keep the no-number draft state ("Draft experience - excluded from

@@ -37,6 +37,10 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
     dataUsageCheckedAt: "2026-10-30 (unverified against live docs)",
     curatedModels: ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"],
     enabled: true,
+    // §16 FR-63: the ACTIVE BYOK provider for the server gateway — Google's
+    // OpenAI-compatible layer (Bearer key). The native fields above belong
+    // to the hidden legacy stack and stay untouched.
+    gatewayBaseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
   },
   openrouter: {
     id: "openrouter",

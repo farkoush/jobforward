@@ -27,6 +27,9 @@ export interface ProviderConfig {
   disabledReason?: string;
   /** Ollama: no key, editable server address, no cloud warning. */
   keyless?: boolean;
+  /** §16 FR-63: OpenAI-compatible base URL for the SERVER gateway path
+   * (Bearer key) — set on the ACTIVE BYOK provider only. */
+  gatewayBaseUrl?: string;
 }
 
 export interface ChatMessage {

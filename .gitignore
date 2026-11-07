@@ -38,3 +38,6 @@ data/
 .coverage
 htmlcov/
 .tox/
+
+# npx/vitest junk at repo root (2026-11-07 incident)
+/node_modules/

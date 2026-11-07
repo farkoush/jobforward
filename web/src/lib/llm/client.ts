@@ -11,6 +11,7 @@
  */
 
 import {
+  bodyExcerpt,
   classifyStatus,
   emptyResponseFailure,
   malformedFailure,
@@ -190,10 +191,20 @@ export async function completeOnce(input: AttemptInput): Promise<AttemptOutput> 
       ? await mockResponse(input, controller.signal)
       : await fetch(url, { ...init, signal: controller.signal });
     if (!response.ok) {
-      const body: unknown = await response.json().catch(() => null);
+      // §16 FR-56: keep the raw error body for the terminal-log excerpt.
+      const raw = await response.text().catch(() => "");
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        // non-JSON body — still excerpted below
+      }
       return {
         ok: false,
-        failure: classifyStatus(response.status, retryAfterFrom(response.headers, body)),
+        failure: {
+          ...classifyStatus(response.status, retryAfterFrom(response.headers, parsed)),
+          body: bodyExcerpt(raw),
+        },
       };
     }
     const body: unknown = await response.json().catch(() => null);
@@ -249,13 +260,21 @@ export async function* streamCompletion(
       ? await mockResponse(input, controller.signal)
       : await fetch(url, { ...init, signal: controller.signal });
     if (!response.ok || !response.body) {
-      const body: unknown = response.body
-        ? await response.json().catch(() => null)
-        : null;
+      // §16 FR-56: keep the raw error body for the terminal-log excerpt.
+      const raw = response.body ? await response.text().catch(() => "") : "";
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        // non-JSON body — still excerpted below
+      }
       throw new StreamAttemptError(
         response.ok
           ? emptyResponseFailure()
-          : classifyStatus(response.status, retryAfterFrom(response.headers, body))
+          : {
+              ...classifyStatus(response.status, retryAfterFrom(response.headers, parsed)),
+              body: bodyExcerpt(raw),
+            }
       );
     }
     const reader = response.body.getReader();

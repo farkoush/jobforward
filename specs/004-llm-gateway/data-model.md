@@ -128,3 +128,21 @@ auth(cookie) → task lookup → input length check → limits check (daily, min
 BYOK path: same lifecycle, chain length 1, no fallback into the free path (FR-28) —
 failure yields a dedicated typed result; switching to free needs explicit user
 confirmation.
+
+## §15 client-session state (in-memory only; nothing persisted server-side)
+
+- `ConnectionStatus { state: "checking" | "available" | "needs_retry" |
+  "unavailable", checkedAt, consecutiveFailures }` — client session state;
+  server keeps the per-instance check cache inside `validate-models.ts`
+  (`runConnectionCheck()`), reusing `applyValidatedChains()`.
+- `FailureClass = "TRANSIENT" | "NO_WAY_FORWARD" | "BROWSER_UNREACHABLE" |
+  "OWN_KEY"` — pure mapping over GatewayReason (`failure-class.ts`); no new
+  GatewayReason is added in §15.
+- `OriginStage { screen }` + `settingsMode: "menu" | "failure"` +
+  `pendingRetry` closure — page.tsx in-memory refs (R16); lost on reload is
+  acceptable (draft recovery FR-22 covers the content; the failure re-runs
+  from the stage with typed errors if the user retries there).
+- Banner/status strings and colors are presentation-only (messages.ts +
+  theme tints); no schema, no storage, no event-log shape change. Existing
+  event logging may gain an OPTIONAL `llm_check` event (client decision at
+  implement time; not required by §15).
