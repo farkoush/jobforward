@@ -71,9 +71,11 @@ import {
 import { partStates, questionOrder } from "@/engine/flow/display";
 import {
   EvaluatorOutputError,
+  validateRatingEvidence,
   validateResponse,
 } from "@/engine/scoring/evaluator";
 import { entryScoreFromRatings } from "@/engine/scoring/metrics";
+import { partsFromQuotes } from "@/engine/types";
 import { redact } from "@/lib/byok/redact";
 
 type Screen =
@@ -590,7 +592,10 @@ export default function Home() {
           error: GATEWAY_MESSAGES[reason] ?? msg.ERR_EVALUATOR_FAILURE,
         };
       }
-      // Untrusted model output: strip fences, parse, shared validity check.
+      // Untrusted model output: strip fences, parse, shared validity check
+      // plus the §14.2 evidence invariants (verbatim quotes + score-quote
+      // coherence) — the five parts are then built from the model's quotes
+      // (§14.3), not from a separate extraction pass.
       const cleaned = String(outcome.text ?? "")
         .replace(/^```(?:json)?/i, "")
         .replace(/```\s*$/, "")
@@ -602,6 +607,7 @@ export default function Home() {
             context?: unknown;
             role_action_clarity?: unknown;
             result?: unknown;
+            quotes?: unknown;
           }>;
         };
         const raw = parsed.ratings;
@@ -611,9 +617,25 @@ export default function Home() {
           context: Number(r.context),
           role_action_clarity: Number(r.role_action_clarity),
           result: Number(r.result),
+          quotes:
+            r.quotes && typeof r.quotes === "object"
+              ? {
+                  user_need: String((r.quotes as Record<string, unknown>).user_need ?? ""),
+                  product_feature: String(
+                    (r.quotes as Record<string, unknown>).product_feature ?? ""
+                  ),
+                  action: String((r.quotes as Record<string, unknown>).action ?? ""),
+                  result: String((r.quotes as Record<string, unknown>).result ?? ""),
+                  metric: String((r.quotes as Record<string, unknown>).metric ?? ""),
+                }
+              : null,
         }));
         // Shared validity check (values in {0,1,2}, one rating per bullet).
         validateResponse(normalized, texts.length);
+        // §14.2: a rating missing its quotes, a full score without the
+        // required quote(s), or a non-verbatim quote invalidates the whole
+        // output — retried once below, then refused (no silent fallback).
+        normalized.forEach((r, i) => validateRatingEvidence(r, texts[i]));
         const entryScore = entryScoreFromRatings(
           normalized.map((r) => ({
             context: r.context,
@@ -623,14 +645,27 @@ export default function Home() {
         );
         return {
           ok: true,
-          ratings: normalized,
-          parts,
+          // Stored Ratings stay the three-field shape (the py twin) — the
+          // quotes ride only on the parts below (§14.3).
+          ratings: normalized.map(({ quotes: _quotes, ...rest }) => rest),
+          // §14.3: the five part fields come from the rating output's
+          // quotes (validated verbatim above); the extraction stays only
+          // as a type-compatible fallback that can no longer be reached.
+          parts: normalized.map((r, i) => (r.quotes ? partsFromQuotes(r.quotes) : parts[i])),
           entry_score: entryScore,
           rubric_version: DEFAULT_RUBRIC_VERSION,
           usedFallback: outcome.usedFallback === true,
           modelUsed: outcome.modelUsed ?? "",
         };
-      } catch {
+      } catch (exc) {
+        // §16 FR-56 discipline: dev-only sanitized console line — no keys,
+        // no user text (P14); production stays silent.
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            "[llm] invalid scoring output:",
+            exc instanceof Error ? exc.message : exc
+          );
+        }
         continue; // invalid output → one more gateway attempt (retry-once)
       }
     }
@@ -2670,41 +2705,10 @@ function BulletGate({
   // Grounding core for suggestions: predicted once from the ORIGINAL
   // extracted result (stable while the user types).
   const core = resultCore((rows.find((r) => r.key === "result") ?? { words: "" }).words);
-  // Copy button state: the improved bullet goes to the clipboard; "Copied"
-  // shows next to the button for a moment. Fallback to a hidden textarea +
-  // execCommand because some embedded browsers reject the async clipboard
-  // API (the silent failure the user hit).
-  const [copied, setCopied] = useState(false);
-  const copyText = improvedBullet(rows, confirmed) || bullet.text;
-  const copyImproved = () => {
-    const done = () => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    };
-    const legacyCopy = (text: string) => {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand("copy");
-      } catch {
-        // nothing else we can do; the tooltip still confirms the attempt
-      }
-      document.body.removeChild(ta);
-    };
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(copyText).then(done).catch(() => {
-        legacyCopy(copyText);
-        done();
-      });
-    } else {
-      legacyCopy(copyText);
-      done();
-    }
-  };
+  // Phase 19 (spec §15.5): the bullet-screen Copy button (§6.1's copy
+  // action) is REMOVED — owner decision 2026-11-09. `improvedBullet`
+  // stays: the §8 final-output path still assembles from it (page.tsx
+  // final screen), and the result screen keeps its own Copy.
   // Phase 15 (spec §5.2/§6.2): the glance row + focused loop. partStates
   // mirrors PartDisplayState; the loop order is stable from the bullet's
   // ORIGINAL extracted state (typing/confirming never reshuffles it).
@@ -2742,28 +2746,25 @@ function BulletGate({
         <p className="text-[17px]">
           {fmt(msg.FRAMEWORK_ORIGINAL, { text: bullet.text })}
         </p>
-        <div className="relative shrink-0">
-          <button
-            aria-label={msg.COPY_BUTTON}
-            title={msg.COPY_BUTTON}
-            className="btn-secondary !min-h-9 text-sm"            onClick={copyImproved}
-          >
-            {msg.COPY_BUTTON}
-          </button>
-          {copied && (
-            <span
-              role="status"
-              className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded bg-foreground px-2 py-1 text-[12px] text-background"
-            >
-              {msg.COPY_TOOLTIP}
-            </span>
-          )}
-        </div>
       </div>
       {/* Phase 18 (§13.4): Back to the review page — never wipes state. */}
       <button className="btn-secondary mb-4" onClick={onBack}>
         {msg.BACK}
       </button>
+      {/* Phase 19 (spec §15.5): the transparency-score line — the SAME
+          line the review list shows under each bullet (SCORE_DIMENSION
+          format), now ONCE above the five-part analysis. Owner-approved
+          supersession of the 2026-11-07 five-cell clause: the cells below
+          keep state text only. */}
+      {bullet.ratings && (
+        <p className="mb-2 text-[15px] text-neutral-800">
+          {fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_CONTEXT, value: bullet.ratings.context })}{" "}
+          ·{" "}
+          {fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_ACTION, value: bullet.ratings.role_action_clarity })}{" "}
+          ·{" "}
+          {fmt(msg.SCORE_DIMENSION, { dimension: msg.SCORE_DIMENSION_RESULT, value: bullet.ratings.result })}
+        </p>
+      )}
       <p className="mb-2 text-[16px]">
         {frameworkSentence(displayRows, states, activeKey, openPart)}
       </p>
@@ -2782,16 +2783,10 @@ function BulletGate({
               : st === "vague"
                 ? msg.STATUS_VAGUE
                 : msg.STATUS_COMPLETE;
-          // Phase 18 amendment (owner decision 2026-11-07): the stored 0/1/2
-          // rating rides beside the state label. Need and Feature share the
-          // Context rating; Metric is optional and carries no number (§6).
-          const dimKey = PART_KEY_TO_DIM[r.key];
-          const cellRating =
-            bullet.ratings === null || dimKey === "metric"
-              ? null
-              : dimKey === "feature"
-                ? bullet.ratings.context
-                : bullet.ratings[dimKey];
+          // Phase 19 (spec §15.5, owner-approved supersession of the
+          // 2026-11-07 clause): the rating number no longer rides beside
+          // the state label — the consolidated score line above the
+          // sentence is the single on-screen rating display.
           return (
             <button
               key={r.key}
@@ -2803,11 +2798,6 @@ function BulletGate({
                 {r.label}
               </span>
               {stateText}
-              {cellRating !== null && (
-                <span className="font-mono text-[11px] font-normal">
-                  {fmt(msg.RATING_CELL, { value: cellRating })}
-                </span>
-              )}
             </button>
           );
         })}

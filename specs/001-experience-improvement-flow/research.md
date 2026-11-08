@@ -673,3 +673,127 @@ each with its rationale and rejected alternatives.
   (superseded); full auto-placement with drag as mere correction (the
   owner chose first-line-only); keeping the 1–6 cap (the owner removed
   it).
+
+## Addendum: Phase 19 transparency-scoring decisions (2026-11-09)
+
+Owner directive 2026-11-09 (`/speckit-plan` invocation): transparency
+scoring clarifications (Context / Role and Action Clarity / Result) plus
+step-3-of-4 page changes. Four decisions were resolved with the product
+owner in two AskUserQuestion rounds the same day (the mandatory
+pre-change rule in the directive was satisfied; every conflict below was
+put to the owner explicitly).
+
+### R19-1: Five-cell-row rating numbers move to one line (supersedes the 2026-11-07 §13.3 clause)
+
+- **Decision**: on the web bullet screen (step 3 of 4) the stored 0/1/2
+  ratings NO LONGER ride beside the five-cell row's state labels. The row
+  keeps part name + state text only. The transparency-score line — the
+  SAME line shown per achievement on the review list
+  (`Context: n/2 · Role and Action Clarity: n/2 · Result: n/2`,
+  the `SCORE_DIMENSION` format) — renders ONCE above the five-part
+  analysis (above the framework sentence, after the Back button). The
+  review-list per-bullet line is unchanged.
+- **Rationale**: owner-confirmed supersession (2026-11-09): "I agree —
+  those numbers were only examples; show the same transparency score
+  here that the step-2 list page showed per achievement, before the
+  five-part analysis." One score line per screen instead of numbers
+  repeated on five cells.
+- **Alternatives considered**: keep the cell numbers and only add the
+  line (rejected — scores would appear twice on the same screen; the
+  owner chose the line).
+
+### R19-2: Copy button removed from the bullet screen (supersedes §6.1's copy clause on the web bullet screen)
+
+- **Decision**: the bullet screen's Copy button (the §6.1 copy action —
+  improved bullet as plain prose, falling back to the original) is
+  removed, with its "Copied" tooltip and the now-unused helpers and
+  message strings (`COPY_BUTTON`, `COPY_TOOLTIP`, `RATING_CELL` — all
+  used only there). The final-output copy on the result screen (§8,
+  step 4) is UNCHANGED.
+- **Rationale**: owner-confirmed 2026-11-09 ("yes — only from this
+  page"); the final text copy remains the single copy affordance.
+- **Alternatives considered**: keeping §6.1 as is (rejected by owner).
+
+### R19-3: Quantified research method counts as action (model-judge criteria; narrows the 2026-11-03 ruling)
+
+- **Decision**: when a research bullet states its method with PRECISE
+  quantity — how many interviews were conducted, how many people filled
+  the questionnaire — the method fills the action part and is scored as
+  action (the dimension's level definitions govern; a quantified scope
+  supports a 2). Research verbs WITHOUT a precise quantity
+  (e.g. "benchmarked competitors") remain need signals with the action
+  part empty and Specific Action 0 (the 2026-11-03 product-owner ruling
+  otherwise stands). The related sample size is NOT a metric (R19-4).
+- **Rationale**: owner answer 2026-11-09: a precisely quantified
+  research method "is considered an all-research bullet AND action" —
+  the concrete effort (6 interviews, 30 questionnaire respondents) is
+  real work the reader can see.
+- **Alternatives considered**: leaving the 2026-11-03 ruling untouched
+  (the owner moved past it); making ALL research methods action
+  (rejected — the owner keyed the rule on precision).
+
+### R19-4: Model-judge criteria scope — prompt + rubric docs only; deterministic engine byte-identical
+
+- **Decision**: ALL new scoring criteria land in the model rating
+  prompt (`web/src/lib/byok/prompts.ts` — the single prompt surface,
+  used by both the gateway and BYOK paths) and the rubric documents
+  (spec §3.1/§15, `few-shot/model-rating-few-shots.md`, a one-line
+  additive pointer in `checklists/specific-action.md`). The
+  deterministic engine, the T1–T10 corpus, and the parity gate stay
+  behavior-identical (§14's freeze holds for behavior; only the stored
+  `rubric_version` string moves, R19-5).
+- **Rationale**: owner answer 2026-11-09 ("only the model instructions");
+  the web scores exclusively through the model, the no-model engine is
+  the frozen terminal baseline + parity reference.
+- **Alternatives considered**: implementing the rules in the
+  deterministic engine too (rejected — would rewrite T1–T10 goldens,
+  e.g. "Benchmarked 7 competitors…" losing its empty-action golden).
+
+### R19-5: rubric-3.1.0 → rubric-3.2.0 (version of record)
+
+- **Decision**: the shared constants move to **rubric-3.2.0**
+  (`terminal/src/jobforward/rubric.py` `RUBRIC_VERSION`,
+  `web/src/engine/types.ts` `DEFAULT_RUBRIC_VERSION`); new scores carry
+  the new string; older scores keep theirs. Test fixtures/comments that
+  hardcode the literal update mechanically. The deterministic engine's
+  PARTS/STATUSES/SCORES are unchanged — the version stamp is metadata
+  (the criteria of record moved; the marker-based engine implements the
+  frozen subset).
+- **Rationale**: the scoring criteria change (constitution gate 5: a new
+  rubric version is REQUIRED when scoring criteria change; owner's
+  directive: "rubric_version must rise with each change"). MINOR bump
+  follows the rubric-3.1.0 precedent (criteria refinement, same 0/1/2
+  scale, same formula — P4's formula section untouched).
+- **Alternatives considered**: MAJOR 4.0.0 (rejected — scale and formula
+  unchanged, precedent is MINOR); per-path versions (rejected — one
+  version of record keeps stored scores comparable).
+
+### R19-6: Prompt criteria wording (design source for T-tasks)
+
+- **context**: the product/platform NAME alone is not a feature — the
+  feature must be a capability, part, or flow of the product; a GOAL is
+  not a need ("improving match rate" is what the writer wanted, not a
+  problem someone had); for research/PM bullets the product domain the
+  work is about (e.g. the MVP scope, requirements definition) can be
+  the feature — built OR planned.
+- **role_action_clarity**: a verb + generic object
+  ("Redesigned the platform") is never a 2; a 2 needs the WHAT (which
+  part) AND the HOW or the ROLE; the method counts as part of the
+  action (interviews, questionnaires, tests, team collaboration);
+  in team work the person's role must be specific — "collaborated
+  with" alone is insufficient; quantified research methods per R19-3.
+- **result**: goal/intent phrases ("aiming to", "with the goal of")
+  stay 1-never-2 (current behavior preserved); dates, project duration,
+  and sample sizes (e.g. "6 interviews") are NOT metrics — the metric
+  quotation is an OUTCOME number only; a bare number without a stated
+  meaning stays 1 and the tool asks what it shows (current behavior
+  preserved).
+- **Rationale**: the owner's directive §1, combined with R19-3/R19-4;
+  calibration examples in `few-shot/model-rating-few-shots.md` and the
+  prompt carry these as few-shots (e.g. a quantified-research bullet
+  whose action = "Interviewed 6 users" and whose metric is NOT "6
+  users"; a goal-as-need rejection; a concrete-object action without
+  how/role scoring 1).
+- **Alternatives considered**: encoding the rules as output-validation
+  invariants (rejected — they are judgment criteria, not structural
+  invariants; §14.2's invariants are unchanged).

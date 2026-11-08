@@ -793,3 +793,203 @@ ongoing checkbox + editable achievements (no shaping buttons) → clear a
 row → confirm → review page shows the panel (Experience score + ring
 only) → Back at every stage returns with state intact → re-confirm
 updates the entry (no duplicate) → 0 achievements → draft.
+
+## §14 Implementation Record (single-source scoring output — implemented 2026-11-08; backfilled 2026-11-09, owner-approved)
+
+Retroactive plan record (analyze remediation C3, owner go-ahead
+2026-11-09): §14 was decided, specified, clarified, and implemented in
+ONE owner-directed compressed day (2026-11-08) — before this record
+existed. No new work is described here; this documents what landed.
+
+- **Decisions** (owner 2026-11-08; delegated decisions in spec §14):
+  the three-dimension rating output is the SINGLE source of truth — it
+  carries the 0/1/2 ratings PLUS one verbatim quotation per framework
+  part (Context two: need + feature; the metric quote optional and
+  score-free); §14.2 validity invariants (verbatim whitespace-
+  normalized substrings; score⟺quote coherence) gate every MODEL
+  output — invalid output retried once through the existing loop, then
+  refused with user data intact, no silent fallback; the five parts and
+  their statuses derive from score + quote only (§14.3); confirmed
+  answers re-score through the SAME single pass (§14.4); criteria
+  unchanged → rubric-3.1.0 stays (§14.5 — superseded for new scores by
+  §15.4 on 2026-11-09); terminal display/flow, §2.1 deterministic
+  contract, T1–T10, WORDING, §6 questions all unchanged (§14.6).
+- **Implementation** (py + ts lockstep, same day): terminal —
+  `scoring/adapters/llm.py` (RatingQuotes, `_parse_quotes`,
+  `validate_rating_evidence` on every model response, rubric-echo
+  check) and `scoring/evaluator.py` (§14.1 output contract, retry-once,
+  refusal); web — `engine/scoring/evaluator.ts`
+  (`validateRatingEvidence` + §14.1 types), `engine/scoring/local.ts`
+  (the deterministic adapter's quotes are exactly its extraction
+  results), `engine/types.ts`, `app/page.tsx` (the five parts and
+  statuses fill from the rating output's quotes), `lib/byok/prompts.ts`
+  (the prompt carries the quotes contract and the invariant wording);
+  parity — `web/scripts/parity.mts` + `parity_python.py` extended for
+  the §14.1 quote echo (deterministic quotes locked as the extraction
+  echo in the twin-drift oracle).
+- **Tests**: terminal — `tests/contract/test_evaluator_output.py` +
+  `tests/integration/test_full_path.py` (11 new §14 tests; pytest 224);
+  web — `tests/engine/scoring-quotes.test.ts` (10 new; test:engine
+  43/43); `test:byok` 24/24; `test:llm` 114/114.
+- **Gates as-run 2026-11-08**: pytest 224 green · test:engine 43/43 ·
+  tsc clean · build exit 0 · PARITY OK · test:byok 24/24 · test:llm
+  114/114.
+- **Governance**: constitution P4 amended to **v4.2.0** (the model
+  returns the ratings plus the verbatim quotes; no score arithmetic
+  moves to the model) — in the working tree, uncommitted as of
+  2026-11-09; `checklists/requirements-single-source-scoring.md`
+  created (11/11 checked); `feature.json` → 001 (gitignored).
+- **KNOWN RESIDUAL** (reported, NOT changed): the deterministic
+  engine's corpus-golden raw-text fallback can still score a dimension
+  ≥1 while its extracted part stays empty — eliminating it changes
+  deterministic scores and requires a new rubric version; owner
+  decision deferred (untouched by §15).
+
+## Phase 19 Addendum (transparency scoring rules + step-3-of-4 display, 2026-11-09)
+
+Owner directive 2026-11-09 (`/speckit-plan` 001): transparency scoring
+clarifications (§1 of the directive) + step-3-of-4 page changes (§2).
+MIXED scope: model-rating criteria (prompt + rubric docs — the web's only
+scoring path) + web display; the deterministic engine, T1–T10 corpus,
+parity behavior, terminal display and terminal scoring behavior are
+UNTOUCHED (R19-4). Tasks start at **T144** (T091/T092 remain open; the
+§14 plan/tasks backfill was owner-approved 2026-11-09 during the
+analyze remediation and is recorded separately — the §14 Implementation
+Record below + tasks.md T157–T163 [X]). All changes carry the owner's mandatory
+ask-before-change rule; every conflict found was put to the owner and
+resolved 2026-11-09 (research R19-1..R19-6).
+
+### Clarify integration (2026-11-09 — two AskUserQuestion rounds, four answers)
+
+1. **Five-cell-row numbers** (conflict with the 2026-11-07 §13.3 clause):
+   SUPERSEDED — the ratings leave the five-cell row; the SAME
+   transparency-score line the review list shows per achievement
+   (`Context: n/2 · Role and Action Clarity: n/2 · Result: n/2`,
+   SCORE_DIMENSION format) renders once ABOVE the five-part analysis on
+   the bullet screen. The numbers in the directive were examples; the
+   line format is the point. Review-list line unchanged.
+2. **Copy button**: removed from the bullet screen ONLY (§6.1's copy
+   clause superseded there); the §8 final-output copy (step 4) stays.
+3. **Method-as-action vs the 2026-11-03 ruling**: a research method
+   stated with PRECISE quantity (N interviews, M questionnaire
+   respondents) fills the action part and scores as action; unquantified
+   research verbs stay need-only with action empty (R19-3).
+4. **Rule scope**: model prompt + rubric docs only; deterministic engine
+   byte-identical; rubric_version → rubric-3.2.0 (R19-4/R19-5).
+
+### Design additions
+
+- **Bullet screen (step 3 of 4) — display only**:
+  - NEW score line above the framework sentence (after Back): the
+    bullet's stored ratings rendered with the review-list formatting
+    (`SCORE_DIMENSION` joined by " · "), conditional on
+    `bullet.ratings` exactly like the review-list line.
+  - Five-cell row: the `cellRating` computation and the
+    `RATING_CELL` span are deleted; cells keep part label + state text
+    (Complete/Vague/Missing, weight-only styling — §5.2 unchanged).
+  - Copy button, "Copied" tooltip, `copyImproved`/`legacyCopy` and the
+    `copied` state are deleted; the `improvedBullet()` helper survives
+    ONLY if still used elsewhere (verified at implement; otherwise
+    removed — no orphans).
+  - `messages.ts`: `RATING_CELL`, `COPY_BUTTON`, `COPY_TOOLTIP` become
+    unused (verified: bullet screen only) → removed with their
+    references; `SCORE_DIMENSION*` strings are REUSED (not duplicated).
+- **Evaluator prompt (`web/src/lib/byok/prompts.ts`)** — the single
+  prompt surface for the gateway and BYOK paths (page.tsx passes it as
+  the gateway call's system context): the dimension lines and Rules gain
+  the §15 criteria verbatim-in-spirit (R19-6): product/platform name
+  alone ≠ feature; goal ≠ need; research/PM product domain (MVP scope,
+  requirements definition) can be the feature, built or planned; 2 =
+  WHAT (which part) + HOW or ROLE, method counts, "collaborated with"
+  alone insufficient, verb+generic-object stays 1; quantified research
+  method = action (R19-3); metric quote = outcome number only, never
+  dates/duration/sample size; goal/intent results and
+  number-without-meaning behavior preserved. Calibration examples
+  updated/extended (quantified-research bullet with action
+  "Interviewed 6 users" and metric NOT "6 users"; goal-as-need
+  rejection; concrete-object action without how/role scoring 1). The
+  §14.1 output shape, the §14.2 invariants, and the retry-once-then-
+  refuse loop are UNTOUCHED; the embedded `rubric_version` moves with
+  the constant.
+- **Version bump**: `terminal/src/jobforward/rubric.py`
+  `RUBRIC_VERSION` → `rubric-3.2.0`; `web/src/engine/types.ts`
+  `DEFAULT_RUBRIC_VERSION` → `rubric-3.2.0`; the terminal LLM adapter's
+  echo check and the BYOK client's validation move with the constants
+  (no logic change). Test fixtures/comments hardcoding the literal
+  update mechanically (behavior assertions unchanged).
+- **Rubric docs**: `few-shot/model-rating-few-shots.md` gains the new
+  calibration examples; `checklists/specific-action.md` gains ONE
+  additive pointer line ("rubric-3.2.0 model-judge additions live in
+  spec §15; the deterministic levels/rules below are unchanged") — its
+  levels/decision rules are NOT edited.
+
+### Spec amendment draft (applied as the first task; owner reviews this plan first)
+
+New **§15 Transparency scoring clarifications and step-3 display
+(amendment 2026-11-09)** in `spec.md`, containing: (a) the §1 criteria
+(product name ≠ feature; goal ≠ need; research/PM domain-as-feature built
+or planned; action 2 = what + how/role, method counts, role specificity,
+"collaborated with" alone insufficient; quantified research method = action;
+metric = outcome number only, sample size/dates/duration excluded;
+goal-intent results and number-without-meaning behavior preserved as-is);
+(b) the step-3 display change (score line above the five-part analysis;
+five-cell row state-only; Copy removed from the bullet screen, §8 copy
+unchanged); (c) the scope clause (model-judge criteria; deterministic
+engine + T1–T10 behavior-identical; rubric-3.2.0 of record); (d) the
+supersession notes (§13.3's 2026-11-07 five-cell clause; §6.1's copy
+clause on the bullet screen; the 2026-11-03 ruling narrowed to
+unquantified research — all owner-approved 2026-11-09). Companion edits:
+§3 version-of-record line, §3.1 model rating instructions, §6.1 copy
+clause note, §9 acceptance criteria additions, §14.5 stays (its "stays
+rubric-3.1.0" sentence is superseded by §15's version clause).
+
+### Files to modify (complete list — user rule: file list before coding)
+
+1. `specs/001-experience-improvement-flow/spec.md` — §15 + companion edits (§3, §3.1, §6.1, §9, §13.3 note)
+2. `web/src/lib/byok/prompts.ts` — evaluator criteria + calibration examples
+3. `specs/001-experience-improvement-flow/few-shot/model-rating-few-shots.md` — calibration examples
+4. `web/src/app/page.tsx` — bullet screen: score line in; cell numbers out; copy button out
+5. `web/src/engine/messages.ts` — remove `RATING_CELL`, `COPY_BUTTON`, `COPY_TOOLTIP` (orphans)
+6. `terminal/src/jobforward/rubric.py` — `RUBRIC_VERSION` → rubric-3.2.0
+7. `web/src/engine/types.ts` — `DEFAULT_RUBRIC_VERSION` → rubric-3.2.0
+8. `terminal/tests/contract/test_evaluator_output.py`, `terminal/tests/unit/test_coverage.py`, `terminal/tests/integration/test_five_part_flow.py`, `terminal/tests/unit/test_part_scoring.py`, `terminal/tests/unit/test_part_extraction.py` — version literals/comments only
+9. `web/tests/engine/scoring-quotes.test.ts` — version fixtures only
+10. `specs/001-experience-improvement-flow/checklists/specific-action.md` — one additive pointer line
+11. `web/tests/` — new bullet-screen display tests (score line present; cells state-only; copy absent) if the harness supports them; else owner walkthrough
+12. Planning artifacts (this phase, already written): `research.md`, `plan.md`, `data-model.md`, `quickstart.md`
+
+### Constitution check (Phase 19) — constitution v4.2.0
+
+- P1/P2: no content invention; display-only moves of stored values; owner
+  approved every supersession (2026-11-09 AskUserQuestion rounds). ✓
+- P3: criteria score the bullet's own text only. ✓
+- P4: criteria change → gate 5 REQUIRES a rubric version bump → rubric-3.2.0
+  (MINOR, rubric-3.1.0 precedent; scale/formula unchanged). No score
+  arithmetic moves to the model (the new rules are judgment criteria; the
+  §14.2 structural invariants are untouched). ✓
+- P10/P16: new/changed strings stay English B1 (the score line reuses
+  existing B1 strings; the prompt text stays plain B1 English). ✓
+- P11: full spec-kit flow (this plan; tasks next). ✓
+- P12: the prompt flows through the existing gateway call
+  (client-supplied system context); no gateway architecture change. ✓
+- P19–P21: no env/config changes. ✓
+- No-feature-removal-without-asking: the three supersessions/removals
+  (§13.3 five-cell clause, §6.1 bullet-screen copy clause, 2026-11-03
+  ruling narrowed) are listed here and owner-approved. Terminal display,
+  terminal scoring behavior, T1–T10, §14 residual: untouched. ✓
+
+### Expected gates
+
+- `npm run test:engine` green (display changes + version fixtures;
+  parity corpus outputs unchanged)
+- `tsc --noEmit` clean · `npm run build` exit 0
+- parity **PARITY OK** (deterministic behavior identical; both version
+  constants bump in lockstep)
+- `npm run test:byok` green (BYOK_SKIP_LIVE=1) · `npm run scan:byok` passed
+- `npm run test:llm` green (gateway paths untouched; mock transport)
+- `PYTHONUTF8=1 python -m pytest` green from `terminal/` (version
+  literals only; behavior assertions unchanged)
+- Owner walkthrough: bullet screen shows the score line above the
+  five-part analysis, five-cell row without numbers, no Copy button;
+  a re-scored quantified-research bullet gets action credit through the
+  model path while a no-model run behaves exactly as before.

@@ -336,3 +336,15 @@ unchanged (fields absent by default; never backfilled — P5).
   session-only review state; only what the user confirms is stored.
 - `SplitCandidate.flagged`/`splitSuggested` keep existing in the engine
   type but no longer drive any UI control (D30).
+
+## Addendum: rubric-3.2.0 (2026-11-09) — version-of-record move, no shape changes
+
+Phase 19 changes the model-judge CRITERIA only (spec §15): the stored
+shapes are untouched. `rubric_version` (entry score record and per-bullet
+rating record) carries **rubric-3.2.0** for every NEW score; scores
+stored with rubric-3.1.0 and earlier keep their strings and their
+meaning. The deterministic engine's parts, statuses, quotes, and scores
+are behavior-identical (its marker rules and the T1–T10 corpus are
+frozen); only its stamped version string moves with the shared
+constant. The rating output contract (§14.1 shape, §14.2 invariants) is
+unchanged.

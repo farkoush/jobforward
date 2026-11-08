@@ -3,6 +3,11 @@
 **Feature**: 001-experience-improvement-flow (Phase 9) | **Date**: 2026-10-29
 **Status**: Accepted design for T046/T047
 
+> rubric-3.2.0 (2026-11-09) model-judge additions (a quantified research
+> method = the action; a 2 needs the WHAT plus the HOW or the ROLE) live in
+> spec 001 §15 — the deterministic levels and decision rules below are
+> UNCHANGED.
+
 ## Purpose
 
 Defines the exact 0/1/2 scoring levels for the **Specific Action** dimension,

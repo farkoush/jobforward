@@ -392,3 +392,33 @@ red-first) · `tsc --noEmit` clean · `npm run build` exit 0 · parity
 PARITY OK (unchanged corpus) · `npm run test:byok` 23/23
 (BYOK_SKIP_LIVE=1) · `npm run scan:byok` passed · `PYTHONUTF8=1 python
 -m pytest` 213 green from `terminal/`. Terminal untouched.
+
+## Phase 19 (2026-11-09): transparency scoring rules + step-3 display
+
+Prereq: the free chain or BYOK reachable for scoring (a no-model run
+proves the deterministic path is unchanged).
+
+1. **Bullet screen (step 3 of 4)**: open a scored bullet — the line
+   `Context: n/2 · Role and Action Clarity: n/2 · Result: n/2` sits
+   above the five-part analysis (after Back); the five-cell row shows
+   ONLY part label + state text (no `· n/2`); there is NO Copy button
+   on this screen. The review list (previous page) still shows the same
+   line under each bullet.
+2. **Final copy unchanged**: finish a bullet → the result screen (step 4)
+   still offers its Copy with the §8 plain-prose text.
+3. **Model criteria** (requires a working model path): re-score a bullet
+   like "Interviewed 6 users and found that onboarding confuses new
+   users" — the action part fills ("Interviewed 6 users") and
+   Specific Action scores per the levels, while "6" is NOT quoted as
+   the metric; a bullet whose need is only a goal ("Improving the match
+   rate…") does not earn a need quote for context 2; "Redesigned the
+   platform" (verb + generic object, no how/role) does not earn a 2.
+4. **No-model behavior unchanged**: the same bullets through the
+   deterministic path (terminal, no LLM) produce the same parts,
+   statuses, and scores as before — only the stored `rubric_version`
+   string reads rubric-3.2.0.
+
+Gates: `npm run test:engine` green · `tsc --noEmit` clean ·
+`npm run build` exit 0 · parity PARITY OK · `npm run test:byok` green
+(BYOK_SKIP_LIVE=1) · `npm run scan:byok` passed · `npm run test:llm`
+green · `PYTHONUTF8=1 python -m pytest` green from `terminal/`.

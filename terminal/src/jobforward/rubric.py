@@ -8,4 +8,4 @@ Historic comments/docstrings that name a specific rubric version describe
 what CHANGED in that version; they are a record, not a default, and stay.
 """
 
-RUBRIC_VERSION = "rubric-3.1.0"
+RUBRIC_VERSION = "rubric-3.2.0"

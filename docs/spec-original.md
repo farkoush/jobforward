@@ -1,4 +1,14 @@
 
+> **Record note (November 8, 2026):** This document preserves the ORIGINAL
+> three specs (1–3) as first written, with dated update notes. The living,
+> implementation-level specifications are
+> `specs/001-experience-improvement-flow/spec.md` (which absorbed these
+> three specs and now carries their product through Phases 9–18 plus the
+> §14 amendment), `specs/002-jd-matcher/spec.md`, and
+> `specs/004-llm-gateway/spec.md` — governed by
+> `.specify/memory/constitution.md` (v4.2.0). The product-level narrative
+> lives in `docs/prd.md`.
+
 ## Spec 1: Job Description Matcher (JD Matcher)
 
 > **Update (October 29, 2026; expanded October 30, 2026 after implementation):**
@@ -70,6 +80,23 @@
 > Metric; the question texts and conditions changed accordingly. The text
 > below reflects the finalized version.
 
+> **Update (November 3 → 8, 2026; feature `001-experience-improvement-flow`):**
+> The question flow below is UNCHANGED by all later amendments — the texts,
+> the 0–5 range, the skip rule, and the conditions (Need/Action/Result when
+> their dimension scores 0 or 1; Feature/Metric when the field is empty)
+> hold exactly as written. Two additions: (1) rubric-3.1.0 (November 3,
+> 2026) fixed how the parts are identified from the bullet's own words —
+> research/mapping verbs are need signals and never the action; an
+> infinitive purpose clause is a vague result; no word appears in two parts
+> except a feature name inside the action sentence; whitespace is
+> normalized before extraction. (2) The single-source scoring output (§14,
+> November 8, 2026): when a model rates the bullet, the five parts are
+> filled from the rating output's verbatim quotes — the template is the
+> completion of that one scoring step, not an independent judgment — and
+> the question conditions remain the per-part operational form of "missing
+> or vague" (Feature's vagueness is a joint-Context side effect and never
+> triggers a question).
+
 ### Acceptance Criteria
 
 - First, the tool asks the candidate: “Do you want me to rewrite this bullet to make your experience stronger?” The default answer is “Yes.” If the answer is “No,” there are no questions and no rewrite.
@@ -112,6 +139,38 @@
 > extracted automatically and contain only the candidate’s own words;
 > `part_present` (five booleans) replaced `context_present`. The text below
 > reflects the finalized version.
+
+> **Update (November 3 → 8, 2026; feature `001-experience-improvement-flow`):**
+> - **rubric-3.1.0** (November 3, 2026): the version of record is the semver
+>   string `rubric-3.1.0`, stored with every score; the scoring criteria are
+>   unchanged except the result-dimension alignment — a present-but-vague
+>   result scores 1 and 0 is reserved for a missing result (stated below;
+>   the deterministic engine now complies). Parsing corrections:
+>   research/mapping verbs are need signals and never the action; an
+>   infinitive purpose clause is a vague result; no word appears in two
+>   parts (feature-inside-action excepted); whitespace is normalized before
+>   extraction so a multi-line bullet extracts exactly like its
+>   single-line equivalent.
+> - **Coverage record** (November 4, 2026): before statuses are assigned,
+>   every word of the bullet that no part claims is reported in orphaned
+>   spans with reasons, and each part carries quotation, status, and reason
+>   — diagnostic only; it never affects scores or questions.
+> - **Single-source scoring output** (§14, November 8, 2026): the rating
+>   output (ratings + verbatim per-part quotes) is the single source of
+>   truth — the five parts, their presence flags, and their
+>   missing/vague/complete statuses derive from it; an output that breaks
+>   the score-quote invariants is retried once and then refused (user data
+>   intact, no silent fallback). The deterministic engine is byte-identical
+>   to before.
+> - **Two editions** (November 5, 2026): `terminal/` (Python baseline,
+>   FROZEN — its display, brackets, and flows are unchanged) and `web/`
+>   (the product's continuation). On the web the bracket format and the
+>   "Still needs to be filled" list are SUPERSEDED (Phase 15): a five-cell
+>   status row (Complete/Vague/Missing), the framework as one sentence with
+>   soft underlines (status colors kept) and dotted placeholders, and a
+>   focused one-question-at-a-time loop (missing first, then vague, Metric
+>   last). The web's 1–6 bullet cap was removed (Phase 18); the terminal
+>   keeps 1–6.
 
 - The unit is a work experience entry containing 1 to 6 bullets. An entry with no bullets is a draft, is excluded from averages, and prompts the user to write a description.
 - Each dimension score for an entry is the average of that dimension’s bullet scores. The entry score is the equally weighted average of the three dimensions. The overall score is the simple average of entries that contain bullets.
@@ -186,3 +245,9 @@ Entry score = (75 + 100 + 75) / 3 = 83.33
 - October 30, 2026: Final decision: the Spec 1 supersession note was expanded to the implemented JD Matcher v1 (feature `002-jd-matcher`, rules version `matcher-rules-1.0.0`): staged paste → review → hard skills → soft skills flow with per-stage `[Y]/[C]` gates, `END`-terminated one-shot paste, cleaning + 100–1,500-word gate, the fixed priority cascade, a 5-row display limit with real-total counts, verbatim-evidence-only rows, `label_en`-verbatim soft-skill names (ESCO ids stored, never shown), and the no-verdict guarantee with fixed input-error and extraction-failure messages.
 - October 30, 2026: Web usability prototype recorded (note added above Spec 1): a `web/` Next.js prototype was built on a line-for-line TypeScript port of the deterministic engine (no model calls; parity with the Python engine verified). The matcher supersession applies to the web too (skill tables only, no per-entry actions). Product-owner decision: the web matcher displays the soft-skill table before the hard-skill tables (web-only deviation from the terminal's hard → soft order). Specs 2 and 3 run in the browser with finalized texts and flows unchanged; one experience entry per session with a restart control; browser-held session state; JSONL event logs behind a storage adapter; shared-password gate with a per-session rate limit.
 - November 2, 2026: BYOK feature recorded (web prototype only): an opt-in advanced path lets the user score bullets with their own model key, browser-direct (key never reaches the server). The model replaces ONLY the per-bullet 0/1/2 ratings — the terminal's evaluator JSON contract, zod validation and shared validity check apply unchanged; the matcher, all arithmetic, and the rewrite assembly stay deterministic. Default path (no key) is untouched; toggle off by default. See docs/byok-cors-results.md for verified CORS status per provider.
+- November 3, 2026: rubric-3.1.0 recorded (spec-001 Phase 11): semver rubric strings stored with every score; parsing corrections (research verbs → need, never action; purpose clause → vague result; no shared words except feature-inside-action; multi-line normalization); result-score alignment (present-but-vague = 1, 0 = missing only); the web prototype's display and improvement loop upgraded; the terminal display unchanged.
+- November 4, 2026: spec-001 Phases 12–13 recorded: the diagnostic coverage record (per-part quotation/status/reason plus orphaned spans) and the web-only paste-and-split entry with user-controlled shaping and optional `company`/`dates`/`product_domain` fields.
+- November 5, 2026: Constitution v3.2.0 (P11: every new item goes through the spec-kit flow; the light path needs explicit owner approval plus mandatory backfill). Spec-001 Phases 14–17 implemented: the warm platform theme (vendored fonts, zero external font requests, theme guard), the five-part analysis UX (glance row + underline sentence + focused one-question loop — brackets and the needs list stay terminal-only), the two-edition repository layout (`terminal/` frozen baseline + `web/` continuation with a shared governance root), and the warm voice/wiring pass.
+- November 6, 2026: Constitution v3.3.0 (P12–P17: centralized LLM gateway, env-only model config, no keys in client/logs, error-path test coverage, simple English error messages, TypeScript strict) and v4.0.0 (MAJOR: version 1 English-only including errors; new P18 — user data never depends on LLM success; bounded BYOK exception in P13/P14). Spec-001 Phase 18 recorded (web-only entry and review UX: paste-first, drag-and-drop segment review, structured year–month dates, editable-text achievements, merged score panel, Back everywhere; the web 1–6 bullet cap removed — the terminal keeps 1–6). Feature 004-llm-gateway specified and clarified (shared gateway password, anonymous persistent cookie identity, UTC quota day, GEN/FAST chains with fallback, usage limits, draft preservation, English B1 messages).
+- November 7, 2026: spec-004 implemented: the centralized gateway (fallback chains, usage limits, privacy-safe JSONL logging), §13 model validation + dev mock mode, §14 audit remediation (chain pruning, forbidden patterns, empty-200 classification, fallback transparency, provider-call cap, rate-limit probe), §15 error honesty (failure-class taxonomy, gate errors never AI-worded, guidance box at the failing stage, no-way-forward transfer with one-tap own-key retry, four-state connection status, persistent header banner, independent LLM settings section, BYOK preflight decoupling), and §16 diagnostics + BYOK quick access (per-attempt failure logging, dev console summary, startup echo + duplicate-env warning, test:live + check:connection live smoke, header "Default free"/"My key" + quick modal, explicit resend-with-default, displayed provider Google AI Studio). Spec 005 (error UX) was created and retired the same day — absorbed into spec-004 §15, which is the PRIMARY spec for everything model-related. Constitution v4.1.0 (P19 diagnosability, P20 model servability, P21 env completeness) plus docs/llm-gateway-runbook.md. Per-bullet 0/1/2 ratings restored to display (owner decision).
+- November 8, 2026: Single-source scoring output (spec-001 §14): the rating output's verbatim per-part quotes fill the five parts and drive the statuses; score-quote invariants enforced on model output (retry once, then refuse); the deterministic engine stays byte-identical; the rubric stays 3.1.0; a known residual (the raw-text fallback can score ≥ 1 with an empty part) is reported for a future rubric decision. Constitution v4.2.0 (P4: the model returns the ratings plus the verbatim quotes; no score arithmetic moves to the model).

@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-23
 
-**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning); amended 2026-11-05 — platform theme and voice (Phase 14, cross-cutting; complete web adoption, Tailwind-variant-only, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — five-part analysis UX: glance row, underline sentence, focused one-question loop (Phase 15, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — repository layout: two view editions, one governance root (Phase 16, clarified 2026-11-05 — root siblings, optional-skip parity, matcher/ deleted; ready for planning); amended 2026-11-05 — warm UX and voice wiring (Phase 17, light path, §11.5; owner look-and-feel groups accepted, implemented and gated); amended 2026-11-06 — entry and review UX simplification (Phase 18, web-only, §13: paste-first entry, per-part editable review, structured year–month dates with an "I still work here" option, editable-text achievements review, merged score panel, Back on every stage; clarified 2026-11-06 ×6 (per-experience paste; editable-text-only review; drag-and-drop segment review with first-line-only auto-place; web 1–6 cap removed; no-change re-confirm skip; type switcher); implemented and gated 2026-11-06 — web-only, terminal untouched)
+**Status**: Finalized — Five-Part Resume Bullet Rewriting Framework (2026-10-29); amended 2026-11-04 — rubric-3.1.0 parsing rules, result-score alignment, and the web prototype display/improvement loop (Phase 11); amended 2026-11-04 — chunk attribution (coverage record, diagnostic only) with quotation, status, and reason for every part and orphaned span (Phase 12, clarified 2026-11-04 — ready for planning); amended 2026-11-04 — hybrid entry: paste-and-split bullet shaping (Phase 13, web-only, clarified 2026-11-04 — ready for planning); amended 2026-11-05 — platform theme and voice (Phase 14, cross-cutting; complete web adoption, Tailwind-variant-only, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — five-part analysis UX: glance row, underline sentence, focused one-question loop (Phase 15, clarified 2026-11-05 — ready for planning); amended 2026-11-05 — repository layout: two view editions, one governance root (Phase 16, clarified 2026-11-05 — root siblings, optional-skip parity, matcher/ deleted; ready for planning); amended 2026-11-05 — warm UX and voice wiring (Phase 17, light path, §11.5; owner look-and-feel groups accepted, implemented and gated); amended 2026-11-06 — entry and review UX simplification (Phase 18, web-only, §13: paste-first entry, per-part editable review, structured year–month dates with an "I still work here" option, editable-text achievements review, merged score panel, Back on every stage; clarified 2026-11-06 ×6 (per-experience paste; editable-text-only review; drag-and-drop segment review with first-line-only auto-place; web 1–6 cap removed; no-change re-confirm skip; type switcher); implemented and gated 2026-11-06 — web-only, terminal untouched); amended 2026-11-08 — single-source scoring output: the three-dimension rating output carries verbatim quotes that fill the five parts (§14; owner decision 2026-11-08, delegated decisions recorded in §14, implemented and gated the same day); amended 2026-11-09 — transparency scoring clarifications and step-3 display (§15, Phase 19: product name ≠ feature, goal ≠ need, research/PM domain-as-feature, action 2 = WHAT + HOW/ROLE, quantified research method = action, metric = outcome number only; the bullet screen shows ONE score line above the five-part analysis, the five-cell row drops the rating numbers, the Copy button leaves the bullet screen; clarified ×4 the same day; rubric-3.2.0 of record; implemented and gated 2026-11-09 — T144–T155, the interactive walkthrough T156 is the owner's step)
 
 **Input**: User description: "A text-flow prototype (no graphical interface) that guides an entry-level product manager job seeker through one complete path for improving a single experience entry. The user adds an experience entry (type: job, project, course, side work), a title, and 1–6 free‑text English bullets. The tool scores each bullet on three dimensions (Context, Specific Action, Result) and rewrites bullets using a five‑part framework (User Need → Product Feature → Action → Result → Metric)." [Phase 18, 2026-11-06: the "1–6 free-text English bullets" cap in this original description is SUPERSEDED on the web — no upper cap (Clarifications 2026-11-06); the terminal keeps 1–6.]
 
@@ -27,18 +27,16 @@ Phase 12 (chunk attribution, §2.2) is IMPLEMENTED 2026-11-04 (T095–T105;
 pytest 227 green, parity PARITY OK incl. the orphan case, terminal display
 untouched) and committed as 4b1b5be.
 
-Phase 13 (hybrid entry — paste-and-split, §4.2) is specified 2026-11-04 and
-NOT yet implemented; the three §4.2 clarifications were resolved the same day
-(WEB-ONLY scope — terminal entry flow and display unchanged; new fields
-stored+displayed with no analysis effect, dates as one free-text field;
-non-achievement flag = no action verb + no parser marker + responsibility
-opening, wrap continuations merge). Next: plan and tasks (T106+; T091/T092
-remain open). Until it lands, the entry flow is unchanged.
+Phase 13 (hybrid entry — paste-and-split, §4.2) was specified and
+clarified 2026-11-04 (WEB-ONLY scope — terminal entry flow and display
+unchanged) and **implemented and gated the same day** (T106–T114;
+test:engine 11/11, PARITY OK, terminal untouched), committed as c56e574.
+Its web entry UI was later superseded by Phase 18 (§13.1).
 
-Phase 14 (platform theme and voice, §11) is specified 2026-11-05 and NOT yet
-implemented; the three fonts are already vendored (web/src/fonts/, with OFL
-licenses). It is pending the two §11 clarifications, then plan and tasks
-(T115+; T091/T092 remain open). Until it lands, the current look stands.
+Phase 14 (platform theme and voice, §11) was specified 2026-11-05 and
+**implemented and gated the same day** (T115–T120; complete web
+adoption, Tailwind-variant-only, the three fonts vendored with OFL
+licenses, theme guard in test:engine), committed as cbf7ae8.
 
 ## Clarifications
 
@@ -102,6 +100,12 @@ documented outputs. The pasted format demo that historically sat at the top
 of that document was FORMAT DEMO ONLY — not normative (product-owner decision
 2026-11-04); the demo no longer appears in the document.
 
+[Amended 2026-11-08, §14]: for a bullet rated by a model, the five parts are
+NOT identified by a separate judgment — they are filled from the rating
+output's verbatim quotes (§14.1/§14.3). The rules above remain the
+DETERMINISTIC engine's identification contract and the T1–T10 acceptance
+corpus, unchanged.
+
 ### 2.2 Chunk attribution before status assignment (Phase 12, 2026-11-04)
 
 Before any part receives its status (filled / vague / missing), the engine
@@ -147,6 +151,12 @@ unclaimed words**. No new segmentation: whatever extraction (§2.1) leaves
 outside all five parts is listed as orphaned spans, each with a reason; the
 claimed part quotations come from the existing extraction unchanged.
 
+[Amended 2026-11-08, §14]: for a model-rated bullet the claimed part
+quotations are the RATING OUTPUT's verbatim quotes (§14.1) instead of a
+separate extraction pass — the coverage algorithm, the orphan rule, the
+part order, and the diagnostic-only scope are unchanged; the deterministic
+engine's quotations are exactly its extraction results.
+
 **Examples in this document** (the tool does not use these examples at runtime):
 
 | Field | Example |
@@ -170,7 +180,7 @@ claimed part quotations come from the existing extraction unchanged.
   - If only a number is provided without a result (for example, "20% growth"), the result score is 1, and the tool asks what the number represents.
   - A result that is present but vague — for example only a purpose phrase ("to uncover friction in …") — scores **1**; **0 is reserved for a missing result** (rubric-3.1.0: the deterministic engine previously scored a present-but-vague extracted result 0 and was aligned with constitution P4).
 - The **experience score** is the simple average of the three dimensions. The bullet score calculation remains unchanged.
-- `rubric_version` is now **3** because the Context definition changed. Prior scores (rubric_version 2) remain associated with their original version. As of 2026-11-03 the version of record is the semver string **rubric-3.1.0** stored with every new score (constitution v3.1.0, P4 as amended 2026-11-04); rubric-3.0.0-era scores keep their stored string.
+- `rubric_version` is now **3** because the Context definition changed. Prior scores (rubric_version 2) remain associated with their original version. The version of record was **rubric-3.1.0** as of 2026-11-03 (constitution v3.1.0, P4 as amended 2026-11-04); as of 2026-11-09 it is **rubric-3.2.0** (§15.4 — the transparency scoring criteria changed); rubric-3.1.0-era and rubric-3.0.0-era scores keep their stored strings.
 
 ### 3.1 Model rating instructions (when a model rates bullets)
 
@@ -180,18 +190,28 @@ problem first, then the work done to fix it, then the result — and MUST carry
 calibration few-shot examples with expected ratings: an actual outcome = 2; a
 goal/purpose phrase ("to uncover …", "in order to …", "aiming to …", "so that
 …") = 1, never 2; no outcome phrase = 0. All numeric computation stays in
-deterministic code (constitution P4); the model returns only 0/1/2 ratings.
+deterministic code (constitution P4); the model returns the 0/1/2 ratings
+PLUS the verbatim quotes each rating is based on (§14.1) — never any score
+arithmetic.
+
+From rubric-3.2.0 (2026-11-09, §15) the instructions MUST also carry the
+transparency criteria: a product/platform name alone is not a feature; a
+goal is not a need; a research/PM product domain can be the feature
+(built or planned); a 2 action needs the WHAT (which part) AND the HOW or
+the ROLE, with the method counting as part of the action; a precisely
+quantified research method fills the action; the metric quotation is an
+outcome number only (never a date, a duration, or a sample size).
 
 ## 4. Data Model (Per Bullet)
 
 - `id`, `text`
-- `user_need`, `product_feature`, `action`, `result`, `metric` (text fields extracted automatically).
-- `part_present {user_need, product_feature, action, result, metric}` – Five booleans (replaces `context_present`).
+- `user_need`, `product_feature`, `action`, `result`, `metric` (text fields extracted automatically; amendment 2026-11-08, §14 — for a model-rated bullet they are populated from the rating output's verbatim quotes, the single source of truth; the five fields remain stored separately and the storage shape is unchanged).
+- `part_present {user_need, product_feature, action, result, metric}` – Five booleans (replaces `context_present`); quote presence (§14.3).
 - `coverage` (chunk-attribution record, §2.2, diagnostic only) – ordered entries: one per part (`{quote, part, status, reason}` — the part's exact extracted words, empty quote for a missing part) plus one per orphaned span (`{quote, part: "orphaned", status, reason}` — each maximal contiguous span of the bullet that no part claims, with the reason no part claims it).
-- "Vague" is determined by the relevant dimension score (0 or 1).
+- "Vague" is determined by the relevant dimension score (0 or 1) and requires a quotation — a part with no quotation is missing, never vague (§14.3).
 - `analysis_status`: New, edited, or analyzed. Only new or edited bullets are re‑analyzed.
 - `dimension_scores {context, action, result}`
-- `rubric_version` (rubric-3.1.0 as of 2026-11-03; §3)
+- `rubric_version` (rubric-3.2.0 as of 2026-11-09; §3, §15.4 — rubric-3.1.0-era scores keep their stored string)
 - `follow_up_questions` (0–5)
 - `user_answers`, `rewrite_proposal`
 - `rewrite_status`: Unanswered, draft, proposed, approved, or rejected.
@@ -409,12 +429,15 @@ replacement; zero answers means no rewrite; the tool never invents content).
   improved bullet is assembled as plain prose ONLY from the confirmed
   answers ("need, so action, and result metric."), recorded in the bullet's
   history with status "edited", and **re-scored through the same pipeline as
-  a first-time bullet** (fresh extraction + ratings), showing before/after
-  scores.
+  a first-time bullet** (the same single scoring pass — ratings with
+  verbatim quotes, §14.4), showing before/after scores.
 - A **copy** action writes the improved bullet as plain prose — no brackets,
   labels or status markers (feature used only if the action is missing;
   metric appended to the result segment; falls back to the verbatim original
   when nothing improved exists) — with a visible confirmation.
+  [Superseded 2026-11-09, §15.5: the Copy button is REMOVED from the web
+  bullet screen — owner decision; the §8 final-output copy on the result
+  screen is unchanged.]
 
 ### 6.2 Focused question loop (Phase 15 — supersedes §6.1's all-at-once form on the web)
 
@@ -465,7 +488,7 @@ These rules apply only during the rewriting stage; when displaying the framework
 - The tool never invents a number when the candidate has not provided one.
 - No new or changed keywords appear in rewritten bullets.
 - The final text is provided without brackets, inside a code block, with a copy notice.
-- Each bullet's score is stored with its rubric version string (`rubric-3.1.0` as of 2026-11-03; §3).
+- Each bullet's score is stored with its rubric version string (`rubric-3.2.0` as of 2026-11-09; §3, §15.4 — rubric-3.1.0-era and rubric-3.0.0-era scores keep their stored strings).
 - Research/mapping verbs fill the need part and never the action part; an all-research bullet leaves the action part empty (e.g., "Benchmarked 7 competitors and mapped … to uncover friction in hiring and project-assignment flows.": need = the research phrase, feature = the named flows, action = empty, result = "to uncover …" marked vague).
 - A purpose clause is a vague result; a need phrase ending in "to" is never read as a result.
 - No word appears in two framework parts (the feature-inside-action overlap excepted); a multi-line bullet extracts exactly like its single-line equivalent.
@@ -483,6 +506,9 @@ These rules apply only during the rewriting stage; when displaying the framework
 - The new entry fields (`company`, `dates`, `product_domain`) are optional and additive — documents saved before Phase 13 load unchanged — and text beyond 8 lines shows the soft-limit message without ever blocking input; the original pasted text stays visible during every bullet's analysis.
 - **Phase 18 (§13.1–13.2): the web entry screen after type selection is ONE paste box for the whole experience; the split segments appear on one review screen with fixed per-type section labels — only the first non-marker line auto-places (Title), everything else starts in Achievements, and segments move between sections by DRAG-AND-DROP (displaced segments return to Achievements; the tool never guesses); a type switcher swaps only the labels; start/end dates are year–month with an "I still work here" ongoing option, filled only from a user-dragged segment on an exact date-pattern match; the found-achievements review is plain editable text — no Merge/Split/Delete and no Keep/Discard buttons — and a cleared row is dropped at confirm.**
 - **Phase 18 (§13.3–13.4): the separate score screen is merged into the bullet-list review page, which shows only the Experience score with its progress ring beside it (no "Overall score" label, no rubric-version header; drafts keep the no-number state); every stage has a Back control to the previous stage that never wipes answers; a re-confirmed stage re-runs its pipeline like a fresh confirm EXCEPT a no-change re-confirm, which skips re-analysis (P5); the web has NO upper cap on confirmed achievements (zero → draft; the terminal keeps its frozen 1–6).**
+- **Single-source scoring output (§14, 2026-11-08): the rating output carries per-part verbatim quotes; a model output that breaks the score-quote invariants (a 2 without its required quote(s), a 1 with an empty need/action/result quote, a 0 with a quoted need, or a quote that is not a whitespace-normalized verbatim substring of the bullet) is INVALID — retried once through the existing loop, then refused with user data intact and no silent fallback.**
+- **For a model-rated bullet the five stored and displayed parts are exactly the rating output's quotes, and the displayed statuses are exactly the statuses derivable from score + quote (missing = empty quote; vague = quote present and dimension below 2; complete = quote present and dimension 2); the deterministic engine's parts, statuses, scores, terminal display, and the T1–T10 corpus are byte-identical to before (its quotes are its extraction results).
+- **Transparency scoring + step-3 display (§15, 2026-11-09): the bullet screen shows the transparency-score line (`Context: n/2 · Role and Action Clarity: n/2 · Result: n/2`) ONCE above the five-part analysis; the five-cell row shows part name + state only (no rating numbers); the bullet screen has no Copy button (the §8 result-screen copy is unchanged); the review-list per-bullet line is unchanged; the model rating prompt carries the §15.1–§15.3 criteria with calibration examples (a quantified research method = the action, with an EMPTY metric quote; a goal-as-need bullet capped below context 2; a concrete-object action without how/role = 1); new scores carry rubric-3.2.0 and the deterministic engine's outputs stay behavior-identical.****
 
 ## 10. Open Items for Planning
 
@@ -494,11 +520,13 @@ These rules apply only during the rewriting stage; when displaying the framework
 - Chunk attribution before status assignment (§2.2, Phase 12) — spec'd and clarified 2026-11-04 (diagnostic-only scope; orphaned = unclaimed remainder spans; separate gray web block under the sentence); then plan and tasks from T093 (T091/T092 remain open). **DONE 2026-11-04** — implemented and gated (T095–T105; pytest 227 green, PARITY OK, terminal untouched).
 - Hybrid entry — paste-and-split bullet shaping (§4.2, Phase 13) — spec'd and clarified 2026-11-04 (WEB-ONLY scope, terminal unchanged; fields stored+displayed, dates free-text; combined flag rule + wrap-merge); then plan and tasks from T106 (T091/T092 remain open). **DONE 2026-11-04** — implemented and gated (T106–T114; test:engine 11/11, PARITY OK, terminal untouched), committed as c56e574.
 - Platform theme and voice (§11, Phase 14) — spec'd and clarified 2026-11-05 (COMPLETE web adoption; Tailwind-variant-only — raw pack stays outside the repo; fonts vendored locally); then plan and tasks from T115 (T091/T092 remain open). **DONE 2026-11-05** — implemented and gated (T115–T120; test:engine 17/17 incl. theme guard, tsc clean, next build exit 0, PARITY OK, pytest 227), committed as cbf7ae8.
-- Five-part analysis UX — glance row + underline sentence + focused one-question loop (§5.2/§6.2, Phase 15) — spec'd and clarified 2026-11-05 (items 1–3; status colors stay on underlines; needs list superseded on the web; items 4–8 DEFERRED below); then plan and tasks from T121 (T091/T092 remain open).
+- Five-part analysis UX — glance row + underline sentence + focused one-question loop (§5.2/§6.2, Phase 15) — spec'd and clarified 2026-11-05 (items 1–3; status colors stay on underlines; needs list superseded on the web; items 4–8 DEFERRED below); then plan and tasks from T121 (T091/T092 remain open). **DONE 2026-11-05** — implemented and gated (T121–T126; display-helper tests TDD-first, test:engine green, tsc clean, build exit 0, PARITY OK, terminal untouched).
 - DEFERRED UX items (owner's review 2026-11-05, not in Phase 15 — candidates for later phases): (4) fewer/better suggestions — grounded suggestion first, generic under "other suggestion", cursor to the first "…" gap; (5) one-line warm ambiguity reason with the fuller guidance hidden behind "Why?"; (6) metric without pressure — a clear "I don't have a number" skip + an encouraging line + a gentle "is this a measured number?" check on guess-like input ("about", "roughly"); (7) progress line "N of 5 complete" next to "Achievement n of total" + a final clean card with the improved sentence beside the original text (copy/continue exist); (8) Enter-to-next, a Back button that never wipes answers, and auto-saved answers across refreshes.
 - Repository layout — two view editions, one governance root (§12, Phase 16) — spec'd and clarified 2026-11-05 (root siblings; optional-skip parity; matcher/ + its two legacy tests deleted); **executes BEFORE the pending Phase 15 implementation per product-owner priority**; then plan and tasks from T127 (T091/T092 remain open).
 - Warm UX & voice (§11.5, Phase 17) — owner look-and-feel review 2026-11-05, all four accepted groups; LIGHT PATH (no spec-kit commands, owner-approved before/after tone table); **DONE 2026-11-05** — implemented and gated (pytest 213 from terminal/, test:engine 23/23, tsc clean, next build exit 0, PARITY OK), committed as e69186c, f93965a, d926dda, fab9ee4, 5f5b1af.
 - Entry and review UX simplification (§13, Phase 18) — owner UX review 2026-11-06; spec'd the same day, clarified ×2 pre-plan (per-experience paste; editable-text-only review, ALL shaping buttons removed) and ×4 in the plan-stage clarify session (drag-and-drop segment review with first-line-only auto-place — the owner rejected automatic attribution; the 1–6 cap REMOVED on the web, terminal VR-1 frozen; no-change re-confirm skips re-analysis; a type switcher on the review screen); WEB-ONLY scope (terminal untouched); promotes the deferred item (8) Back-button clause ("never wipes answers" — auto-save of answers stays deferred); then plan and tasks from T133 (T091/T092 remain open). **DONE 2026-11-06** — implemented and gated (T133–T143; test:engine 33/33 incl. 10 entry_parse tests, tsc clean, build exit 0, PARITY OK, test:byok 23/23, scan passed, pytest 213 from terminal/; analyze 0 CRITICAL with F1–F3 remediated pre-implement; the password-gated manual walkthrough is the owner's step).
+- Single-source scoring output (§14, amendment 2026-11-08) — owner decision: the rating output is the only judge and the five-part template is its completion; spec'd + clarified + delegated decisions recorded (output shape §14.1, validation & invalid behavior §14.2, re-score §14.4, rubric version §14.5) and IMPLEMENTED the same day in both editions (py + ts lockstep; constitution P4 amended to v4.2.0 — the model returns the ratings plus the verbatim quotes, no score arithmetic). Gates: pytest 224 from terminal/ (11 new §14 tests), test:engine 43/43 (10 new scoring-quotes tests), tsc clean, build exit 0, PARITY OK (quotes echo locked in the twin-drift oracle), test:byok 24/24, test:llm 114/114. KNOWN RESIDUAL (reported, not changed without a rubric decision): the deterministic engine's corpus-golden raw-text fallback can still score a dimension ≥1 while its extracted part stays empty (for example a result 2 with a missing result part in the T corpus) — eliminating it changes deterministic scores and requires a NEW rubric version (owner decision, later).
+- Transparency scoring clarifications + step-3 display (§15, Phase 19) — owner directive 2026-11-09 (`/speckit-plan` 001); clarified ×4 the same day (the 2026-11-07 five-cell clause superseded by ONE score line above the analysis; the bullet-screen Copy removed; a PRECISELY QUANTIFIED research method counts as action — the 2026-11-03 ruling narrowed; scope = model-judge criteria + rubric docs only, the deterministic engine byte-identical, rubric-3.2.0); plan Phase 19 Addendum + research R19-1..R19-6 + tasks T144–T156; **implemented and gated 2026-11-09** (T144–T155; tsc clean, test:engine 43/43, PARITY OK, test:byok 23/23 skip-live, scan OK, test:llm 114/114, build exit 0, pytest 224; the interactive walkthrough T156 is the owner's step).
 
 ## 12. Repository Layout: Two View Editions, One Governance Root (Phase 16, 2026-11-05)
 
@@ -829,6 +857,10 @@ becomes plain editable text with ALL shaping buttons removed.
   screen. Need and Feature share the Context rating; Metric is optional
   and carries no number (§6). The ratings were computed and stored all
   along — only the display had been removed with the score-screen merge.
+  [Superseded 2026-11-09, §15.5: the five-cell-row clause no longer
+  holds — the ratings leave the five-cell row and render as the ONE
+  score line above the five-part analysis on the bullet screen
+  (owner-approved); the review-list clause stands.]
 - The encouragement line (§11.5, `ENCOURAGE_SCORED`) keeps its accepted
   placement — now on the merged review page after scoring. Drafts with no
   score keep the no-number draft state ("Draft experience - excluded from
@@ -894,3 +926,196 @@ becomes plain editable text with ALL shaping buttons removed.
   completed.
 - Standing gates stay green; the terminal edition is untouched (web-only
   phase).
+
+## 14. Single-Source Scoring Output (amendment 2026-11-08)
+
+Product-owner decision 2026-11-08: transparency scoring and the five-part
+template produced two judgments that could disagree (the owner's observed
+case: a Context 2/2 next to a missing feature/action). From this amendment
+the **three-dimension rating output is the single source of truth**:
+completing the five-part template is part of that same scoring step, not an
+independent judgment.
+
+### 14.1 Structured rating output
+
+Per rated bullet, the output carries the three 0/1/2 ratings PLUS one
+quotation per framework part — `user_need`, `product_feature`, `action`,
+`result`, `metric` — each either the EXACT words copied from that bullet
+(equality after whitespace normalization, §2.1) or empty when the bullet has
+no such part:
+
+- Context carries TWO separate quotations (need and feature); Specific
+  Action and Result carry one each. The metric quotation is extracted in the
+  same output so the template completes from one source.
+- The metric has NO score and never changes any score (§3, unchanged); its
+  quotation is optional evidence, empty when the bullet states no number.
+- Research/mapping verbs are need signals, never the action (§2.1): an
+  all-research bullet has an empty action quotation and Specific Action 0.
+
+### 14.2 Validity invariants and invalid output
+
+The output is valid only when ALL of the following hold, checked before any
+use (delegated decision, owner 2026-11-08 — validation approach):
+
+- Every non-empty quotation is a verbatim (whitespace-normalized) substring
+  of the bullet's own text.
+- context = 2 ⟹ non-empty need AND feature quotations; context = 1 ⟹
+  non-empty need quotation; context = 0 ⟹ empty need quotation.
+- Empty action quotation ⟹ Specific Action = 0; a 1 or 2 requires the action
+  quotation. Empty result quotation ⟹ Result = 0; a 1 or 2 requires the
+  result quotation.
+
+The state "full score with an empty quotation" is therefore structurally
+impossible. An output that breaks any invariant is INVALID: retried once
+through the existing retry loop, then refused — the user's data stays intact
+and the EXISTING failure paths apply (the terminal's evaluator-failure
+message; the web's failure classes per spec-004 §15). There is no silent
+fallback to a separate judgment.
+
+Scope of enforcement: the invariants bind every output the MODEL produces
+(the gateway/BYOK scoring path and the terminal's opt-in LLM adapter). The
+DETERMINISTIC engine's scores are frozen (rubric-3.1.0; §14.5): its
+quotations are exactly its extraction results, so its outputs are
+byte-identical to before.
+
+### 14.3 Five parts and statuses derive from the output
+
+- The five part fields are filled from the output's quotations and stay
+  stored separately (§4); `part_present` is quote presence.
+- The status per part derives from score + quotation only: **missing** =
+  empty quotation; **vague** = quotation present and its dimension below 2
+  (Context for need and feature; Specific Action for action; Result for
+  result); **complete** = quotation present and dimension 2 (the coverage
+  record's stored label for complete stays "filled" — data compatibility).
+  The metric is never vague (it has no score).
+- The §6 question conditions are unchanged and remain the per-part
+  operational form of "missing or vague": Need/Action/Result are asked when
+  their dimension scores 0 or 1 (their vague-or-missing cases); Feature and
+  Metric are asked when the field is empty (their missing case — Feature's
+  vagueness is a joint-Context side effect and never triggers a question).
+  A complete bullet still gets no questions, only confirmation (§6).
+
+### 14.4 After answers
+
+Confirmed answers join the bullet's own text and the enriched text goes
+through the SAME single scoring pass as a first-time bullet (§6.1/§6.2,
+unchanged decisions): ratings, quotations, fields, statuses, and the
+coverage record are all rebuilt from that one output. Scores are never
+patched per dimension.
+
+### 14.5 Rubric version (delegated decision)
+
+The scoring criteria do NOT change — the three dimensions, the meaning of
+0/1/2, and WORDING (§7) stay exactly as they are — so the rubric version of
+record stays **rubric-3.1.0** (quality gate 5: a new rubric version is
+required only when scoring criteria change). Stored scores remain
+comparable. The quotation fields are part of the output contract going
+forward; constitution P4's model-output sentence is amended in the same
+change (v4.2.0) to name the verbatim quotes alongside the ratings — no
+score arithmetic moves to the model.
+
+### 14.6 Unchanged by this amendment
+
+The terminal's display and flow (§5, §4.1 — frozen), the §2.1 extraction
+rules as the deterministic engine's contract and the T1–T10 acceptance
+corpus, the coverage record's algorithm and diagnostic-only scope (§2.2),
+WORDING (§7), the question texts and conditions (§6), the bullet-selection
+list, the Experience header, Back navigation, the final code-block output,
+and the draft/confirm options.
+
+## 15. Transparency Scoring Clarifications and Step-3 Display (amendment 2026-11-09)
+
+Product-owner directive 2026-11-09 (`/speckit-plan` 001): sharpen what the
+three dimensions reward and simplify the step-3-of-4 bullet screen. The
+0/1/2 scale, the three dimensions, the averaging formula, WORDING (§7),
+the question texts and conditions (§6), and the §14 output contract are
+unchanged; what changes is the CRITERIA the model judge applies (the §3.1
+instructions) and the bullet screen's score display. Scope (owner answers
+2026-11-09, research R19-1..R19-6): the criteria are MODEL-JUDGE criteria —
+the deterministic engine, the §2.1 extraction contract, and the T1–T10
+corpus stay BEHAVIOR-IDENTICAL; the rubric version of record moves to
+rubric-3.2.0 (§15.4). Every supersession below was put to the product
+owner and approved the same day.
+
+### 15.1 Context criteria (model judge)
+
+- A product or platform NAME alone is not a feature. The feature must be a
+  capability, part, or flow of the product. Example: "Karpelle platform" is
+  not a feature.
+- A goal is not a need. The need is the problem the job seeker or user had —
+  not something the writer wanted to improve. Example: "improving match
+  rate" is a goal, not a need.
+- For research and PM bullets, the product DOMAIN the work is about (for
+  example the MVP scope, requirements definition) can count as the feature —
+  built OR planned.
+
+### 15.2 Specific Action criteria (model judge)
+
+- A verb plus a generic object ("Redesigned the platform") never earns a 2.
+  A 2 requires the WHAT (which part) AND the HOW or the ROLE to be clear.
+- The METHOD is part of the action: interviews, questionnaires, tests,
+  collaboration with the team.
+- In team work the person's own role must be specific; "collaborated with"
+  alone is not enough.
+- A research method stated with a PRECISE quantity — how many interviews
+  were conducted, how many people filled the questionnaire — fills the
+  action part and is scored as action (owner answer 2026-11-09). Research
+  verbs WITHOUT a precise quantity stay need signals with the action part
+  empty and Specific Action 0 — the 2026-11-03 ruling (§2.1) otherwise
+  stands, narrowed by this case. The sample size in such a bullet is NOT a
+  metric (§15.3).
+
+### 15.3 Result and metric criteria (model judge)
+
+- A goal or intent is not a result: "aiming to", "with the goal of" (and
+  the §3 purpose phrases) mean an incomplete result — current behavior
+  preserved (result 1, never 2).
+- A date, the project duration, and a sample size (for example "6
+  interviews") are NOT metrics. The metric quotation is an OUTCOME number
+  only.
+- A number provided without a stated meaning keeps the current behavior:
+  result 1, and the tool asks what the number shows (§3).
+
+### 15.4 Rubric version
+
+The criteria changes above REQUIRE a new rubric version (constitution
+gate 5): the version of record is **rubric-3.2.0** (2026-11-09), stored
+with every new score. Scores stored with rubric-3.1.0 and earlier keep
+their strings and their meaning. The bump is MINOR (scale, dimensions,
+and formula unchanged — the rubric-3.1.0 precedent). The §14.5 sentence
+("stays rubric-3.1.0") is superseded for scores from 2026-11-09 onward;
+§14's other decisions are unchanged. The deterministic engine's parts,
+statuses, quotes, and scores are BEHAVIOR-IDENTICAL (its marker contract
+and the T1–T10 corpus are frozen; only its stamped version string moves
+with the shared constant, both editions in lockstep).
+
+### 15.5 Step-3-of-4 display (web bullet screen)
+
+- The transparency-score line — the SAME line the review list shows under
+  each bullet ("Context: n/2 · Role and Action Clarity: n/2 · Result:
+  n/2") — renders ONCE on the bullet screen, ABOVE the five-part analysis
+  (above the framework sentence).
+- The §5.2 five-cell row keeps part name + state text ONLY: the per-cell
+  rating numbers (" · n/2") are REMOVED. [Supersedes the 2026-11-07
+  owner-decision clause in §13.3 that displayed the ratings beside the
+  five-cell row state labels — owner-approved 2026-11-09; the review-list
+  per-bullet line is unchanged.]
+- The Copy button is REMOVED from the bullet screen. [Supersedes §6.1's
+  copy clause for the web bullet screen — owner-approved 2026-11-09; the
+  §8 final-output copy on the result screen is unchanged.]
+
+### 15.6 Acceptance criteria (Phase 19)
+
+- The bullet screen shows the transparency-score line above the five-part
+  analysis; the five-cell row shows no rating numbers; the review-list
+  line is unchanged; the bullet screen has no Copy button; the result
+  screen's copy still works.
+- The model rating prompt (the single surface for the gateway and BYOK
+  paths) carries the §15.1–§15.3 criteria with calibration examples: a
+  quantified-research bullet whose action quote is the interview work and
+  whose metric quote is EMPTY; a goal-as-need bullet capped below context
+  2; a concrete-object action without how/role scoring 1.
+- New scores carry rubric-3.2.0; the deterministic engine's outputs are
+  behavior-identical (parity green on the unchanged corpus, version
+  strings in lockstep).
+- No file outside the plan's Phase 19 FILE LIST changes (owner rule).

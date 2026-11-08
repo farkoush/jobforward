@@ -87,7 +87,7 @@ def test_five_part_flow_end_to_end(tmp_path):
     assert m.SCORE_BEFORE_AFTER.split("{before}")[0] in rendered
 
     # Storage: bullet replaced (edited → analyzed), history retained, and
-    # the new score carries rubric-3.1.0.
+    # the new score carries rubric-3.2.0.
     entries = cli.repository.load()
     (entry,) = entries
     bullet = entry.bullets[0]

@@ -179,6 +179,12 @@ def main():
          "role_action_clarity": r.role_action_clarity, "result": r.result}
         for r in response.ratings
     ]
+    # §14.1 (amendment 2026-11-08): the deterministic adapter's quotes are
+    # exactly its extraction results — the twin-drift oracle locks the echo.
+    out["quotes"] = [
+        r.quotes.as_dict() if r.quotes is not None else None
+        for r in response.ratings
+    ]
 
     out["rewrite"] = assemble_rewrite(BULLETS[3], ANSWERS)
     try:
@@ -244,6 +250,10 @@ def main():
     out["ratings_edge"] = [
         {"bullet_index": r.bullet_index, "context": r.context,
          "role_action_clarity": r.role_action_clarity, "result": r.result}
+        for r in response_e.ratings
+    ]
+    out["quotes_edge"] = [
+        r.quotes.as_dict() if r.quotes is not None else None
         for r in response_e.ratings
     ]
     # Phase 12 (spec §2.2): the diagnostic coverage record must match the TS

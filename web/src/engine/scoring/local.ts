@@ -9,7 +9,7 @@
  * role_action_clarity unchanged).
  */
 
-import { BulletParts } from "../types";
+import { BulletParts, RatingQuotes } from "../types";
 
 // --- Context heuristics (raw-text fallback) ---
 const SPECIFIC_CONTEXT =
@@ -89,6 +89,10 @@ export interface BulletRating {
   context: number;
   role_action_clarity: number;
   result: number;
+  /** §14.1: verbatim per-part quotes the rating is based on. The
+   * deterministic adapter echoes its extraction results; null only for the
+   * legacy raw-text path (no parts in the request). */
+  quotes?: RatingQuotes | null;
 }
 
 export interface RatingRequest {
@@ -141,6 +145,18 @@ export function localEvaluate(request: RatingRequest): BulletRating[] {
       context,
       role_action_clarity: rateSpecificAction(actionText),
       result,
+      // §14.1: the deterministic adapter's quotes are exactly its
+      // extraction results (provenance echo — outputs stay byte-identical
+      // to before). Null for the legacy raw-text fallback (no parts).
+      quotes: part
+        ? {
+            user_need: part.user_need,
+            product_feature: part.product_feature,
+            action: part.action,
+            result: part.result,
+            metric: part.metric,
+          }
+        : null,
     });
   }
   return ratings;

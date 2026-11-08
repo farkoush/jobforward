@@ -22,6 +22,7 @@ from ..evaluator import (
     BulletRatingRequest,
     BulletRatingResponse,
     BulletRating,
+    RatingQuotes,
     validate_response,
 )
 
@@ -230,6 +231,19 @@ class LocalHeuristicAdapter(BulletEvaluator):
                     context=context,
                     role_action_clarity=_rate_specific_action(action_text),
                     result=result,
+                    # §14.1: the deterministic adapter's quotes are exactly
+                    # its extraction results (provenance echo — the outputs
+                    # stay byte-identical to before). None for the legacy
+                    # raw-text fallback (no parts in the request).
+                    quotes=RatingQuotes(
+                        user_need=part.user_need,
+                        product_feature=part.product_feature,
+                        action=part.action,
+                        result=part.result,
+                        metric=part.metric,
+                    )
+                    if part is not None
+                    else None,
                 )
             )
 

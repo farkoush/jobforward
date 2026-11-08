@@ -121,7 +121,7 @@ def test_coverage_never_changes_ratings():
     request = type(
         "Req",
         (),
-        {"texts": [text], "parts": [parts], "answers": None, "rubric_version": "rubric-3.1.0"},
+        {"texts": [text], "parts": [parts], "answers": None, "rubric_version": "rubric-3.2.0"},
     )()
     before = adapter.evaluate(request).ratings
     _record(text, Ratings(context=2, role_action_clarity=2, result=2))

@@ -27,7 +27,7 @@ export type DraftReason = "no_bullets" | "user_saved";
 
 export type EntrySource = "manual";
 
-export const DEFAULT_RUBRIC_VERSION = "rubric-3.1.0";
+export const DEFAULT_RUBRIC_VERSION = "rubric-3.2.0";
 
 /** Three per-dimension scores, each int in {0,1,2} (rubric-3.0.0). */
 export interface Ratings {
@@ -67,6 +67,31 @@ export function partsPresent(p: BulletParts): Record<PartName, boolean> {
   const out = {} as Record<PartName, boolean>;
   for (const name of PART_NAMES) out[name] = Boolean(p[name].trim());
   return out;
+}
+
+/** Verbatim per-part quotations accompanying one bullet's ratings (spec
+ * §14.1, amendment 2026-11-08): the rating output is the single source of
+ * truth for the five-part template. Each field is the EXACT words copied
+ * from the bullet (equality after whitespace normalization) or empty when
+ * the bullet has no such part; the metric quotation is optional evidence
+ * with no score (§3). */
+export interface RatingQuotes {
+  user_need: string;
+  product_feature: string;
+  action: string;
+  result: string;
+  metric: string;
+}
+
+/** The five stored part fields built from a rating's quotes (§14.3). */
+export function partsFromQuotes(quotes: RatingQuotes): BulletParts {
+  return {
+    user_need: quotes.user_need,
+    product_feature: quotes.product_feature,
+    action: quotes.action,
+    result: quotes.result,
+    metric: quotes.metric,
+  };
 }
 
 /** Phase 12 (spec §2.2): one diagnostic coverage entry — quotation, status,

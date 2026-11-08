@@ -1596,3 +1596,292 @@ rendering controls for `flagged`/`splitSuggested`). Tasks start at T133
   metric carries none — §6). The ratings were computed and stored all
   along; only the display had been removed. Gates re-run green (tsc,
   test:engine 33/33, build exit 0).
+
+## Phase 19: Transparency Scoring Rules + Step-3 Display (spec §15, owner directive 2026-11-09)
+
+**Purpose**: the owner's 2026-11-09 directive — transparency scoring
+clarifications (product/platform name alone is not a feature; a goal is
+not a need; research/PM product domain can be the feature, built or
+planned; action 2 needs WHAT + HOW/ROLE, method counts, role specificity,
+"collaborated with" alone insufficient; a PRECISELY QUANTIFIED research
+method (N interviews, M questionnaire respondents) fills the action part
+and scores as action — narrowing the 2026-11-03 ruling; the metric quote
+is an OUTCOME number only — dates, project duration, and sample sizes are
+never metrics; goal-intent results and number-without-meaning behavior
+stay as-is) — plus the step-3-of-4 display change (the SAME
+transparency-score line the review list shows per achievement renders
+once ABOVE the five-part analysis; the five-cell row keeps state labels
+ONLY; the Copy button leaves the bullet screen; the §8 final-output copy
+stays). Scope (owner answers 2026-11-09, research R19-1..R19-6):
+model-judge criteria (prompt + rubric docs) + web display; the
+deterministic engine, T1–T10 corpus, parity BEHAVIOR, terminal display,
+and terminal scoring behavior are UNTOUCHED; rubric_version of record →
+**rubric-3.2.0** (MINOR; shared constants; fixture literals only).
+Tasks start at T144 (T091/T092 remain open; the §14 backfill was
+owner-approved 2026-11-09 and is recorded as its own retroactive
+section below — T157–T163 [X]).
+
+### Setup & Foundational
+
+- [X] T144 Apply the spec.md amendment from the plan's Spec-amendment
+  draft (plan.md Phase 19 Addendum): NEW §15 (criteria a–d: scoring
+  clarifications; step-3 display; model-judge scope + rubric-3.2.0 of
+  record; the three owner-approved supersessions — §13.3's 2026-11-07
+  five-cell clause, §6.1's copy clause on the bullet screen, the
+  2026-11-03 ruling narrowed to unquantified research) + companion
+  edits: §3 version-of-record line, §3.1 model rating instructions, a
+  §6.1 supersession note on the copy clause, §9 acceptance-criteria
+  additions, §14.5's "stays rubric-3.1.0" sentence superseded by §15's
+  version clause, §10 open-items line, AND the remaining version
+  literals so none survives ungated: §4's stored-field note
+  ("rubric-3.1.0 as of 2026-11-03", spec.md:208) and §9's
+  stored-version criterion (spec.md:482). PLUS the owner-approved
+  analyze remediations (2026-11-09 — C1/C2 status finalization):
+  refresh the stale Implementation-status-note block (spec.md:30–41,
+  Phase 13/14 still say "NOT yet implemented" — record both DONE with
+  their commits) and add the Phase 15 DONE marker to §10 (line ~513,
+  implemented and gated 2026-11-05, T121–T126). Also add the header
+  line-7 amendment entry and the §10 Phase 19 line (planned). Status
+  note: amendment recorded 2026-11-09, planned, not yet implemented.
+- [X] T145 [P] Bump `DEFAULT_RUBRIC_VERSION` to "rubric-3.2.0" in
+  web/src/engine/types.ts (line ~30; one constant — the BYOK prompt
+  template embeds it automatically).
+- [X] T146 [P] Bump `RUBRIC_VERSION` to "rubric-3.2.0" in
+  terminal/src/jobforward/rubric.py (the ONLY place the terminal writes
+  the version; llm.py's echo check and the heuristic adapter move with
+  it — no logic change).
+
+### Model-judge criteria (prompt + rubric docs)
+
+- [X] T147 Update the evaluator prompt in web/src/lib/byok/prompts.ts
+  per plan R19-6 + R19-3 (the single prompt surface — gateway AND BYOK
+  paths, page.tsx:574): context line gains "the product/platform NAME
+  alone is not a feature — a feature is a capability, part, or flow of
+  the product" and "a GOAL is not a need ('improving match rate' is
+  what the writer wanted, not a problem someone had)" and the
+  research/PM domain clause (the product domain the work is about —
+  e.g. the MVP scope, requirements definition — can be the feature,
+  built OR planned); role_action_clarity line gains "a 2 needs the
+  WHAT (which part) AND the HOW or the ROLE; a verb + generic object
+  ('Redesigned the platform') is 1; the method counts as part of the
+  action; in team work the person's role must be specific —
+  'collaborated with' alone is not enough" and the quantified-research
+  rule ("a research method stated with a precise count — N interviews
+  conducted, M people filled the questionnaire — fills the action and
+  scores as action; unquantified research verbs stay need-only with
+  the action empty"); result/metric rules gain "dates, project
+  duration, and sample sizes (e.g. '6 interviews') are NOT metrics —
+  the metric quote is an outcome number only"; goal/intent results
+  ("aiming to", "with the goal of" = 1 never 2) and the
+  number-without-meaning behavior stay UNCHANGED. Update/extend the
+  calibration examples: (1) a quantified-research bullet — action
+  quote "Interviewed 6 users", context from the stated finding-need,
+  metric quote EMPTY (the sample size is not a metric); (2) a
+  goal-as-need bullet — context capped at 1/0, the goal phrase NOT
+  quoted as the need; (3) a concrete-object action without how/role —
+  role_action_clarity 1 under the new 2-definition. The §14.1 JSON
+  shape, the §14.2 invariant wording, the retry-once-then-refuse
+  contract, and the <bullets> injection defense stay byte-identical;
+  the embedded rubric_version moves via T145's constant. Test refs:
+  live-ollama.test.ts only PASSES the prompt (no content assertions) —
+  no test update needed there.
+- [X] T148 Update specs/001-experience-improvement-flow/few-shot/
+  model-rating-few-shots.md to carry the SAME calibration examples as
+  T147 (the doc is the prompt's record — examples stay in lockstep),
+  with a short "rubric-3.2.0 (2026-11-09)" header noting the §15
+  criteria and the R19-3 quantified-research rule.
+- [X] T149 [P] Add ONE additive pointer line at the top of
+  specs/001-experience-improvement-flow/checklists/specific-action.md:
+  "rubric-3.2.0 (2026-11-09) model-judge additions (quantified research
+  method = action; WHAT + HOW/ROLE for a 2) live in spec §15 — the
+  deterministic levels and decision rules below are UNCHANGED." The
+  levels/decision rules are NOT edited (R19-4).
+
+### Version-fixture mechanics (after T145/T146)
+
+- [X] T150 [P] Update version literals/comments ONLY (no behavior
+  assertions) in terminal/tests/contract/test_evaluator_output.py
+  (lines ~282, ~302, ~323, ~357), terminal/tests/unit/test_coverage.py
+  (~124), terminal/tests/integration/test_five_part_flow.py (~90
+  comment), terminal/tests/unit/test_part_scoring.py (~95 comment),
+  terminal/tests/unit/test_part_extraction.py (~94, ~145 comments) —
+  "rubric-3.1.0" → "rubric-3.2.0" where the fixture constructs a
+  request/response or the comment names the version of record;
+  historical-record comments keep their old strings only where they
+  describe what an OLDER version meant.
+- [X] T151 [P] Update web/tests/engine/scoring-quotes.test.ts version
+  fixtures (~51, ~66) "rubric-3.1.0" → "rubric-3.2.0" — same
+  literals-only rule.
+
+### Web display — bullet screen (step 3 of 4)
+
+- [X] T152 Rework the bullet screen in web/src/app/page.tsx (BulletGate
+  component, ~2746–2860): (a) ADD the score line after the Back button
+  and before the framework sentence — the stored ratings rendered with
+  the review-list formatting (SCORE_DIMENSION × SCORE_DIMENSION_CONTEXT/
+  ACTION/RESULT joined by " · "), conditional on `bullet.ratings`
+  exactly like the review-list line (page.tsx ~2324); (b) DELETE the
+  `cellRating` computation and the RATING_CELL span from the five-cell
+  row (~2819–2846) — cells keep part label + state text + weight
+  styling (§5.2 unchanged); (c) DELETE the Copy button, the "Copied"
+  tooltip, the `copied` state, `copyImproved`, and `legacyCopy`
+  (~2708–2799); check `improvedBullet()` — if its only remaining caller
+  was the copy path, remove it too (no orphans); the review-list line,
+  the sentence, the question loop, and the coverage block are
+  UNTOUCHED.
+- [X] T153 Remove the orphaned strings `RATING_CELL`, `COPY_BUTTON`,
+  `COPY_TOOLTIP` from web/src/engine/messages.ts (verified: bullet
+  screen only; the §8 final screen uses its own button) AFTER T152 —
+  and re-run the theme guard (the emoji/token guard reads the message
+  module; removals only, no tone impact).
+- [X] T154 Verify web/tests has no React-component harness (test:engine
+  covers the engine; page.tsx rendering is walkthrough-tested in this
+  repo) and RECORD that finding in the Phase 19 execution notes — the
+  display acceptance is the owner walkthrough (T156) plus the standing
+  gates; do NOT introduce a component-test framework in this phase
+  (P8 — prototype simplicity).
+
+### Gates & validation
+
+- [X] T155 Run the full standing gate set and record results in the
+  execution notes: `npm run test:engine` (incl. theme guard),
+  `tsc --noEmit`, `npm run build` (exit 0), parity **PARITY OK**
+  (deterministic behavior identical — outputs may differ ONLY in the
+  stamped rubric_version string, both engines in lockstep),
+  `npm run test:byok` (BYOK_SKIP_LIVE=1), `npm run scan:byok`,
+  `npm run test:llm`, `PYTHONUTF8=1 python -m pytest` from terminal/.
+- [ ] T156 Owner walkthrough per quickstart.md Phase 19: (1) bullet
+  screen — score line above the analysis, five-cell row without
+  numbers, no Copy button; review-list line unchanged; (2) the §8
+  final-output Copy still works; (3) with a working model path —
+  "Interviewed 6 users…" gains action credit, "6" is not quoted as the
+  metric, goal-as-need caps context, "Redesigned the platform" stays 1;
+  (4) a no-model run behaves exactly as before with the rubric-3.2.0
+  stamp. Owner step — the interactive flow needs the password-gated dev
+  server (npm run dev from web/, port 3100).
+
+### Dependencies & Parallel Opportunities
+
+- T144 (spec) is foundational — every other task cites §15; T145/T146
+  are independent of T144 and of each other [P].
+- T147 before T148 (the few-shot doc mirrors the prompt's examples);
+  T149 is independent [P].
+- T150/T151 [P] follow T145/T146 (literal value must exist first).
+- T152 → T153 (string removal follows the usage removal) → T154.
+- T155 runs after ALL implementation tasks; T156 is the owner's closing
+  step.
+
+### Implementation Strategy
+
+Single commit-sized phase (like Phase 18's post-walkthrough
+amendments): spec + constants + prompt/docs first (T144–T149),
+fixtures next (T150/T151), display last (T152–T154), then gates
+(T155) and the owner walkthrough (T156). No file outside the plan's
+12-row FILE LIST may change (owner rule 2026-11-09); any discovered
+need goes back to the owner before editing.
+
+## §14 Backfill Record: Single-Source Scoring Output (implemented 2026-11-08; recorded 2026-11-09, owner-approved)
+
+**Purpose**: retroactive task record (analyze remediation C3 — the
+owner approved extracting the §14 items into the spec-kit record on
+2026-11-09). §14 was implemented on 2026-11-08 in one owner-directed
+compressed speckit flow WITHOUT a tasks section; the tasks below are
+marked [X] as a RECORD of that completed work (evidence as-run
+2026-11-08), not as new work. Details: plan.md §14 Implementation
+Record; spec §14; research (owner decisions of 2026-11-08 recorded in
+spec §14's delegated-decision notes).
+
+- [X] T157 Record the §14 owner decision and delegated decisions in the
+  spec (2026-11-08): the rating output is the single source of truth —
+  §14.1 structured output (three 0/1/2 ratings + per-part verbatim
+  quotes; Context carries TWO quotes: need + feature; the metric quote
+  optional and score-free), §14.2 validity invariants + invalid output
+  retried once then refused (user data intact, no silent fallback),
+  §14.3 five parts/statuses derive from score + quote (missing/vague/
+  complete; stored label "filled" kept for data compatibility),
+  §14.4 answers re-score through the same single pass, §14.5 rubric
+  stays 3.1.0, §14.6 unchanged list — plus the §9 single-source
+  criteria and the header amendment entry.
+- [X] T158 [P] Terminal implementation (py): `scoring/evaluator.py`
+  §14.1 output contract + retry-once-then-refuse;
+  `scoring/adapters/llm.py` RatingQuotes + `_parse_quotes` +
+  `validate_rating_evidence` on every model response (rubric-echo check
+  unchanged); `scoring/adapters/local.py` — the deterministic adapter's
+  quotes are exactly its extraction results (byte-identical scores).
+- [X] T159 [P] Web implementation (ts, lockstep): `engine/scoring/evaluator.ts`
+  §14.1 types + `validateRatingEvidence`; `engine/scoring/local.ts`
+  extraction-echo quotes; `engine/types.ts`; `app/page.tsx` — the five
+  stored/displayed parts fill from the rating output's quotes and the
+  displayed statuses derive exactly from score + quote.
+- [X] T160 [P] Evaluator prompt: `web/src/lib/byok/prompts.ts` — the
+  quotes contract and the §14.2 invariant wording added to the system
+  prompt (the §14.1 JSON shape embedded; the model returns quotes, the
+  code keeps ALL arithmetic).
+- [X] T161 [P] Parity extension: `web/scripts/parity.mts` +
+  `web/scripts/parity_python.py` — the §14.1 quote echo added to the
+  twin-drift oracle (the deterministic quotes are the extraction echo;
+  rating equality compared with quotes handled per the oracle rule).
+- [X] T162 [P] Governance: constitution P4 amended to v4.2.0 (the model
+  returns the ratings plus the verbatim quotes — no score arithmetic
+  moves to the model; working tree, uncommitted as of 2026-11-09);
+  `checklists/requirements-single-source-scoring.md` created (11/11);
+  `feature.json` → 001 (gitignored).
+- [X] T163 Gates as-run 2026-11-08: pytest 224 green from `terminal/`
+  (11 new §14 tests in `tests/contract/test_evaluator_output.py` +
+  `tests/integration/test_full_path.py`) · test:engine 43/43 (10 new
+  scoring-quotes tests in `web/tests/engine/scoring-quotes.test.ts`) ·
+  tsc clean · build exit 0 · PARITY OK · test:byok 24/24 · test:llm
+  114/114. KNOWN RESIDUAL recorded (deterministic score ≥1 with an
+  empty extracted part — needs a new rubric version; owner decision
+  deferred; untouched by §15).
+
+### Phase 19 execution notes (as-run 2026-11-09)
+
+- **T144**: spec §15 applied + ALL companion edits — §3 version-of-record,
+  §3.1 criteria paragraph, §4 stored-field literal (was spec.md:208), §6.1
+  supersession note, §9 criterion literal (was spec.md:482) + the Phase 19
+  criteria bullet, §10 Phase 15 DONE marker (analyze C2) and the Phase 19
+  line, §13.3 supersession note, header line-7 entry. The owner-approved
+  analyze remediations C1/C2 rode along: the stale Implementation-status
+  note (spec.md:30–41) now records Phase 13 (c56e574) and Phase 14
+  (cbf7ae8) as implemented and gated.
+- **T145/T146**: both constants → "rubric-3.2.0". **T150/T151**: fixtures
+  updated; the three historic-record comments that describe what CHANGED
+  IN rubric-3.1.0 (test_part_scoring.py:95, test_part_extraction.py:94/145)
+  intentionally KEEP the old string (rubric.py's record convention).
+- **T147/T148**: prompt + few-shot doc in lockstep — rubric-3.2.0 criteria
+  (context: name-alone/goal/domain rules; action: WHAT + HOW/ROLE, method
+  counts, quantified-research rule; metric = outcome number only) and
+  SEVEN calibration examples: example 3 gained a role clause to satisfy
+  the new action-2 definition; 5–7 new (quantified research = action with
+  an EMPTY metric quote; goal-as-need → context 0, goal never quoted as
+  the need — the §14.2 context-1 invariant respected; concrete-object-
+  without-how/role → 1). The §14.1 JSON shape, the §14.2 invariant
+  wording, and the injection defense are byte-identical; the embedded
+  version moved via the T145 constant.
+- **T149**: pointer added at the top of specific-action.md; levels and
+  decision rules untouched.
+- **T152/T153**: the score line sits between Back and the framework
+  sentence (SCORE_DIMENSION × CONTEXT/ACTION/RESULT joined by " · ",
+  conditional on `bullet.ratings` — the review-list pattern); the
+  `cellRating` computation, the RATING_CELL span, the Copy button, the
+  "Copied" tooltip, the `copied` state, `copyImproved`, and `legacyCopy`
+  are deleted; `improvedBullet` STAYS (the §8 final path at page.tsx:1020
+  still calls it — verified); messages.ts lost RATING_CELL, COPY_BUTTON,
+  COPY_TOOLTIP with §15.5 explanatory comments; no other references
+  existed (grepped src/ + tests/).
+- **T154 (recorded finding)**: web/tests has NO React-component harness —
+  tests/engine runs pure TS helpers (node:test + tsx), tests/llm is
+  vitest for the gateway, tests/byok is transport/contract level; the
+  Phase 15 precedent tests only PURE display helpers. page.tsx rendering
+  is walkthrough-tested; no component framework was introduced (P8).
+- **T155 gates as-run 2026-11-09**: `tsc --noEmit` clean · test:engine
+  43/43 · PARITY OK (`node scripts/parity.mjs` — no npm alias exists) ·
+  test:byok 23/23 with BYOK_SKIP_LIVE=1 (the 24th test is the
+  live-Ollama one, skipped) · scan:byok passed · test:llm 114/114 ·
+  `npm run build` exit 0 · pytest 224 green from `terminal/`.
+- **T156 REMAINING (owner step)**: the interactive walkthrough
+  (quickstart.md Phase 19) needs the password-gated dev server —
+  `npm run dev` from `web/` (port 3100); scenario 3 (model criteria)
+  needs a reachable chain (NVIDIA geo-block — VPN if needed); scenario 4
+  (no-model behavior) is VPN-independent.

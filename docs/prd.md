@@ -4,6 +4,8 @@
 
 **\*\*Status:\*\*** Draft 0.1, not a final document. October 23, 2026. Sections that do not yet have a final decision are marked “Proposed” and collected at the end of the document.
 
+> **Update (November 8, 2026):** This document remains the product-level record of version 1, with dated update notes that supersede the original text (kept as history). The canonical, implementation-level specifications now live in `specs/` (`001-experience-improvement-flow`, `002-jd-matcher`, `004-llm-gateway`) under the project constitution (`.specify/memory/constitution.md`, currently v4.2.0). Where wording differs, the specs and the constitution govern; this file records the product decisions and their dates.
+
 
 
 **## 1. Problem**
@@ -99,6 +101,20 @@ These assumptions are currently treated as true and need to be tested. Items 7�
 
 
 Three features will be built in version 1. They all work only on data entered by the user (updated October 30, 2026: the JD Matcher analyzes only the pasted job posting and never touches resumes — originally "only on resumes"). Version 1 is a text-based terminal flow, and all tool text is in English at B1 level. The UI and Persian language will be added in later versions.
+
+> **Update (November 8, 2026 — editions, language, model access):**
+> Since Phase 16 of feature `001-experience-improvement-flow` (November 5,
+> 2026) the repository carries TWO VIEW EDITIONS of one engine: `terminal/`
+> (Python "Terminal v1" — the original rule/test baseline, FROZEN; its
+> display and flows never change) and `web/` (the product's continuation).
+> Governance (`specs/`, `.specify/`, `docs/`) stays shared at the repository
+> root. Version 1 remains English-only at B1 level — including error and
+> limit messages (constitution v4.0.0 redefined the earlier plan for Persian
+> error messages; the Persian UI stays a later-version item). On the web,
+> model-based bullet scoring runs through the centralized LLM Gateway of
+> feature `004-llm-gateway` (section 4.6 below) with the free path as the
+> default; the JD matcher, all score arithmetic, and rewrite assembly stay
+> deterministic code.
 
 
 
@@ -197,6 +213,33 @@ The matcher's output unit is the work experience entry, not the bullet.
 > Context → Action → Result pattern remains the sentence structure for
 > rewrites.
 
+> **Update (November 3 → November 8, 2026):** Two amendments to how the five
+> parts are identified, both in feature `001-experience-improvement-flow`:
+> (1) **rubric-3.1.0** (November 3, 2026, Phase 11) tightened the extraction
+> rules — research/mapping verbs (analyzed, researched, benchmarked, …) are
+> need signals and never fill the action part; an infinitive purpose clause
+> ("to uncover …") is a vague result; no word appears in two parts (the
+> single exception: a feature name inside the action sentence); `flow(s)` is
+> a feature marker and `had no` a need marker; whitespace is normalized
+> before extraction, so a multi-line bullet extracts exactly like its
+> single-line equivalent. (2) **Single-source scoring output** (§14,
+> November 8, 2026): when a bullet is rated by a model, the five parts are
+> NOT a separate judgment — the rating output carries, alongside the 0/1/2
+> ratings, one verbatim quotation per part (Context carries two: need and
+> feature), and the five parts, their presence flags, and their
+> missing/vague/complete statuses are filled and derived from those quotes.
+> A model output that breaks the score-quote invariants (a 2 without its
+> required quote(s), a 1 with an empty need/action/result quote, a 0 with a
+> quoted need, or a quote that is not a whitespace-normalized verbatim
+> substring of the bullet) is INVALID — retried once through the existing
+> loop, then refused with the user's data intact and no silent fallback. The
+> deterministic engine is byte-identical to before (its quotes are its
+> extraction results); the rubric stays rubric-3.1.0 because no scoring
+> criterion changed. The question flow of this section (0–5 questions, the
+> question texts, and the conditions: Need/Action/Result when their
+> dimension scores 0 or 1; Feature/Metric when the field is empty) is
+> UNCHANGED by both amendments.
+
 A bullet is free text. The framework only organizes the questions and the rewritten sentence; the user does not fill in separate fields.
 
 First, the tool asks: “Do you want me to rewrite this bullet to make your experience stronger?” (Default: Yes). If the answer is yes, the tool asks exactly one question for each missing or vague part, in this order: Need, Feature, Action, Result, Metric. A part is missing when it is empty or vague; “vague” is determined by the relevant dimension score in section 4.3 (0 or 1). The Need, Action, and Result questions are asked when their dimension scores 0 or 1; the Feature and Metric questions are asked when the field is empty. This means there are 0–5 questions, and the job seeker can skip any question. Before each question, the tool identifies the achievement and the part being discussed. If the bullet is complete (Context, Specific Action, and Result all score 2), no questions are asked; the tool only asks the user to confirm the bullet at the end. The metric is optional and never blocks completeness.
@@ -240,6 +283,45 @@ For the Result dimension, a specific qualitative result scores 2 even without a 
 \- Bare number only: “20% growth”
 
 **\*\*Score:\*\*** The entry score is the equal average of the three equally weighted dimensions on a 0–100 scale (equal weights — the “25%” wording was a leftover and was corrected on October 29, 2026). The overall score is the simple average of entries that have bullets. Both the overall score and sub-scores are shown. After the pilot, weights will be reviewed only using data, and any change will create a new rubric version. `rubric_version` is now 3 because the Context definition changed; prior scores remain associated with their original rubric versions.
+
+> **Update (November 3 → November 8, 2026; feature `001-experience-improvement-flow`):**
+> - **Rubric version:** since November 3, 2026 the version of record is the
+>   semver string **rubric-3.1.0**, stored with every new score (the numeric
+>   "version 3" above is the historical name). rubric-3.1.0 changed no
+>   dimension weights; it aligned the result dimension — a present-but-vague
+>   result scores 1 and 0 is reserved for a missing result — and tightened
+>   the extraction rules (section 4.2 note). Prior scores keep their stored
+>   version.
+> - **Coverage record (Phase 12, November 4, 2026):** before any part
+>   receives its status, the engine runs a diagnostic coverage pass; every
+>   word of the bullet that no framework part claims appears in exactly one
+>   "orphaned" span with a reason, and each part carries quotation, status,
+>   and reason. The record is stored with the analysis and rendered on the
+>   web (a neutral gray "Not attributed to the framework" block); it has NO
+>   effect on scores, questions, or completeness.
+> - **Single-source scoring output (§14, November 8, 2026):** for a
+>   model-rated bullet the ratings and the five-part template come from ONE
+>   output — ratings plus verbatim per-part quotes (section 4.2 note); the
+>   displayed status per part derives from score + quote only (missing =
+>   empty quote; vague = quote present and dimension below 2; complete =
+>   quote present and dimension 2). Scores are never patched per dimension:
+>   after answers, the improved bullet is re-scored through the same single
+>   pass as a first-time bullet, and a rewritten bullet re-extracts its
+>   parts fresh (a stale-stored-parts bug was fixed 2026-11-08).
+> - **Web display superseded (Phase 15, November 5, 2026):** the web
+>   prototype no longer uses the bracket format — it shows a five-cell
+>   status row (Complete / Vague / Missing, text and weight only, no icons),
+>   the framework as ONE sentence with soft underlines (status colors kept)
+>   and dotted placeholders for missing parts, and a focused
+>   one-question-at-a-time improvement loop (missing parts first, then
+>   vague, Metric last; typing updates the sentence live; complete bullets
+>   skip the loop). The terminal's bracket display and list format are
+>   unchanged (frozen).
+> - **Model banner superseded (spec-004 §15/§16, November 7, 2026):** the
+>   Phase-11 disclosure banner (shown only on screens where a model call can
+>   happen) was upgraded to a persistent header banner on EVERY screen,
+>   showing the active answering source ("Default free" / "My key") and the
+>   connection color state, with in-place source switching (section 4.6).
 
 An overlap warning suggests merging overlapping bullets within an experience entry and does not affect the score (corrected October 29, 2026: the overlap unit is the bullet, not the entry).
 
@@ -315,6 +397,27 @@ Each work experience entry is saved using the same fields, whether entered manua
 
 The overall score is not stored on a work experience entry; it is the simple average of the scores for entries that have bullets. Each entry score and the overall score are independent of the job posting.
 
+> **Update (November 4 → 8, 2026; feature `001-experience-improvement-flow`):**
+> - New per-bullet field **`coverage`** (Phase 12): the chunk-attribution
+>   record — one entry per part (`{quote, part, status, reason}`) plus one
+>   per orphaned span — diagnostic only (section 4.3 note).
+> - `part_present` is now defined as quote presence (§14): a part with no
+>   quotation is missing, never vague; "vague" additionally requires the
+>   dimension score to be 0 or 1.
+> - For a model-rated bullet the five part fields are populated from the
+>   rating output's verbatim quotes (§14, section 4.2 note); the storage
+>   shape is unchanged.
+> - Entry-level fields (Phase 13, November 4, 2026): `company`, `dates`,
+>   `product_domain` — optional and additive; old documents load unchanged.
+>   Phase 18 (November 6, 2026, web-only) supersedes the entry-time form:
+>   these become per-part review fields after the paste, and `dates` becomes
+>   structured start/end year–month (`start_date`, `end_date`) with an
+>   "I still work here" ongoing flag — still optional and additive.
+> - **Bullet cap:** the 1–6 bullets-per-entry rule is the TERMINAL rule and
+>   stays frozen there; the web prototype REMOVED the upper cap (Phase 18,
+>   product-owner decision 2026-11-06): zero confirmed achievements saves a
+>   draft; one or more saves the entry with no upper cap.
+
 
 
 **### 4.5 Data Entry**
@@ -322,6 +425,36 @@ The overall score is not stored on a work experience entry; it is the simple ave
 
 
 **\*\*Manual flow (required).\*\*** The user adds work experience entries one by one. Each entry is scored when added or edited, and the user uses the ready entries in their own resume. The output format is copied text for each entry.
+
+> **Update (November 4 → 8, 2026; feature `001-experience-improvement-flow`):**
+> The manual flow's WEB implementation changed twice, and the PDF option was
+> deferred:
+> - **PDF upload and email sign-in are DEFERRED to the next version**
+>   (constitution, additional constraints; never built in version 1). The
+>   PDF subsection below is kept as the recorded design for that version.
+> - **Phase 13 (November 4, 2026, web-only): paste-and-split entry** — the
+>   entry screen collects one job's whole experience at once (short fields
+>   for title, company, dates, product domain + one achievement box); the
+>   tool splits the paste into candidate bullets, flags responsibility-style
+>   lines, and every keep/discard/merge/split/delete decision is the user's.
+>   Text is only moved or re-joined, never rewritten.
+> - **Phase 18 (November 6, 2026, web-only) supersedes that entry form:**
+>   after the experience-type selection, ONE paste box for the whole text of
+>   ONE experience; the split segments appear on one review screen with
+>   fixed per-type section labels and move by DRAG-AND-DROP (only the first
+>   non-marker line auto-places into Title; the tool never guesses —
+>   automatic attribution was explicitly rejected by the product owner); a
+>   type switcher swaps only the labels; structured year–month start/end
+>   dates with an "I still work here" option; the merge/split/delete and
+>   keep/discard buttons are gone — the found achievements are plain
+>   editable text, and cleared rows drop at confirm; a no-change re-confirm
+>   skips re-analysis; every stage has a Back control that never wipes
+>   answers; the separate score screen is merged into the bullet-list review
+>   page (Experience score with a progress ring; the per-bullet 0/1/2
+>   ratings are displayed in both places — owner decision 2026-11-07). The
+>   pasted original text stays visible during each bullet's analysis.
+> - The terminal's bullet-by-bullet entry flow and display are unchanged
+>   (frozen baseline).
 
 
 
@@ -346,6 +479,122 @@ The overall score is not stored on a work experience entry; it is the simple ave
 \- A new resume upload replaces the previous resume.
 
 
+
+**### 4.6 LLM Gateway and Model Access (added November 7, 2026; feature `specs/004-llm-gateway/`)**
+
+> The web prototype's model scoring runs through ONE centralized LLM
+> Gateway — the only component allowed to contact a model provider
+> (constitution P12). Feature `004-llm-gateway` was created and clarified
+> November 6, 2026 and implemented November 6–8, 2026; the summary below
+> records the product-level decisions. Spec 004 is the PRIMARY spec for
+> everything model-related (a separate error-UX spec, 005, was created and
+> retired the same day, absorbed into spec-004 §15).
+>
+> **Two task categories.** Every model request declares GEN (heavy
+> generation) or FAST (lightweight, low-latency); each category has one
+> primary model plus an ordered, configurable fallback list. A failure is a
+> rate-limit error, server error, timeout, empty response, or invalid
+> response; the next fallback is tried in order and the first success is
+> returned. Invalid operator keys and invalid inputs are configuration/input
+> errors and never trigger fallback; a "model not found" class answer goes
+> straight to the next fallback.
+>
+> **Free path is the default.** The user works without entering any key; the
+> provider key (NVIDIA) is held only server-side by the operator.
+>
+> **Limits (all env-configurable; defaults):** per-user daily 15 GEN and 50
+> FAST requests; global daily 250 GEN and 600 FAST; 3 requests/minute per
+> user on the free path; a global provider limiter of 30 calls/minute (~75%
+> of the key's ~40 rpm) that counts every actual provider call — including
+> retries and fallback attempts — with a ~5-second queue before a "service
+> busy" rejection; a cap of 4 provider calls per request (persistent 429s
+> end in the typed RATE_LIMITED result with a retry-after); BYOK 10
+> requests/minute; input up to ~8,000 characters; output up to ~2,000 (GEN)
+> / ~500 (FAST) tokens. The quota day is the calendar day in UTC, and the
+> limit message shows the UTC reset time. Daily quotas count user-visible
+> tasks; internal retries and fallbacks count only against the per-minute
+> provider limiter.
+>
+> **Access without accounts.** First-time access is gated by one shared
+> gateway password (read only from server-side environment configuration);
+> on success the server sets a signed, httpOnly, ~30-day anonymous identity
+> cookie that keys the per-user quotas. There are no accounts, registration,
+> or user-side password changes in this version; clearing cookies starts a
+> fresh quota — an accepted residual risk, backstopped by the global quotas
+> and the per-minute limiters.
+>
+> **Input and data safety.** The user's in-progress input is persisted
+> durably before it is sent and cleared only after a fully successful
+> response; in EVERY failure or rejection mode the input stays intact,
+> partially streamed text is preserved, and Retry resends it without
+> retyping (a reload recovers the draft). The user's data (entries, bullets,
+> answers, drafts, history) NEVER depends on LLM success — a model failure
+> can never cause data loss or block access to saved data (constitution
+> P18). GEN responses stream; a stream cut midway offers ONE "continue"
+> action that appends to the preserved text. The gateway never surfaces an
+> unhandled crash: it always returns a structured outcome (success, failure
+> reason, retry-ability, suggested wait, source).
+>
+> **BYOK (bring your own key).** Optional, in a fully independent "LLM
+> settings" section reachable from everywhere (menu, header banner, failure
+> paths, plus a quick save modal from the header). The key is used only for
+> the request it was entered with and is never stored, logged, or displayed.
+> A failed user-key request NEVER falls back to the free path automatically
+> — it shows its own message, and an explicit button offers resending that
+> same request with the default free combo. BYOK requests consume no free
+> quota and stay fully independent of the free-path configuration (a broken
+> operator config never blocks a valid user key). Displayed provider:
+> EXACTLY ONE — Google AI Studio (OpenAI-compatible endpoint); the other
+> registry providers (OpenRouter, Ollama, …) are hidden from the UI, not
+> deleted — re-activating one is a config-level change.
+>
+> **Error honesty and status (§15).** Every failure maps to one class —
+> TRANSIENT, NO-WAY-FORWARD, BROWSER-UNREACHABLE, or OWN-KEY — and that
+> mapping is the single source for messages, guidance, and actions. A broken
+> gate configuration shows a gate-specific message and NEVER AI-outage
+> wording (the live-deployment mislabel diagnosed November 7, 2026: the gate
+> screen showed "AI unavailable" for a missing gate configuration variable —
+> no AI was involved). Every AI failure at an analysis stage shows an
+> in-page guidance box at that stage; VPN advice appears ONLY for
+> browser-unreachable failures (a user-side VPN cannot fix the
+> server-to-provider link). When the whole free chain fails, the transfer to
+> the LLM settings is preceded by a short explanation (why, where, promise
+> of return), and after saving a key the user returns to the exact origin
+> stage with ONE one-tap ask: "Retry with your own key?" — confirming runs
+> the failed action once with the own key. Provider contact happens only at
+> analysis actions, plus ONE content-free background connection check per
+> session from the menu screen (owner-approved exception) with a 20-second
+> client timeout and a restore-only-if-available saved status, so a stale or
+> stuck banner cannot happen; explicit re-checks are always available. The
+> connection status shows four truthful states — checking, available
+> (green), needs-retry (yellow), unavailable (red) — and never blocks or
+> delays navigation.
+>
+> **Persistent banner.** One header banner on every screen (from the menu
+> onward, and the BYOK entry on ALL screens including the gate) shows the
+> active answering source ("Default free" / "My key") and the connection
+> color state, and switches the source in place — no reload, no lost place.
+>
+> **Diagnostics and operations (§13/§14/§16; constitution P19–P21).** Every
+> request writes a privacy-safe JSONL log entry (category, the model that
+> responded, whether fallback was used and its depth, token counts, timing,
+> final status) — never prompt content or keys. Every failed attempt also
+> logs a server-terminal line (model, HTTP status, error class, truncated
+> error body ~300 chars, attempt number) and, in development only, a
+> sanitized browser-console summary. Server startup echoes the resolved
+> model chains (ids only, no provider contact) and warns about duplicate
+> `.env.local` variables with line numbers (env hygiene: one definition per
+> variable — Next.js takes the last). Operator tools: `npm run check:models`
+> (chain validation), `check:connection` (timings + per-model 1-token live
+> smoke), `test:live`, and `probe:rate-limit`; a dev-only mock mode
+> (`LLM_MOCK=true`, header `x-mock-error`) simulates every failure class.
+> Symptoms → causes → fixes are recorded in `docs/llm-gateway-runbook.md`.
+>
+> **What the model does and does not do.** The model supplies only the
+> per-bullet 0/1/2 ratings plus the verbatim quotes each rating is based on
+> (constitution P4 as amended v4.2.0; spec-001 §14). All score arithmetic,
+> the JD matcher, and rewrite assembly stay deterministic code. The
+> terminal's opt-in LLM adapter follows the same output contract.
 
 **## 5. Success Metrics**
 
@@ -410,6 +659,17 @@ This version intentionally does not include:
 \- Interview stage and interview practice
 
 \- UI and Persian interface (version 1 is an English text-based terminal flow; UI and Persian will be added in later versions)
+
+> **Update (November 6 → 8, 2026):** additional out-of-scope items from
+> spec-004 and the constitution: full authentication, user accounts, and
+> registration (the web prototype uses the shared gateway password plus an
+> anonymous persistent cookie instead — section 4.6); payments, usage plans,
+> and a cost dashboard; additional BYOK providers (exactly one is displayed
+> — Google AI Studio; the others are hidden, not deleted); the auxiliary
+> per-IP daily cap and the 10-minute model-unavailability marking (both
+> deferred by product decision, spec-004 FR-35/FR-33); PDF upload and email
+> sign-in (deferred to the next version — see section 4.5). The PDF and
+> UI/Persian items above remain recorded as the design for later versions.
 
 
 
@@ -477,6 +737,14 @@ This version intentionally does not include:
 
 \- **\*\*Rubric version:\*\*** Version 3 (October 29, 2026): the five-part framework (parts extracted automatically, only the candidate's own words), Context derived from `user_need` + `product_feature`, and Specific Action replacing “Role and Action Clarity” (stored key `role_action_clarity` unchanged). Prior scores keep their original rubric version.
 
+- **\*\*Rubric version of record (updated November 3, 2026):\*\*** Since November 3, 2026 the version stored with every score is the semver string `rubric-3.1.0` (spec-001 Phase 11): parsing corrections (research/mapping verbs are need signals and never actions; infinitive purpose clauses are vague results; no word in two parts except feature-inside-action; multi-line normalization) and the result-dimension alignment (present-but-vague = 1; 0 reserved for missing). No dimension weights changed.
+- **\*\*Single-source scoring output (November 8, 2026):\*\*** A model returns the 0/1/2 ratings PLUS the verbatim quotes each rating is based on; the five framework parts and their missing/vague/complete statuses are derived from that one output; an output that breaks the score-quote invariants is retried once and then refused (user data intact, no silent fallback). All score arithmetic stays in deterministic code (constitution v4.2.0, P4; spec-001 §14).
+- **\*\*Centralized LLM gateway (November 6–8, 2026):\*\*** All model calls go through one gateway (constitution P12); model names, base URLs, and operator keys are env-only (P13); keys never appear in client code or logs (P14, with the bounded BYOK user-key exception). Free path default; optional BYOK with memory-only keys and no automatic fallback to the free path; user data never depends on LLM success (P18). See section 4.6 and `docs/llm-gateway-runbook.md`.
+- **\*\*Access without accounts (November 6, 2026):\*\*** The web prototype is gated by one shared gateway password (env-only) and identifies testers with a signed, httpOnly, ~30-day anonymous cookie; full authentication stays out of scope.
+- **\*\*English-only version 1 (constitution v4.0.0, November 6, 2026):\*\*** All interface text — including error and limit messages — is English at B1; the earlier plan for Persian error messages was superseded; the Persian UI is a later-version item.
+- **\*\*Two editions (November 5, 2026):\*\*** `terminal/` is the frozen Python baseline ("Terminal v1"); `web/` is the product's continuation; `specs/`, `.specify/`, `docs/` are shared governance. Web-only phases never change the terminal's display or flows.
+- **\*\*Web presentation decisions (November 3–7, 2026):\*\*** Warm theme with vendored fonts and zero external font requests; no emoji or colored icons anywhere; errors in the warm orange-red, never the brand red (Phase 14); the web analysis display uses the glance row + underline sentence and a focused one-question loop, superseding brackets on the web only (Phase 15); paste-first entry with drag-and-drop segment review, structured year–month dates, merged score panel, and Back on every stage; per-bullet 0/1/2 ratings displayed (Phase 18; owner decision 2026-11-07).
+
 
 
 **### Measurement Requirements**
@@ -486,6 +754,9 @@ This version intentionally does not include:
 \- Event logs with timestamps: start, bullet added, each question answered or skipped, work experience saved as a draft, complete bullet approved, rewrite accepted or rejected, before-and-after scores.
 
 \- Matcher event logs with timestamps (updated October 30, 2026): posting received, cleaned, rejected for language or length, not a job posting, analyzed (with the rules version and skill counts), extraction failed, consistency failed, stage confirmed, stage cancelled.
+
+- LLM request logs with timestamps (added November 7, 2026; spec-004 FR-08): one privacy-safe JSONL entry per model request — category (GEN/FAST), the model that actually responded, whether fallback was used and its depth, token counts, response time, and final status; never prompt content or keys. Every failed attempt additionally produces a per-attempt server-terminal line for diagnosis (spec-004 FR-56).
+- Web usability-survey events: `survey_submitted {ease, useful, comment}` recorded in `web/data/events.log.jsonl`.
 
 \- A tool to collect evaluator scores and answers to the five-second test.
 
@@ -514,6 +785,8 @@ This version intentionally does not include:
 
 
 **### Additional Open Questions on PDF Input and Scoring**
+
+> **Update (November 8, 2026):** PDF upload and email sign-in are deferred to the next version (section 4.5 note); these open questions carry over to that version's planning.
 
 
 
@@ -591,3 +864,10 @@ This version intentionally does not include:
 
 - October 30, 2026: Web usability prototype recorded (section 4.1 update): a `web/` Next.js prototype was built on a line-for-line TypeScript port of the deterministic engine (no model calls; parity with the Python engine verified). Product-owner decisions: the web matcher shows the soft-skill table before the hard-skill tables (web-only deviation from the terminal order), the web flow covers one experience entry per session with a restart control, session state is held in the browser, event logs are JSONL behind a storage adapter, and access is gated by a shared password with a per-session rate limit. The prototype is a test instrument; the “UI in later versions” decision for the product is unchanged.
 - November 2, 2026: BYOK (Bring Your Own Key) feature recorded: an opt-in, advanced-user path was added to the web prototype (`web/src/lib/byok/`) letting a user run the bullet scoring with their own model API key, called directly from the browser — the key never reaches the server, logs, or URLs. The earlier "no model calls" rule was lifted for this feature only, with product-owner decisions: English-only UI (Persian/RTL remains out of scope), the model may ONLY replace the per-bullet 0/1/2 ratings (the matcher stays deterministic under `matcher-rules-1.0.0`, all arithmetic stays in code), and the default deterministic path is untouched behind a toggle that is off by default. Providers: Gemini, OpenRouter, local Ollama complete; Groq and Mistral are disabled pending real browser CORS tests (`docs/byok-cors-results.md`). Model output is untrusted and is validated against the terminal's evaluator schema (zod + the shared validity check) with one retry, then refusal (FR-014). Strict CSP (nonce + strict-dynamic) applies; no third-party scripts exist in the app.
+
+- November 3, 2026: rubric-3.1.0 implemented (spec-001 Phase 11; the standalone rubric-parity feature was merged into 001): parsing corrections (research/mapping verbs are need signals and never actions; infinitive purpose clauses are vague results; no word appears in two parts except a feature name inside the action sentence; `flow(s)`/`had no` markers; multi-line normalization), result-score alignment (present-but-vague = 1; 0 reserved for missing), and the web prototype's display and improvement loop upgraded (in-sentence format, grounded suggestions, copy action, model disclosure banner, BYOK prompt calibration). The stored rubric version is the semver string `rubric-3.1.0` from this date; the terminal display is unchanged.
+- November 4, 2026: Phase 12 — chunk attribution: a diagnostic coverage record (per-part quotation/status/reason plus orphaned spans with reasons) is stored with every analysis and rendered on the web in a neutral gray block; it never affects scores or questions. Phase 13 — paste-and-split entry (web-only): one paste per experience, split into candidate bullets with user-controlled keep/discard/merge/split/delete; optional new entry fields `company`/`dates`/`product_domain`.
+- November 5, 2026: Constitution v3.2.0 added P11 (every new item goes through the spec-kit flow; the light path only with explicit owner approval plus mandatory backfill). Four spec-001 phases implemented the same day: Phase 14 — the "Job Forward — Warm Theme" platform theme (warm oklch tokens; Fraunces / Source Sans 3 / JetBrains Mono vendored with zero external font requests; 18px body; no emoji anywhere; an automated theme-guard test); Phase 15 — the five-part analysis UX (five-cell status row; underline sentence keeping status colors; focused one-question-at-a-time loop; the "Still needs to be filled" list superseded on the web; owner-review items 4–8 deferred); Phase 16 — repository layout: two view editions (`terminal/` frozen baseline + `web/` continuation) with one shared governance root; the live resume data moved byte-for-byte to `terminal/data/`; the retired `matcher/` package deleted; Phase 17 — warm voice and wiring (stage progress bar, score progress ring, JetBrains Mono digits, pulse-dot, tech-tag chips, two encouragement placements, warm first-person B1 texts byte-identical across py+ts).
+- November 6, 2026: Constitution v3.3.0 added P12–P17 (centralized LLM gateway; env-only model configuration; no keys in client code/logs; error-path test coverage; simple user-facing error messages; TypeScript strict), and v4.0.0 (MAJOR) redefined version 1 as English-only including error messages (P16), added P18 (user data never depends on LLM success), and recorded the bounded BYOK user-key exception in P13/P14. Phase 18 — entry and review UX simplification (web-only): paste-first entry for ONE experience; drag-and-drop segment review with first-line-only auto-place (automatic attribution rejected by the owner); structured year–month dates with "I still work here"; plain editable achievements review with ALL shaping buttons removed; the 1–6 bullet cap REMOVED on the web (terminal keeps 1–6); the score panel merged into the bullet-list review page; Back on every stage that never wipes answers; no-change re-confirm skips re-analysis. Feature `004-llm-gateway` specified and clarified the same day (shared gateway password; anonymous persistent cookie identity; UTC quota day; GEN/FAST chains with fallback; usage limits; draft preservation; English B1 messages; free path default; BYOK constraints).
+- November 7, 2026: spec-004 implemented and committed: the centralized gateway (fallback chains, usage limits, privacy-safe JSONL logging), the gate route hardened to return typed JSON on operator errors, §13 (model-ID validation + dev-only mock mode with `x-mock-error` scenarios) and §14 (audit remediation: chain pruning, forbidden non-chat patterns, oversized-FAST warning, empty-200 classification, fallback transparency with depth, provider-call cap 4 with typed RATE_LIMITED handling, `probe:rate-limit`). §15 added (error honesty: failure-class taxonomy as the single UI source; gate errors never AI-worded; a guidance box at the failing stage with VPN wording only for browser-unreachable failures; no-way-forward transfer with advance explanation and the one-tap "Retry with your own key?" return; four-state connection status that never blocks navigation; the model banner upgraded to a persistent header; BYOK as a fully independent LLM settings section; preflight decoupling so BYOK works with a broken free-path config) and §16 added (per-attempt failure logging with truncated body; dev-only browser-console summary; startup config echo + `.env.local` duplicate warning with line numbers; `test:live` and `check:connection` per-model live smoke; BYOK quick access from every page with the header labels "Default free"/"My key" and a quick modal; explicit resend-with-default after a BYOK failure; displayed BYOK provider = Google AI Studio, others hidden not deleted). The same day: a separate error-UX spec (005) was briefly created and RETIRED — its content was absorbed into spec-004 §15, and spec 004 was declared the PRIMARY spec for everything model-related. Constitution v4.1.0 added the operational principles P19 (diagnosability), P20 (model servability), P21 (env completeness) with the companion runbook `docs/llm-gateway-runbook.md`. Deployment incidents diagnosed and recorded in the runbook: the Vercel gate screen showed the AI-outage text for a gate configuration error (no AI involved — fixed by §15 FR-47), and the local 403 root cause is NVIDIA's edge geo-block for the operator's egress IP (identical 403 with and without a key; a VPN is needed for live checks). §16.1 approved cleanup executed (leftover temp file deleted; `/node_modules/` git-ignored; nothing else removed). Per-bullet 0/1/2 ratings restored to display in both places (owner decision; spec-001 §13.3).
+- November 8, 2026: Single-source scoring output (spec-001 §14, owner decision): the three-dimension rating output is the ONLY judge — it carries verbatim per-part quotes; the five parts and their statuses are filled/derived from those quotes; score-quote invariants are enforced on every MODEL output (retry once, then refuse with user data intact); the deterministic engine is byte-identical (quotes = extraction echo) and the rubric stays rubric-3.1.0. Known residual reported, not changed: the deterministic engine's raw-text fallback can still yield a dimension score ≥ 1 with an empty part — eliminating it requires a NEW rubric version (owner decision, later). Constitution v4.2.0 (MINOR): P4 amended — the model returns the ratings plus the verbatim quotes; no score arithmetic moves to the model. A stale-stored-parts bug in the re-analysis path was fixed (a rewritten bullet re-extracts fresh). Client connection-check resilience added (spec-004 FR-64: 20-second client timeout + restore-only-if-available auto re-check). This §14 implementation and the v4.1.0/v4.2.0 constitution amendments were uncommitted at the time of this writing, pending owner review.

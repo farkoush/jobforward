@@ -134,9 +134,18 @@ if (JSON.stringify(parts) !== JSON.stringify(expected.parts)) {
 
 // --- local ratings ---
 const ratings = localEvaluate({ texts: BULLETS, parts, rubric_version: DEFAULT_RUBRIC_VERSION });
-if (JSON.stringify(ratings) !== JSON.stringify(expected.ratings)) {
+if (JSON.stringify(ratings.map(({ quotes: _q, ...rest }) => rest)) !== JSON.stringify(expected.ratings)) {
   fail(
     `ratings mismatch:\n ts=${JSON.stringify(ratings)}\n py=${JSON.stringify(expected.ratings)}`
+  );
+}
+// §14.1 (amendment 2026-11-08): the deterministic adapter's quotes are its
+// extraction results — the echo must match the Python engine exactly.
+const quotesOf = (rs: { quotes?: unknown }[]) =>
+  rs.map((r) => (r.quotes ?? null));
+if (JSON.stringify(quotesOf(ratings)) !== JSON.stringify(expected.quotes)) {
+  fail(
+    `quotes mismatch:\n ts=${JSON.stringify(quotesOf(ratings), null, 1)}\n py=${JSON.stringify(expected.quotes, null, 1)}`
   );
 }
 
@@ -242,9 +251,14 @@ if (JSON.stringify(partsEdge) !== JSON.stringify(expected.parts_edge)) {
   );
 }
 const ratingsEdge = localEvaluate({ texts: EDGE_BULLETS, parts: partsEdge, rubric_version: DEFAULT_RUBRIC_VERSION });
-if (JSON.stringify(ratingsEdge) !== JSON.stringify(expected.ratings_edge)) {
+if (JSON.stringify(ratingsEdge.map(({ quotes: _q, ...rest }) => rest)) !== JSON.stringify(expected.ratings_edge)) {
   fail(
     `ratings_edge mismatch:\n ts=${JSON.stringify(ratingsEdge)}\n py=${JSON.stringify(expected.ratings_edge)}`
+  );
+}
+if (JSON.stringify(quotesOf(ratingsEdge)) !== JSON.stringify(expected.quotes_edge)) {
+  fail(
+    `quotes_edge mismatch:\n ts=${JSON.stringify(quotesOf(ratingsEdge), null, 1)}\n py=${JSON.stringify(expected.quotes_edge, null, 1)}`
   );
 }
 

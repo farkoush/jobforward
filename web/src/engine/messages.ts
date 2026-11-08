@@ -63,9 +63,9 @@ export const FIELD_ONGOING = "I still work here";
 export const ERR_DATE_FORMAT = "Use the year and month, like 2022-04.";
 export const BACK = "Back";
 export const PANEL_SCORE = "Experience score: {value}/100";
-// Phase 18 amendment (owner decision 2026-11-07): the per-part 0/1/2 rating
-// beside the state label in the five-cell row (no emoji — theme guard).
-export const RATING_CELL = " · {value}/2";
+// Phase 19 (spec §15.5): RATING_CELL (" · {value}/2") was REMOVED — the
+// five-cell row keeps state text only; the ratings render as the ONE
+// score line above the analysis (SCORE_DIMENSION reuse).
 export const STAGE_EXPERIENCE = "Experience";
 export const STAGE_REVIEW = "Review";
 export const STAGE_ACHIEVEMENTS = "Achievements";
@@ -190,12 +190,9 @@ export const STARTER_PLACEHOLDER = "Choose a suggestion…";
 export const STARTER_INPUT_PLACEHOLDER = "Or write your own answer here";
 export const STARTER_CONFIRM = "Confirm";
 export const NEEDS_IMPROVED_NOTE = "Improved phrasing:";
-// Copy button on the bullet-gate screen (user decision 2026-11-03): copies
-// the IMPROVED bullet — the confirmed answers (or the original words) as
-// plain prose, no brackets, labels, missing/vague notes, or template
-// punctuation.
-export const COPY_TOOLTIP = "Copied";
-export const COPY_BUTTON = "Copy";
+// Phase 19 (spec §15.5): the bullet-screen Copy button was REMOVED —
+// COPY_BUTTON/COPY_TOOLTIP deleted (the §8 final-output screen keeps its
+// own Copy control, rendered inline).
 export const STARTER_NEED_MISSING_1 = "Users could not …, and this made … hard for them.";
 export const STARTER_NEED_MISSING_2 = "… struggled to … because … .";
 export const STARTER_NEED_VAGUE_1 = "Users could not …";

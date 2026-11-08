@@ -5,11 +5,67 @@
  * through this check before use, mirroring the terminal's code path.
  */
 
-import { Ratings, assertRatings } from "../types";
+import { Ratings, assertRatings, PART_NAMES } from "../types";
 import { BulletRating } from "./local";
 
 export const DIMENSIONS = ["context", "role_action_clarity", "result"] as const;
 const VALID_RATINGS = [0, 1, 2];
+
+/** Whitespace normalization shared with §2.1 and the coverage pass. */
+function normalizeWs(text: string): string {
+  return text.trim().split(/\s+/).join(" ");
+}
+
+/**
+ * Spec §14.2 invariants: verbatim quotes + score-quote coherence.
+ * Enforced on every MODEL-produced rating (the gateway/BYOK path) before
+ * any use. The deterministic adapter's echoes are its own extraction
+ * results and are not re-judged here (its scores are rubric-frozen).
+ * Throws EvaluatorOutputError on any violation; the caller retries once,
+ * then refuses (FR-014).
+ */
+export function validateRatingEvidence(rating: BulletRating, text: string): void {
+  const quotes = rating.quotes;
+  if (!quotes) {
+    throw new EvaluatorOutputError("rating missing the quotes object (§14.1)");
+  }
+  const normalized = normalizeWs(text);
+  for (const name of PART_NAMES) {
+    const quote = normalizeWs(quotes[name]);
+    if (quote && !normalized.includes(quote)) {
+      throw new EvaluatorOutputError(
+        `rating ${rating.bullet_index}.${name} quote is not verbatim`
+      );
+    }
+  }
+  const need = normalizeWs(quotes.user_need);
+  const feature = normalizeWs(quotes.product_feature);
+  const action = normalizeWs(quotes.action);
+  const result = normalizeWs(quotes.result);
+  const label = `rating ${rating.bullet_index}`;
+  if (rating.context === 2 && (!need || !feature)) {
+    throw new EvaluatorOutputError(
+      `${label}: context 2 requires the need and feature quotes`
+    );
+  }
+  if (rating.context === 1 && !need) {
+    throw new EvaluatorOutputError(`${label}: context 1 requires the need quote`);
+  }
+  if (rating.context === 0 && need) {
+    throw new EvaluatorOutputError(`${label}: context 0 forbids a need quote`);
+  }
+  if (rating.role_action_clarity >= 1 && !action) {
+    throw new EvaluatorOutputError(
+      `${label}: action ${rating.role_action_clarity} requires the action quote`
+    );
+  }
+  if (rating.result >= 1 && !result) {
+    throw new EvaluatorOutputError(
+      `${label}: result ${rating.result} requires the result quote`
+    );
+  }
+  // The metric quotation is free evidence: no score, no invariant (§14.1).
+}
 
 // Tokens that would indicate an adapter computed an aggregate score
 // (constitution Principle 4: arithmetic never lives in an adapter).

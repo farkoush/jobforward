@@ -106,9 +106,13 @@ def test_full_path_end_to_end(tmp_path):
             assert event["context"]["rubric_version"] == RUBRIC_VERSION
 
     # score_before ≠ score_after is allowed but both must exist and the
-    # 'after' reflects the re-scored entry.
+    # 'after' reflects the re-scored entry. §14.4 (2026-11-08): every
+    # re-score judges the CURRENT text through the same single pass as a
+    # first-time bullet (fresh extraction — no stale parts), so the second
+    # rewrite's score legitimately differs from the first's — compare the
+    # LAST score_after event with the final entry score.
     before = next(e for e in events if e["type"] == "score_before")
-    after = next(e for e in events if e["type"] == "score_after")
+    after = [e for e in events if e["type"] == "score_after"][-1]
     assert after["context"]["entry_score"] == entry.entry_score
 
 

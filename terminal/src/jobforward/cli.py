@@ -42,7 +42,7 @@ from .flow.questions import (
     next_round,
 )
 from .flow.rewrite import ExtraClaimError, assemble_rewrite
-from .flow.parts import build_coverage
+from .flow.parts import build_coverage, extract_parts
 from .flow.incremental import needs_reanalysis
 from .scoring.overlap import find_overlaps
 from .storage.repository import Repository, DEFAULT_RUBRIC_VERSION
@@ -273,10 +273,26 @@ class CLI:
                 result=rating.result,
             )
             bullet.rubric_version = RUBRIC_VERSION
+            # §14.3 (amendment 2026-11-08): the five part fields are filled
+            # from the RATING OUTPUT's quotes — the single source of truth.
+            # The deterministic adapter's quotes are its extraction results
+            # (byte-identical); the LLM adapter's are the model's verbatim
+            # quotes. Legacy no-quote responses keep the extraction.
+            quote_parts = (
+                rating.quotes.as_parts()
+                if rating.quotes is not None
+                else parts[bullet_index]
+            )
+            bullet.user_need = quote_parts.user_need
+            bullet.product_feature = quote_parts.product_feature
+            bullet.action = quote_parts.action
+            bullet.result = quote_parts.result
+            bullet.metric = quote_parts.metric
+            bullet.part_present = quote_parts.present()
             # Phase 12 (spec §2.2): the diagnostic coverage record rides on
             # every analysis; it never affects ratings or statuses (D11).
             bullet.coverage = build_coverage(
-                bullet.text, parts[bullet_index], bullet.ratings
+                bullet.text, quote_parts, bullet.ratings
             )
             # new → analyzed; edited → analyzed; failed analysis keeps label
             target = (
@@ -497,13 +513,10 @@ class CLI:
         if not needs_reanalysis(bullet):
             return
         before = entry.entry_score
-        extracted = bullet.parts_or_extract()
-        bullet.user_need = extracted.user_need
-        bullet.product_feature = extracted.product_feature
-        bullet.action = extracted.action
-        bullet.result = extracted.result
-        bullet.metric = extracted.metric
-        bullet.part_present = extracted.present()
+        # §14.4 (amendment 2026-11-08): the same single scoring pass as a
+        # first-time bullet — the text changed, so the request parts are a
+        # FRESH extraction (the stored parts belong to the previous text).
+        extracted = extract_parts(bullet.text)
         request = BulletRatingRequest(
             texts=[bullet.text], rubric_version=RUBRIC_VERSION, parts=[extracted]
         )
@@ -523,9 +536,20 @@ class CLI:
             result=rating.result,
         )
         bullet.rubric_version = RUBRIC_VERSION
+        # §14.3: the five part fields are filled from the rating output's
+        # quotes (the deterministic adapter's quotes are its extraction).
+        quote_parts = (
+            rating.quotes.as_parts() if rating.quotes is not None else extracted
+        )
+        bullet.user_need = quote_parts.user_need
+        bullet.product_feature = quote_parts.product_feature
+        bullet.action = quote_parts.action
+        bullet.result = quote_parts.result
+        bullet.metric = quote_parts.metric
+        bullet.part_present = quote_parts.present()
         # Phase 12 (spec §2.2): recompute the diagnostic coverage record on
         # every re-analysis (never affects ratings or statuses, D11).
-        bullet.coverage = build_coverage(bullet.text, extracted, bullet.ratings)
+        bullet.coverage = build_coverage(bullet.text, quote_parts, bullet.ratings)
 
         result = transition(bullet.status, BulletStatus.ANALYZED)
         if result.ok and result.changed:
