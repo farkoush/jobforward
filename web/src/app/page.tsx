@@ -77,6 +77,10 @@ import {
 import { entryScoreFromRatings } from "@/engine/scoring/metrics";
 import { partsFromQuotes } from "@/engine/types";
 import { redact } from "@/lib/byok/redact";
+import { runMatcherAnalysis } from "@/lib/matcher-analysis";
+import { runMatcherInputGates } from "@/engine/matcher2/v2/inputGates";
+import type { MatcherAnalysisV2 } from "@/engine/matcher2/v2/types";
+import * as m2 from "@/engine/matcher2/v2/messages";
 
 type Screen =
   | "gate"
@@ -95,36 +99,22 @@ type Screen =
   | "done"
   | "match_paste"
   | "match_review"
-  | "match_hard"
-  | "match_soft";
+  | "match_result";
 
-interface MatchReport {
-  hard_tables: Record<
-    string,
-    { name: string; type: string; default_priority: boolean; evidence: string; is_one_of: boolean }[]
-  >;
-  soft_rows: {
-    label_en: string;
-    group_code: string;
-    evidence: string;
-    priority: string;
-    certainty: string;
-  }[];
-  unmatched: { text: string; note: string }[];
-  dropped_count: number;
-  rules_version: string;
-  hard_totals: Record<string, number>;
-  soft_total: number;
-}
-
-interface MatchResult {
+/** v2 (spec 002): the deterministic input stage keeps its cleaning report;
+ *  gateOk gates the review-screen Continue (gates run client-side — the
+ *  v1 /api/matcher route is dormant, S7). The v2 analysis rides in its own
+ *  state; the v1 table report interfaces are gone from the active path. */
+interface MatchCleaning {
   cleaning: {
     script_blocks: number;
     style_blocks: number;
     html_tags: number;
     word_count: number;
   };
-  report?: MatchReport;
+  /** The cleaned posting text — model input and the V1 evidence corpus. */
+  cleaned_text: string;
+  gateOk: boolean;
 }
 
 const PART_LABELS: Record<string, string> = {
@@ -159,8 +149,7 @@ const STAGE_INDEX: Partial<Record<Screen, FlowStage>> = {
   done: { flow: "add", index: 3 },
   match_paste: { flow: "match", index: 0 },
   match_review: { flow: "match", index: 1 },
-  match_hard: { flow: "match", index: 2 },
-  match_soft: { flow: "match", index: 3 },
+  match_result: { flow: "match", index: 2 },
 };
 
 const FLOW_LABELS: Record<"add" | "match", string[]> = {
@@ -170,7 +159,7 @@ const FLOW_LABELS: Record<"add" | "match", string[]> = {
     msg.STAGE_ACHIEVEMENTS,
     msg.STAGE_RESULT,
   ],
-  match: ["Paste", "Review", "Hard skills", "Soft skills"],
+  match: ["Paste", "Review", "Analysis"],
 };
 
 function StageProgress({ flow, index }: { flow: "add" | "match"; index: number }) {
@@ -262,9 +251,12 @@ export default function Home() {
   const [editText, setEditText] = useState<string>("");
   const [editingBulletId, setEditingBulletId] = useState<number | null>(null);
 
-  // Matcher
+  // Matcher (v2: spec 002 model-driven analysis — one matcher_analysis call,
+  // validated by the deterministic V1–V8 validator; §15/§16 failure UX)
   const [postingText, setPostingText] = useState<string>("");
-  const [match, setMatch] = useState<MatchResult | null>(null);
+  const [match, setMatch] = useState<MatchCleaning | null>(null);
+  const [analysisV2, setAnalysisV2] = useState<MatcherAnalysisV2 | null>(null);
+  const matchCancelRef = useRef<{ cancelled: boolean }>({ cancelled: false });
   const [matchParams, setMatchParams] = useState<Record<string, string | number>>({});
 
   // Survey
@@ -748,6 +740,7 @@ export default function Home() {
 
   function chooseType(t: string) {
     setEntryType(t);
+    setMessage(null); // a stale flow message must not leak into the new flow
     logEvent("entry_type", t, null);
     go("entry_paste");
   }
@@ -1194,7 +1187,7 @@ export default function Home() {
     go("done");
   }
 
-  // ---------- JD Matcher (staged, posting-only) ----------
+  // ---------- JD Matcher (v2, spec 002: model-driven analysis, web only) —
 
   async function analyzePosting() {
     let text = postingText;
@@ -1204,44 +1197,125 @@ export default function Home() {
     if (lines.length && lines[lines.length - 1].trim() === "END") lines.pop();
     text = lines.join("\n");
     if (!text.trim()) return;
-    setBusy(true);
-    const result = await apiPost<MatchResult>("/api/matcher", { posting_text: text });
-    setBusy(false);
     logEvent("posting_received", null, { word_count: text.trim().split(/\s+/).length });
-    if (!result.ok) {
-      logEvent(`matcher_${result.error}`, null, { stage: result.stage ?? null });
-      setMatchParams(result.params ?? {});
-      setMatch({ cleaning: result.cleaning ?? {
-        script_blocks: 0, style_blocks: 0, html_tags: 0, word_count: 0,
-      } });
-      if (result.stage === "paste") {
+    // Deterministic input gates run CLIENT-side in the v1 error order —
+    // before ANY model contact (spec 002 v2: the input stage is unchanged).
+    const gates = runMatcherInputGates(text);
+    if (!gates.ok) {
+      logEvent(`matcher_${gates.error}`, null, { stage: gates.stage });
+      setMatchParams("params" in gates ? gates.params : {});
+      setMatch({ cleaning: gates.cleaning, cleaned_text: "", gateOk: false });
+      if (gates.stage === "paste") {
         go("match_paste");
       } else {
-        // Extraction-stage errors surface after the review gate, like the
-        // terminal; we keep the cleaning data for the review screen.
         go("match_review");
       }
-      setError(result.error);
+      setError(gates.error);
       return;
     }
-    logEvent("posting_cleaned", null, { ...result.cleaning });
-    setMatch(result);
+    // Counts only in the event log — never the posting text itself (P14).
+    logEvent("posting_cleaned", null, {
+      script_blocks: gates.cleaned.script_blocks_removed,
+      style_blocks: gates.cleaned.style_blocks_removed,
+      html_tags: gates.cleaned.html_tags_removed,
+      word_count: gates.cleaned.word_count,
+    });
+    setMatch({
+      cleaning: {
+        script_blocks: gates.cleaned.script_blocks_removed,
+        style_blocks: gates.cleaned.style_blocks_removed,
+        html_tags: gates.cleaned.html_tags_removed,
+        word_count: gates.cleaned.word_count,
+      },
+      cleaned_text: gates.cleaned.cleaned_text,
+      gateOk: true,
+    });
+    setError(null);
+    setAnalysisV2(null);
     go("match_review");
+  }
+
+  /** §15 FR-51/52 helpers reused from scoring: a failure NEVER blocks
+   *  navigation and the banner reflects the failure class (NO_WAY_FORWARD
+   *  → red). The refusal (ERR_MATCHER_ANALYSIS_FAILURE) renders ONLY via
+   *  the ALL_MODELS_FAILED class — explanation + Retry + own-key ask. */
+  function applyMatcherFailure(useByok: boolean, reason: string, errorText: string) {
+    setGatewayError(errorText);
+    setGatewayReason(reason as GatewayReason);
+    if (useByok) setByokDowngradeOffer(true);
+    if (failureClass(reason as GatewayReason) === "NO_WAY_FORWARD") {
+      setConnStatus("unavailable");
+    }
+  }
+
+  async function runMatcherAnalysisV2() {
+    if (!match?.gateOk) return;
+    const byok = getByokState();
+    const useByok = byok.useForScoring && byok.hasKey && Boolean(byok.model);
+    setGatewayError(null);
+    setGatewayReason(null);
+    setByokDowngradeOffer(false);
+    setError(null);
+    retryActionRef.current = () => void runMatcherAnalysisV2();
+    const cancelToken = { cancelled: false };
+    matchCancelRef.current = cancelToken;
+    setBusy(true);
+    const outcome = await runMatcherAnalysis({
+      cleanedText: match.cleaned_text,
+      useByok,
+      byokKey: useByok ? getRawKeyForGateway() : null,
+      byokModel: byok.model ?? "",
+      cancelToken,
+      onEvent: (name, detail) => logEvent(name, null, detail),
+    });
+    setBusy(false);
+    if (cancelToken.cancelled) return; // discarded — user already left
+    if (outcome.ok) {
+      setAnalysisV2(outcome.analysis);
+      if (outcome.usedFallback) setFallbackNotice("Served by fallback model");
+      go("match_result");
+      return;
+    }
+    if (outcome.kind === "zero_skills") {
+      setError("MATCH_ERR_ZERO_SKILLS");
+      go("match_review");
+      return;
+    }
+    if (outcome.kind === "refused") {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[llm] matcher refused:", { failed_checks: outcome.failedChecks.length });
+      }
+      applyMatcherFailure(useByok, "ALL_MODELS_FAILED", m2.MATCH_V2_ERR_ANALYSIS_FAILURE);
+      return;
+    }
+    // gateway kind
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[llm] matcher request failed:", { reason: outcome.reason, byok: useByok });
+    }
+    applyMatcherFailure(
+      useByok,
+      outcome.reason,
+      GATEWAY_MESSAGES[outcome.reason] ?? msg.ERR_EVALUATOR_FAILURE
+    );
   }
 
   function matchStageConfirmed(stage: string) {
     logEvent("stage_confirmed", "Y", { stage });
-    // Web-prototype order requested by the product owner: soft skills are
-    // shown BEFORE hard skills (the terminal order was hard -> soft).
-    if (stage === "review") go("match_soft");
-    else if (stage === "soft_skills") go("match_hard");
-    else go("menu"); // hard_skills confirmed -> flow complete
+    if (stage === "review") void runMatcherAnalysisV2();
   }
 
   function matchStageCancelled(stage: string) {
-    logEvent("stage_cancelled", "C", { stage });
+    // Cancel at ANY matcher stage (incl. during analyzing) discards the
+    // stage result and returns to paste (FR-008 semantics kept for v2).
+    matchCancelRef.current.cancelled = true;
     setMatch(null);
+    setAnalysisV2(null);
     setError(null);
+    setGatewayError(null);
+    setGatewayReason(null);
+    setByokDowngradeOffer(false);
+    logEvent("matcher_v2_cancelled", "C", { stage });
+    logEvent("stage_cancelled", "C", { stage });
     setMessage(msg.MATCH_CANCELLED);
     go("match_paste");
   }
@@ -1259,6 +1333,8 @@ export default function Home() {
         return msg.MATCH_ERR_NOT_A_POSTING;
       case "MATCH_ERR_ZERO_SKILLS":
         return msg.MATCH_ERR_ZERO_SKILLS;
+      case "ERR_MATCHER_TAXONOMY":
+        return m2.MATCH_V2_ERR_TAXONOMY;
       case "MATCH_ERR_CONSISTENCY":
         return msg.MATCH_ERR_CONSISTENCY;
       case "ERR_MATCHER_FAILURE":
@@ -1905,7 +1981,7 @@ export default function Home() {
               <button
                 className="btn-primary"
                 onClick={() => matchStageConfirmed("review")}
-                disabled={!match.report}
+                disabled={!match.gateOk}
               >
                 Continue
               </button>
@@ -1915,137 +1991,125 @@ export default function Home() {
             </div>
           </div>
         )}
-        {screen === "match_hard" && match?.report && (
+        {screen === "match_result" && analysisV2 && (
           <div>
-            <h1 className="mb-4 text-2xl font-semibold">Hard skills</h1>
-            {(["must", "should", "nice"] as const).map((priority) => {
-              const rows = match.report!.hard_tables[priority] ?? [];
-              return (
-                <section key={priority} className="mb-6">
-                  <h2 className="mb-2 text-lg font-semibold">{priorityLabel(priority)}</h2>
-                  <table className="w-full border-collapse text-left text-[15px]">
-                    <thead>
-                      <tr className="border-b-2 border-neutral-400 text-neutral-700">
-                        <th className="py-2 pr-3">Skill</th>
-                        <th className="py-2 pr-3">Type</th>
-                        <th className="py-2">Evidence</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.length === 0 && (
-                        <tr>
-                          <td className="py-2 text-neutral-500" colSpan={3}>
-                            {msg.MATCH_EMPTY_GROUP}
-                          </td>
-                        </tr>
-                      )}
-                      {rows.map((row, i) => (
-                        <tr key={i} className="border-b border-neutral-200 align-top">
-                          <td className="py-2 pr-3 font-medium">
-                            <span className="tech-tag">{row.name}</span>
-                            {row.default_priority && !row.is_one_of ? " (default)" : ""}
-                          </td>
-                          <td className="py-2 pr-3">
-                            {row.type === "hard_tool" ? msg.MATCH_TYPE_HARD_TOOL : msg.MATCH_TYPE_HARD}
-                          </td>
-                          <td className="py-2 text-neutral-700">{row.evidence}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {rows.length > 5 && (
-                    <p className="mt-2 text-sm text-neutral-600">
-                      {fmt(msg.MATCH_LIMIT_HARD, {
-                        priority: priorityLabel(priority),
-                        shown: 5,
-                        total: rows.length,
-                      })}
-                    </p>
-                  )}
-                </section>
-              );
-            })}
-            <p className="mb-2 font-medium">
-              {fmt(msg.MATCH_COUNTS, {
-                must: match.report.hard_totals.must ?? 0,
-                should: match.report.hard_totals.should ?? 0,
-                nice: match.report.hard_totals.nice ?? 0,
-              })}
-            </p>
-            {match.report.dropped_count > 0 && (
-              <p className="mb-6 text-neutral-700">
-                {fmt(msg.MATCH_DROPPED, { count: match.report.dropped_count })}
-              </p>
+            <h1 className="mb-4 text-2xl font-semibold">Job posting analysis</h1>
+            {matcherErrorText() && (
+              <div role="alert" className="card mb-6 border-red-700 text-red-900">
+                {matcherErrorText()}
+              </div>
             )}
+            {/* Summary block (contract §6) — every field comes from the
+                posting only (P1); the validator gated the whole document. */}
+            <section className="card mb-6 p-4">
+              <h2 className="mb-3 text-lg font-semibold">{m2.MATCH_V2_SUMMARY_HEADING}</h2>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[15px]">
+                <dt className="text-neutral-500">{m2.MATCH_V2_LABEL_JOB_TITLE}</dt>
+                <dd className="font-medium">{analysisV2.summary.job_title}</dd>
+                <dt className="text-neutral-500">{m2.MATCH_V2_LABEL_SENIORITY}</dt>
+                <dd>{analysisV2.summary.seniority}</dd>
+                <dt className="text-neutral-500">{m2.MATCH_V2_LABEL_WORK_TYPE}</dt>
+                <dd>{analysisV2.summary.work_type}</dd>
+                <dt className="text-neutral-500">{m2.MATCH_V2_LABEL_DOMAIN}</dt>
+                <dd>{analysisV2.summary.domain}</dd>
+                <dt className="text-neutral-500">{m2.MATCH_V2_LABEL_ROLE_NATURE}</dt>
+                <dd>{capitalize(analysisV2.summary.role_nature)}</dd>
+                <dt className="text-neutral-500">{m2.MATCH_V2_LABEL_PROBLEM}</dt>
+                <dd>{analysisV2.summary.problem_solved}</dd>
+              </dl>
+            </section>
+            {/* Buckets in fixed order, ALL rows shown (S3 — no truncation);
+                per-bucket count in the header = the real total. */}
+            {([
+              ["must", m2.MATCH_V2_BUCKET_MUST, analysisV2.must],
+              ["preferred", m2.MATCH_V2_BUCKET_PREFERRED, analysisV2.preferred],
+              ["bonus", m2.MATCH_V2_BUCKET_BONUS, analysisV2.bonus],
+            ] as const).map(([key, label, rows]) => (
+              <section key={key} className="mb-6">
+                <h2 className="mb-2 text-lg font-semibold">
+                  {label} <span className="text-neutral-500">({rows.length})</span>
+                </h2>
+                {rows.length === 0 && (
+                  <p className="text-neutral-500">{msg.MATCH_EMPTY_GROUP}</p>
+                )}
+                {rows.map((row, i) => (
+                  <div key={i} className="mb-3 border-b border-neutral-200 pb-3 last:border-b-0">
+                    <p className="flex flex-wrap items-center gap-2">
+                      <span className="tech-tag font-medium">{row.name}</span>
+                      <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                        {row.type === "hard"
+                          ? `${m2.MATCH_V2_TYPE_HARD} (${row.category})`
+                          : m2.MATCH_V2_TYPE_SOFT}
+                      </span>
+                      {row.type === "soft" && row.in_taxonomy === false && (
+                        <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                          {m2.MATCH_V2_NOT_IN_TAXONOMY}
+                        </span>
+                      )}
+                      {row.type !== "hard" && row.source !== null && (
+                        <span className="text-[13px] text-neutral-600">
+                          {row.source === "explicit"
+                            ? m2.MATCH_V2_SOURCE_EXPLICIT
+                            : m2.MATCH_V2_SOURCE_IMPLIED}
+                          {" · "}
+                          {row.confidence === "high"
+                            ? m2.MATCH_V2_CONFIDENCE_HIGH
+                            : row.confidence === "medium"
+                              ? m2.MATCH_V2_CONFIDENCE_MEDIUM
+                              : m2.MATCH_V2_CONFIDENCE_LOW}
+                        </span>
+                      )}
+                    </p>
+                    {row.type === "soft" && row.in_taxonomy === false && row.ad_wording && (
+                      <p className="mt-1 text-[13px] text-neutral-500">
+                        {m2.MATCH_V2_AD_WORDING_LABEL}: {row.ad_wording}
+                      </p>
+                    )}
+                    {row.evidence.map((sentence, j) => (
+                      <blockquote key={j} className="mt-1 border-l-2 border-neutral-300 pl-3 text-neutral-700">
+                        “{sentence}”
+                      </blockquote>
+                    ))}
+                  </div>
+                ))}
+              </section>
+            ))}
+            {/* Red flags — recorded ONLY here, never as skills (step 6). */}
+            <section className="mb-6">
+              <h2 className="mb-2 text-lg font-semibold">{m2.MATCH_V2_RED_FLAGS_HEADING}</h2>
+              {analysisV2.red_flags.length === 0 && (
+                <p className="text-neutral-500">{msg.MATCH_EMPTY_GROUP}</p>
+              )}
+              {analysisV2.red_flags.map((flag, i) => (
+                <div key={i} className="mb-3 border-b border-neutral-200 pb-3 last:border-b-0">
+                  <p>
+                    <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
+                      {flag.kind === "conflict"
+                        ? m2.MATCH_V2_REDFLAG_CONFLICT
+                        : flag.kind === "unrealistic"
+                          ? m2.MATCH_V2_REDFLAG_UNREALISTIC
+                          : flag.kind === "multi_role"
+                            ? m2.MATCH_V2_REDFLAG_MULTI_ROLE
+                            : flag.kind === "vague"
+                              ? m2.MATCH_V2_REDFLAG_VAGUE
+                              : m2.MATCH_V2_REDFLAG_DISCRIMINATORY}
+                    </span>
+                    <span className="ml-2">{flag.text}</span>
+                  </p>
+                  {flag.evidence.map((sentence, j) => (
+                    <blockquote key={j} className="mt-1 border-l-2 border-neutral-300 pl-3 text-neutral-700">
+                      “{sentence}”
+                    </blockquote>
+                  ))}
+                </div>
+              ))}
+            </section>
             <div className="flex flex-wrap gap-3">
-              <button className="btn-primary" onClick={() => matchStageConfirmed("hard_skills")}>
-                Continue
-              </button>
-              <button className="btn-secondary" onClick={() => matchStageCancelled("hard_skills")}>
-                Cancel
-              </button>
               <button className="btn-secondary" onClick={() => go("match_review")}>
                 {msg.BACK}
               </button>
-            </div>
-          </div>
-        )}
-        {screen === "match_soft" && match?.report && (
-          <div>
-            <h1 className="mb-4 text-2xl font-semibold">Soft skills</h1>
-            <table className="mb-4 w-full border-collapse text-left text-[15px]">
-              <thead>
-                <tr className="border-b-2 border-neutral-400 text-neutral-700">
-                  <th className="py-2 pr-3">Skill</th>
-                  <th className="py-2 pr-3">Group</th>
-                  <th className="py-2 pr-3">Evidence</th>
-                  <th className="py-2 pr-3">Priority</th>
-                  <th className="py-2">Certainty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {match.report.soft_rows.length === 0 && (
-                  <tr>
-                    <td className="py-2 text-neutral-500" colSpan={5}>
-                      {msg.MATCH_EMPTY_GROUP}
-                    </td>
-                  </tr>
-                )}
-                {match.report.soft_rows.map((row, i) => (
-                  <tr key={i} className="border-b border-neutral-200 align-top">
-                    <td className="py-2 pr-3 font-medium">
-                      <span className="tech-tag">{row.label_en}</span>
-                    </td>
-                    <td className="py-2 pr-3">{row.group_code}</td>
-                    <td className="py-2 pr-3 text-neutral-700">{row.evidence}</td>
-                    <td className="py-2 pr-3">{priorityLabel(row.priority)}</td>
-                    <td className="py-2">{capitalize(row.certainty)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {match.report.soft_rows.length > 5 && (
-              <p className="mb-4 text-sm text-neutral-600">
-                {fmt(msg.MATCH_LIMIT_SOFT, {
-                  shown: 5,
-                  total: match.report.soft_rows.length,
-                })}
-              </p>
-            )}
-            {match.report.unmatched.map((concept, i) => (
-              <p key={i} className="mb-2 text-neutral-700">
-                {fmt(msg.MATCH_NO_TAXONOMY_MATCH, { text: concept.text })}
-              </p>
-            ))}
-            <div className="flex flex-wrap gap-3">
-              <button className="btn-primary" onClick={() => matchStageConfirmed("soft_skills")}>
-                Continue
-              </button>
-              <button className="btn-secondary" onClick={() => matchStageCancelled("soft_skills")}>
+              <button className="btn-secondary" onClick={() => matchStageCancelled("result")}>
                 Cancel
-              </button>
-              <button className="btn-secondary" onClick={() => go("match_hard")}>
-                {msg.BACK}
               </button>
             </div>
           </div>
@@ -2057,9 +2121,6 @@ export default function Home() {
 
 // ---------- screen components ----------
 
-function priorityLabel(priority: string): string {
-  return { must: "Must", should: "Should", nice: "Nice" }[priority] ?? priority;
-}
 
 function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);

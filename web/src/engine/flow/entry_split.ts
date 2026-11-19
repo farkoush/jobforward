@@ -30,7 +30,7 @@ export interface SplitCandidate {
 }
 
 // The -/• list marker with its trailing whitespace (formatting, stripped).
-const BULLET_MARKER = /^\s*[-•]\s*/;
+export const BULLET_MARKER = /^\s*[-•]\s*/;
 
 // Responsibility-style openings (spec §4.2 example: "Responsible for
 // weekly meetings").
@@ -40,7 +40,7 @@ const RESPONSIBILITY_OPEN =
 // Two achievements joined by "and also" (spec §4.2 step 4).
 const AND_ALSO = /\band also\b/i;
 
-function isFlagged(line: string): boolean {
+export function isFlagged(line: string): boolean {
   return (
     !ACTION_VERB.test(line) &&
     !lineHasParserSignal(line) &&
@@ -48,7 +48,7 @@ function isFlagged(line: string): boolean {
   );
 }
 
-function hasSplitSuggestion(text: string): boolean {
+export function hasSplitSuggestion(text: string): boolean {
   return AND_ALSO.test(text);
 }
 

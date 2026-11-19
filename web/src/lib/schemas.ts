@@ -147,6 +147,45 @@ export const AnalysisReportSchema = z.object({
   consistency_ok: z.boolean(),
 });
 
+// --- matcher v2 model output (spec 002 v2; UNTRUSTED model shape) ---
+// The model NEVER sends rules_version — the engine stamps it from
+// MATCHER_RULES_V2 after the invariants pass (T035). Shape per
+// data-model.md v2; deep invariants live in the validator, not here.
+
+export const MatcherSkillItemSchema = z.object({
+  type: z.enum(["hard", "soft"]),
+  name: z.string(),
+  category: z.enum(["technical", "tool", "experience", "domain"]).nullable(),
+  evidence: z.array(z.string()).min(1),
+  source: z.enum(["explicit", "implied"]),
+  confidence: z.enum(["high", "medium", "low"]).nullable(),
+  in_taxonomy: z.boolean().nullable(),
+  ad_wording: z.string().nullable(),
+});
+
+export const MatcherSummarySchema = z.object({
+  job_title: z.string(),
+  seniority: z.string(),
+  work_type: z.string(),
+  domain: z.string(),
+  role_nature: z.enum(["executive", "analytical", "managerial"]),
+  problem_solved: z.string(),
+});
+
+export const MatcherRedFlagSchema = z.object({
+  kind: z.enum(["conflict", "unrealistic", "multi_role", "vague", "discriminatory"]),
+  text: z.string(),
+  evidence: z.array(z.string()).min(1),
+});
+
+export const MatcherAnalysisV2ModelSchema = z.object({
+  summary: MatcherSummarySchema,
+  must: z.array(MatcherSkillItemSchema),
+  preferred: z.array(MatcherSkillItemSchema),
+  bonus: z.array(MatcherSkillItemSchema),
+  red_flags: z.array(MatcherRedFlagSchema),
+});
+
 // --- /api/log (additive instrumentation; never any secret) ---
 export const LogEventSchema = z.object({
   session_id: z.string().min(1),

@@ -116,10 +116,17 @@ export async function POST(request: NextRequest) {
     });
   } catch (exc) {
     if (exc instanceof TaxonomyError) {
+      // FIX-2 (spec 002 Task 1, owner OK 2026-11-16): a taxonomy failure is
+      // NEVER masked as "no skills" — the user gets the distinct B1 message
+      // (page.tsx renders ERR_MATCHER_TAXONOMY) and the real error is
+      // logged server-side for diagnosis (P19); no keys, no user text (P14).
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[matcher] taxonomy failed:", exc.message);
+      }
       return NextResponse.json({
         ok: false,
-        stage: "hard_skills",
-        error: "MATCH_ERR_ZERO_SKILLS",
+        stage: "review",
+        error: "ERR_MATCHER_TAXONOMY",
         cleaning,
       });
     }

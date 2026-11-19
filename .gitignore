@@ -26,8 +26,15 @@ build/
 .DS_Store
 Thumbs.db
 
-# Local runtime data (single-user document + event log, generated at runtime)
-data/
+# Local runtime data (single-user document + event log, generated at
+# runtime) — ignored BY FILE NAME so the bundled SOURCE data files
+# (soft-skills taxonomy, matcher prompt) stay versioned (spec-002: a
+# clean checkout must build — the blanket data/ rule previously hid the
+# taxonomy from git and broke the Vercel build + fresh-checkout pytest).
+**/data/events.log.jsonl
+**/data/llm-requests.log.jsonl
+**/data/resume.json
+**/data/resume.json.bak
 
 # IDE
 .vscode/

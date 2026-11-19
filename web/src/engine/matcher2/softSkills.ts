@@ -10,8 +10,6 @@
  *   company/industry/title lines
  */
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import {
   MUST_HEADINGS,
   SHOULD_HEADINGS,
@@ -21,6 +19,12 @@ import {
   explicitPriority,
 } from "./hardSkills";
 import { MATCHER_RULES_VERSION } from "./rulesVersion";
+// FIX-1 (spec 002 Task 1, owner OK 2026-11-16): the taxonomy is BUNDLED at
+// build time — no runtime path can go missing (the old
+// process.cwd()/data readFileSync was ENOENT on the Vercel lambda and the
+// route masked it as "no skills"). If the file moves, the BUILD fails.
+// The terminal keeps reading its own docs/ path — frozen, untouched.
+import taxonomyJson from "../../../data/soft-skills-taxonomy.json";
 
 export const TAXONOMY_RECORD_COUNT = 56;
 
@@ -55,17 +59,13 @@ export interface TaxonomyRecord {
 
 let cachedTaxonomy: TaxonomyRecord[] | null = null;
 
-/** Load and validate the 56-skill taxonomy; raise TaxonomyError on any
- * shape problem so the caller can report an extraction failure. */
+/** Validate the bundled 56-skill taxonomy; raise TaxonomyError on any
+ * shape problem so the caller can report a distinct taxonomy failure
+ * (FIX-2 — never masked as "no skills"). No file IO: the JSON is imported
+ * at build time (FIX-1). */
 export function loadTaxonomy(): TaxonomyRecord[] {
   if (cachedTaxonomy) return cachedTaxonomy;
-  const filePath = path.join(process.cwd(), "data", "soft-skills-taxonomy.json");
-  let data: unknown;
-  try {
-    data = JSON.parse(readFileSync(filePath, "utf-8"));
-  } catch (exc) {
-    throw new TaxonomyError(`cannot read taxonomy file: ${String(exc)}`);
-  }
+  const data: unknown = taxonomyJson;
   if (typeof data !== "object" || data === null || !Array.isArray((data as { skills?: unknown }).skills)) {
     throw new TaxonomyError("taxonomy file must be an object with a 'skills' list");
   }

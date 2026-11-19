@@ -17,6 +17,13 @@ const TASK_CATEGORIES: Record<string, Category> = {
   // GEN (explicit reason): the model generates user-displayed text, streamed
   // progressively (FR-32) — heavy generation, not a quick classification.
   gen_display: "GEN",
+  // GEN (explicit reason, spec 002 v2 contract §1): heavy structured
+  // generation of the full matcher analysis document (summary + skill
+  // buckets + red flags) from a 100–1,500-word posting via multi-step
+  // reasoning; the GEN chain's quality gates the whole step. One call per
+  // analysis — the provider-call cap is respected. Constitution اصل ۲۲:
+  // this registry entry is the ONLY model plumbing the matcher v2 adds.
+  matcher_analysis: "GEN",
 };
 
 /** Unknown task names are rejected by the gateway as INVALID_TASK. */

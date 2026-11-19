@@ -1,0 +1,41 @@
+{
+  "id": "EX-J001",
+  "status": "draft",
+  "split": "fewshot",
+  "method_version": 1,
+  "tag": "bulleted-sections | no-obligation-words | preferred-heading | familiarity-in-requirements",
+  "format_features": {
+    "language": "en",
+    "words": 284,
+    "headings": ["About the Role", "Key Responsibilities", "Requirements", "Preferred Qualifications", "Job Details"],
+    "style": "bulleted",
+    "explicit_obligation_words": false
+  },
+  "sentences": [
+    { "id": "S1", "section": "about", "signal": "none", "content": "none", "text": "Meta, a company within the Manian Financial Group, is looking to hire a skilled Product Manager to support the development of its products in the financial technology and credit services sectors." },
+    { "id": "S2", "section": "duties", "signal": "none", "content": "both", "text": "Identify customer and market needs and translate them into product development opportunities." },
+    { "id": "S3", "section": "duties", "signal": "none", "content": "hard", "text": "Develop product strategies and roadmaps aligned with business objectives." },
+    { "id": "S4", "section": "duties", "signal": "none", "content": "hard", "text": "Gather, analyze, and prioritize product requirements, and prepare the relevant documentation." },
+    { "id": "S5", "section": "duties", "signal": "none", "content": "both", "text": "Work closely with technical, design, marketing, and business teams to develop and improve products." },
+    { "id": "S6", "section": "duties", "signal": "none", "content": "hard", "text": "Manage the product lifecycle, from ideation and development to launch and continuous improvement." },
+    { "id": "S7", "section": "duties", "signal": "none", "content": "hard", "text": "Define and monitor key product performance indicators (KPIs) and analyze results to improve product performance." },
+    { "id": "S8", "section": "duties", "signal": "none", "content": "hard", "text": "Monitor market trends, analyze competitors, and identify new product development opportunities." },
+    { "id": "S9", "section": "duties", "signal": "none", "content": "both", "text": "Ensure alignment among stakeholders and follow up on activities to keep product development on track and aligned with product goals." },
+    { "id": "S10", "section": "requirements", "signal": "strong", "content": "hard", "text": "At least 2 years of relevant work experience in product management." },
+    { "id": "S11", "section": "requirements", "signal": "none", "content": "hard", "text": "Experience in developing product roadmaps and managing development priorities." },
+    { "id": "S12", "section": "requirements", "signal": "weak", "content": "hard", "text": "Familiarity with Agile/Scrum methodologies and product development processes." },
+    { "id": "S13", "section": "requirements", "signal": "none", "content": "both", "text": "Ability to analyze data and make evidence-based decisions." },
+    { "id": "S14", "section": "requirements", "signal": "none", "content": "soft", "text": "Strong communication and negotiation skills, with the ability to interact effectively with different stakeholders." },
+    { "id": "S15", "section": "requirements", "signal": "none", "content": "soft", "text": "Strong problem-solving and analytical thinking skills, with the ability to manage multiple tasks simultaneously." },
+    { "id": "S16", "section": "requirements", "signal": "none", "content": "soft", "text": "A strong sense of ownership, effective follow-up, and a results-oriented approach." },
+    { "id": "S17", "section": "preferred", "signal": "bonus_zone", "content": "hard", "text": "Experience in fintech, lendtech, financial services, or credit products." },
+    { "id": "S18", "section": "preferred", "signal": "bonus_zone", "content": "hard", "text": "Familiarity with product analytics and user behavior analysis tools." },
+    { "id": "S19", "section": "preferred", "signal": "bonus_zone", "content": "hard", "text": "Experience working closely with technical and software development teams." },
+    { "id": "S20", "section": "details", "signal": "none", "content": "none", "text": "Location: Tehran, Iran" },
+    { "id": "S21", "section": "details", "signal": "none", "content": "none", "text": "Employment Type: Full-time" }
+  ],
+  "why": "The ad never says \"must\" or \"required\". Obligation comes from the section: everything under Requirements is must-level unless a sentence is weakened. \"At least 2 years\" is the only strong wording. \"Familiarity with\" weakens S12 even though it sits in Requirements. \"Preferred Qualifications\" is a bonus zone, so S17-S19 are labeled bonus_zone. For S18 two signals apply (bonus zone + \"Familiarity\"); the zone wins. The About sentence gives context for the summary only. \"Strong\" in S14-S16 describes skill level, not obligation, so those sentences are signal none.",
+  "rule": "Stage 2 labeling: section decides the default signal; weakening words only lower a sentence, never raise it; bonus_zone has precedence over weak; \"Strong <skill>\" is not a strong signal.",
+  "do_not_copy": "Do not expect a \"Preferred Qualifications\" heading, bullets, or section titles in every ad. Do not treat the word \"strong\" as an obligation signal. Do not expect explicit \"must\" words. Do not copy these labels to other ads; read each ad on its own structure.",
+  "near_miss": null
+}

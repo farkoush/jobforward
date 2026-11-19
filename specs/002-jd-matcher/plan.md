@@ -1,91 +1,190 @@
-# Implementation Plan: JD Matcher — Job Posting Skill Analysis (Version 1)
+# Implementation Plan: JD Matcher — model-driven analysis (web only; v3 amendment)
 
-**Branch**: `002-jd-matcher` | **Date**: 2026-10-25 | **Spec**: ./spec.md
+**Branch**: `002-jd-matcher` | **Date**: 2026-11-16 (v3; plan v2 approved
+2026-11-09 and implemented T026–T045) | **Spec**: ./spec.md (v3 —
+method-aligned; owner Task 2 rulings in Clarifications Session
+2026-11-16)
 
-**Input**: Feature specification from `specs/002-jd-matcher/spec.md`
-(terminal flow; English-only postings; one-shot paste with `END` terminator;
-cleaning + word-count gates; Must/Should/Nice hard-skill tables with a
-priority cascade and verbatim evidence; a 56-skill ESCO taxonomy soft-skill
-table; per-stage [Y]/[C] gates; no free-form verdict; consistency check;
-5-run reliability; fixed regression samples).
+**Input**: the owner's 7-step analysis pipeline (provided at plan time,
+2026-11-09) — input: the full posting text + the fixed soft-skill
+taxonomy (SOFT_TAXONOMY); output: the second structure (summary +
+must/preferred/bonus + red_flags); strictly sequential steps: 1 atomize →
+2 one-pass labeling → 3 extraction (hard pass, then soft pass) → 4 merge
+→ 5 prioritization → 6 summary & red_flags → 7 output + final validation.
+
+**Owner rulings (AskUserQuestion session, 2026-11-09)**:
+
+1. **One LLM call** — the 7 steps are the model's internal method; the
+   final JSON is the only output; deterministic code validates the
+   contract (retry once → refusal): the 001 §14 single-judge pattern.
+2. **SOFT_TAXONOMY = `docs/soft-skills-taxonomy.json`** (the existing
+   56-skill ESCO file; web copy at `web/data/`), typed soft/trait by a
+   versioned mapping (research R2, drafted for owner review).
+3. **Web only** — the terminal keeps v1 untouched; no terminal work.
+4. **Model unavailable → exactly the spec-004 §15/§16 failure UX** as
+   implemented on the 001 step pages; v1 output is never a fallback.
+
+**Task 2 amendment rulings (owner zcode prompt §4, 2026-11-16)**: the ten
+method deltas in spec Clarifications Session 2026-11-16 — contract
+version bumps to `matcher-rules-2.1.0`; research R12–R19 carry the
+decisions (R2 archived, R3 superseded).
 
 ## Summary
 
-Extend the existing Python CLI with a new matcher flow that replaces the 001
-per-entry matcher output: the user pastes one complete job posting
-(terminated by a line containing only `END`), the tool cleans it (control
-characters, line endings, script/style blocks, HTML tags), reports what it
-removed, shows the word count, and gates every stage with `[Y] Continue ·
-[C] Cancel` (Cancel always returns to Paste; Cancel at Paste exits). The
-analysis is two steps on the cleaned text — step 1-a: hard skills in three
-tables (Must / Should / Nice) with a fixed priority cascade (explicit word →
-section heading → Must "(default)"), ≤ 12-word verbatim evidence, "one of"
-merges for alternative tools, real-total counts and a 5-row display limit;
-step 1-b: soft skills strictly from the 56-skill taxonomy
-(`docs/soft-skills-taxonomy.json`, fields `label_en` / `alt_labels_en` /
-`group_code` / `group_label` / `id`) with Explicit/Inferred certainty, a
-"No taxonomy match" line, and the same priority cascade. The pipeline is
-deterministic end-to-end (5-run reliability = 100%), produces no free-form
-"matches / does not match" verdict, separates input errors and extraction
-failures from any verdict, checks report consistency before display, and
-keeps the two draft example postings as permanent regression samples.
+Replace the web JD-analysis core (v1: three deterministic
+Must/Should/Nice tables + 56-skill synonym/inference matching) with a
+model-driven analysis: one `matcher_analysis` GEN call through the
+existing gateway route carries the 7-step method as its system prompt and
+returns a single JSON document — `summary` (title, seniority, work type,
+domain, role nature, problem solved), three skill buckets
+(`must`/`preferred`/`bonus` with hard/soft/trait types, verbatim witness
+sentences, source, confidence), and `red_flags` (conflicts, unrealistic
+expectations, multi-role combos, vague duties, discriminatory phrasing —
+never recorded as skills). A deterministic validator enforces the output
+contract (taxonomy membership, verbatim evidence, field rules,
+uniqueness, must-confidence gate) with one retry and then a refusal; the
+no-model path reuses the §15/§16 failure UX unchanged. Input stage
+(paste, cleaning, language/word-count/not-a-posting gates, review gate,
+cancel/back semantics) is unchanged and stays fully deterministic, before
+any model contact. Contract versioned `matcher-rules-2.0.0`.
 
 ## Technical Context
 
-- **Language/Version**: Python 3.12 (unchanged; matches the existing codebase)
-- **Primary Dependencies**: Python standard library only (`re` for cleaning
-  and matching, `json` for the taxonomy file, `dataclasses`, `pathlib`).
-  The pipeline is deterministic rule-based; no LLM and no network in the
-  default run.
-- **Storage**: no new persisted state — the flow is per-session. Matcher
-  events extend the existing append-only `data/events.log.jsonl`.
-- **Testing**: pytest; the two draft example postings are permanent fixtures
-  with written expected outputs (spec FR-022); the reliability criterion is
-  covered by a 5-run identity test (deterministic → 100% ≥ 90%).
-- **Target Platform**: Windows terminal + any UTF-8 terminal; run guidance
-  keeps `PYTHONUTF8=1`.
-- **Project Type**: CLI feature inside the existing interactive session
-  (a new top-level matcher flow reachable from the idle menu).
-- **Performance Goals**: every stage responds in under 0.5 s on a 1,500-word
-  posting (pure local computation).
-- **Constraints**: input is data only (FR-002 — nothing executed, no links
-  opened; the cleaning pipeline strips scripts before anything else sees the
-  text); English-only postings with the >10% Persian/Arabic-letter
-  rejection; fixed user-facing messages exactly as drafted (English B1);
-  display limit 5 rows per table with real-total counts; matcher rules
-  versioned as `matcher-rules-1.0.0` (any cascade/inference change bumps it)
-- **Scale/Scope**: one posting per flow run; 100–1,500 words; 56 taxonomy
-  skills; single local user
+- **Language/Version**: TypeScript strict (Next.js app router, existing
+  web app). **No Python changes.**
+- **Primary Dependencies**: the existing LLM gateway (`/api/llm/gen`,
+  `runGenGateway`, task registry, failure classes, ModelBanner) — no new
+  runtime dependency; zod for the response schema (as elsewhere in web).
+- **Storage**: no new persisted state; client event log gains
+  `matcher_v2_*` events; the gateway request log captures the call.
+- **Testing**: web vitest suites (`test:engine` — new v2 validator +
+  taxonomy-typing tests with fixtures BEFORE implementation, `test:byok`,
+  `test:llm`), `tsc --noEmit` + build, PARITY (v1 sections untouched),
+  pytest untouched (terminal untouched).
+- **Target Platform**: web dev/production on port 3100 / Vercel.
+- **Performance Goals**: one streamed GEN call per analysis; the gateway's
+  own 60 s deadline governs; review gate stays sub-second (unchanged code).
+- **Constraints**: English-only postings and B1 UI strings (P10/P16);
+  taxonomy names verbatim from the 56-skill file; model contact ONLY
+  after the input gates pass (one background connection check per session
+  from the menu screen remains the only other contact, per 004 §15);
+  contract version `matcher-rules-2.0.0`; additive-only outside the
+  explicit supersession list below.
+- **Model usage (owner rule 2026-11-09)**: model-combo and BYOK are
+  governed project-wide by spec-004 — this feature only registers
+  `matcher_analysis` in the task registry and consumes the fixed gateway
+  algorithm (routes, chains, contract validation, §15/§16 UX); no local
+  chain/combo decision anywhere (research R11).
+- **Scale/Scope**: one posting per analysis, 100–1,500 words, 56 taxonomy
+  skills, single local user; web only.
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
-Constitution version in force: **3.0.0** (amended 2026-10-26 — P6 now
-describes the posting-only, skill-tables-only matcher; P10 requires
-English-only postings; both changes were ratified from this feature's
-Clarifications).
+Constitution version in force: **v4.3.0** (P1–P22; P22 = اصل ۲۲, one
+fixed model algorithm — ratified 2026-11-09 from this feature's session;
+this plan already implements it: the task-registry registration (T031)
+is the ONLY model plumbing, existing gateway routes, contract validation
+(T035), §15/§16 failure UX (T042)).
 
 | # | Principle | Design-time gate | Status | Verification |
 |---|---|---|---|---|
-| 1 | User data integrity — no fabricated claims | Every row carries verbatim evidence from the cleaned text; rows without evidence are dropped and counted; the inference table is curated and reason-backed | PASS | design: `matcher2/hard_skills.py` + `matcher2/soft_skills.py` + tests |
-| 2 | User as decision-maker | Every stage advances only on explicit `[Y]`; Cancel always returns to Paste and discards the stage result | PASS | design: stage gate in `cli.py` |
-| 3 | Score independent of job posting | The matcher writes no scores; the analysis report carries no numeric clarity data | PASS | design: report entities contain no score fields |
-| 4 | Transparent, repeatable, traceable scoring | N/A for scores; the analog holds: deterministic pipeline (`matcher-rules-1.0.0`), 5-run identity ≥ 90% (deterministic → 100%), consistency check before display | PASS | design: `matcher2/report.py` |
-| 5 | Incremental analysis | N/A (no resume bullets analyzed by this feature) | PASS | — |
-| 6 | Own data / matcher boundary | The matcher analyzes only the pasted posting; it does not touch resumes (supersedes the 001 per-entry actions per spec Clarifications) | PASS | constitution v3.0.0 P6; spec Clarifications 2026-10-25 |
-| 7 | Measurability | Matcher events (posting received/cleaned/analyzed, stage confirmations, rejections, errors) logged with timestamps | PASS | design: `storage/events.py` extension |
-| 8 | Prototype simplicity | Text-only terminal flow, stdlib-only, no network; justified additions tracked below (deterministic inference table) | PASS (with note) | Complexity Tracking |
-| 9 | Test-driven | Regression fixtures (both example postings + expected outputs) exist BEFORE implementation; reliability and consistency tests precede the report code | PASS | design: test plan in quickstart.md |
-| 10 | Language | All strings English B1 in `messages.py`; postings MUST be English (>10% Persian/Arabic letters rejected) | PASS | constitution v3.0.0 P10 |
+| 1 | User data integrity — no fabricated claims | Evidence verbatim (validator V1); names constrained to taxonomy (V5); summary/red flags from posting only; nothing auto-added | PASS | design: `engine/matcher2/v2/validate.ts` + tests |
+| 2 | User as decision-maker | Review gate + Cancel/Back semantics unchanged; analysis runs only on explicit confirm | PASS | design: page.tsx JD step |
+| 3 | Score independent of posting | No scores in v2; scoring step untouched | PASS | — |
+| 4 | Transparent, repeatable, traceable | `matcher-rules-2.0.0` stamped on results; validator accepts/rejects whole; retry/refusal/events logged (R9/R10). Determinism is replaced by contract-validation — the §14 precedent. **Recorded exception: web-only, no py+ts lockstep for v2 (owner ruling 3); terminal keeps v1; parity untouched** | PASS (with recorded exception) | plan gate; tasks add no parity sections for v2 |
+| 5 | Incremental analysis | N/A (no resume bullets in this flow) | PASS | — |
+| 6 | Own data / matcher boundary | Analyzes the pasted posting only; reads no resume data | PASS | design: data-model entities |
+| 7 | Measurability | `matcher_v2_*` events (requested/result/retry/refused/cancelled) | PASS | contract §7 |
+| 8 | Prototype simplicity | Reuses gateway + §15 components; one new engine module; no new route/env. Note: v1 web code kept dormant (R7) — deletion deferred to owner | PASS (with note) | Complexity Tracking |
+| 9 | Test-driven | Validator fixtures (valid/invalid v2 JSON) and taxonomy-typing tests written BEFORE implementation | PASS | tasks ordering |
+| 10 | Language | System prompt English; ALL UI strings English B1; postings English-only (unchanged gates) | PASS | contract §2/§6 |
+| 11 | Spec-kit process | This plan; spec.md v2 edit = first implementation task | PASS | Task notes |
+| 12 | Centralized LLM gateway (غیرقابل‌مذاکره) | Task `matcher_analysis` registered in the task registry; called via existing `/api/llm/gen`; no provider/model names outside the gateway | PASS | contract §1 |
+| 13 | Model config env-only | No new env; BYOK via existing headers | PASS | — |
+| 14 | Keys never in client/logs | Existing BYOK header flow + redaction reused; no new logging of key material | PASS | — |
+| 15 | Error-path coverage | Mock scenarios cover malformed JSON → retry → refusal; unavailable chain; empty buckets | PASS | quickstart scenarios 3–5 |
+| 16 | English, simple error messages | Fixed B1 failure texts from the shared failure-class UI; refusal never rendered as a result | PASS | contract §5 |
+| 17 | TypeScript strict | New module strict-mode, `tsc --noEmit` gate | PASS | quickstart static gates |
+| 18 | User data never depends on LLM success | The analysis is not user data; entries/scores/drafts intact on any failure; failures never mutate data | PASS | design: failure paths display-only |
+| 19 | Operational diagnosability | Events + request log + dev-only `[llm]` console lines with failed checks | PASS | contract §7 |
+| 20 | Model servability | Task rides the GEN chain; chains/validation infra unchanged | PASS | — |
+| 21 | Env completeness | No new env variables | PASS | — |
 
-**Amendment note**: the two touch-points that this feature's decisions
-superseded (P6's matcher-output description and P10's posting-language
-exception) were ratified into constitution **v3.0.0** on 2026-10-26; the
-gate table above reflects the amended text. Remaining amendment surface:
-`docs/prd.md` §8 and 001 FR-021 (product-owner owned, report-only).
+**Post-Phase-1 re-check**: PASS — one recorded exception (P4 web-only
+scope, owner ruling 3) and one simplicity note (R7 dormant v1); no
+unjustified violations.
 
-**Post-Phase-1 re-check**: PASS — no unjustified gate violations; one
-complexity item below.
+## Supersessions and removals (explicit — owner approves at plan review)
+
+All owner-approved in the 2026-11-09 session; listed here so plan approval
+confirms them together (no other removals):
+
+- **S1** — Web analysis output replaced: three deterministic tables
+  (Must/Should/Nice hard tables + soft table) → one model-driven document
+  (summary + must/preferred/bonus + red_flags). (Ruling 1)
+- **S2** — Web stage gates for the two table stages removed: after the
+  review gate there is ONE analyzing step and the result screen.
+  Cancel/back semantics preserved. (follows from S1)
+- **S3** — Web 5-row display limit, "showing 5 of N", and the v1 counts
+  line superseded: all rows shown; per-bucket counts in headers. (R8)
+- **S4** — Evidence form: ≤ 12-word quote → witness sentences, verbatim
+  (whitespace-normalized) from the cleaned posting. (pipeline step 7)
+- **S5** — v1 soft matching (explicit synonym/alt-label matching + curated
+  inference table) and the "No taxonomy match" line superseded: semantic
+  mapping onto SOFT_TAXONOMY with soft/trait typing; an unmatched concept
+  simply produces no row (or a red flag when the pipeline says so). (R2)
+- **S6** — v1 priority word-list cascade superseded by the pipeline's
+  signal/weakening/conflict/repetition/cap rules, prompt-encoded
+  (contract §2.1). (part of S1)
+- **S7** — Web route `POST /api/matcher` and v1 engine functions
+  (`extractHardSkills`, `matchSoftSkills`, `buildReport`) become DORMANT
+  on the active path — kept, not deleted; deletion is a separate future
+  owner decision. (R7)
+- **S8** — spec.md v1 requirements superseded ON WEB (terminal keeps all):
+  FR-009–FR-013 (hard tables), FR-014–FR-017 (soft table form + taxonomy
+  line), FR-020 (consistency message; v2 counts are structurally
+  consistent), FR-021 (5-run determinism → contract-validation + event
+  trail, §14 pattern), FR-022 (byte-golden web regression → validator
+  fixtures + owner walkthrough; byte-goldens stay for the terminal);
+  FR-008 PARTIALLY superseded on web: the Review gate, invalid-key
+  re-prompt, and all Cancel/exit semantics stay exactly as written, but
+  the Hard-skills and Soft-skills stage gates are removed (S2 — one
+  analyzing step). FR-001–FR-007, FR-018, FR-019, FR-023, FR-024
+  unchanged. The spec.md v2 edit is the first implementation task.
+
+**v3 amendment supersessions (2026-11-16 — owner-ruled in §4; listed for
+plan-review confirmation):**
+
+- **S9** — The R2 soft/trait mapping and the `trait` type are RETIRED
+  everywhere (prompt, schema, validator, UI chip). This supersedes the
+  R2 mapping the owner approved at the v2 plan review.
+- **S10** — Validator V5's taxonomy-membership rejection is REPLACED by
+  the in_taxonomy rule (explicit out-of-taxonomy kept; implied dropped).
+  This supersedes the v2 FR-014-form note and the v2.0.0 V5. **Amended
+  2026-11-16 (plan-approval condition ب): V5 gains the ambiguous-name
+  precedence — exact label_en match wins; a single alt match adopts that
+  record; a multi-record alt match FAILS the check naming the candidates
+  (owner-verified set: show commitment, demonstrate loyalty, demonstrate
+  commitment, demonstrate enthusiasm, guide others — the first two
+  resolve by exact label_en).**
+- **S11** — The alt-labels-excluded decision (research R3) is
+  SUPERSEDED: alt_labels_en return to the prompt table (recognition),
+  canonical names stay the recorded output.
+- **S12** — The v2.0.0 step-5 weakening wording ("at most preferred")
+  and the unconditional repetition upgrade are corrected per §4 (weaken
+  = only lower; repetition needs every witness ≥ preferred and blocks on
+  a bonus witness; about never counts).
+- **S13** — EXTENSION (owner ruling 2026-11-16, resolving the R14 open
+  judgment point): "Stakeholder management" is EXPLICIT (S14 primary
+  witness in Requirements, S9 complementary). Explicit out-of-taxonomy
+  soft names are recorded with a NEW `ad_wording` field under the V9
+  SEMANTIC NORMALIZATION BOUND (subject noun in the witness + the closed
+  generalization list {management, communication, collaboration,
+  coordination}; forbidden: adding absent concepts, merging two skills,
+  changing nature; the original sentence always stays in evidence).
+  SC-008 stays the final walkthrough judge; such items go to the
+  taxonomy-candidates store (Task 4) for later taxonomy addition.
 
 ## Project Structure
 
@@ -93,63 +192,95 @@ complexity item below.
 
 ```text
 specs/002-jd-matcher/
-├── plan.md              # This file
-├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output
-├── quickstart.md        # Phase 1 output
-├── contracts/           # Phase 1 output
-├── checklists/          # Spec quality checklist (from $speckit-specify)
-└── tasks.md             # Phase 2 output ($speckit-tasks — NOT created here)
+├── plan.md                        # This file (v2)
+├── research.md                    # Phase 0 (v2 — R1–R10)
+├── data-model.md                  # Phase 1 (v2 entities + invariants)
+├── contracts/
+│   ├── matcher-pipeline.md        # v1 contract — KEPT (terminal active)
+│   └── matcher-pipeline-v2.md     # NEW v2 contract (prompt/schema/validation)
+├── quickstart.md                  # v2 run/validate guide
+└── tasks.md                       # v1 tasks [X]; v2 tasks appended by /speckit-tasks
 ```
 
-### Source Code (repository root)
+### Source Code (web only)
 
 ```text
-src/jobforward/
-├── cli.py                     # NEW matcher flow states (see below); idle menu unchanged
-├── messages.py                # ALL new user-facing strings (fixed English B1 messages from the spec)
-├── matcher2/                  # NEW package: the version-1 matcher pipeline
-│   ├── posting.py             # cleaning (control chars, line endings, script/style
-│   │                          #   blocks, HTML tags), cleaning report, word count,
-│   │                          #   >10% Persian/Arabic-letter language check
-│   ├── hard_skills.py         # 1-a: section detection, item extraction, priority
-│   │                          #   cascade, "one of" merge, duplicate merge,
-│   │                          #   ≤12-word verbatim evidence, drop+count
-│   ├── soft_skills.py         # 1-b: taxonomy loading (label_en/alt_labels_en/
-│   │                          #   group_code/group_label/id), explicit matching,
-│   │                          #   curated inference table (Inferred + reason),
-│   │                          #   removal test, merge, no-taxonomy-match line
-│   ├── report.py              # tables (Must/Should/Nice), 5-row display limit,
-│   │                          #   real-total counts, dropped-items message,
-│   │                          #   consistency check (counts == rows)
-│   └── rules_version.py       # matcher-rules-1.0.0 constant
-├── matcher/                   # EXISTING 001 package — superseded, left in place
-│   └── ...                    #   (no longer invoked by the CLI match flow)
-└── storage/
-    └── events.py              # NEW event types: posting_received, posting_cleaned,
-                               #   posting_rejected_language, posting_rejected_length,
-                               #   posting_not_a_job, posting_analyzed,
-                               #   extraction_failed, consistency_failed,
-                               #   stage_confirmed, stage_cancelled
-tests/
-├── unit/                      # test_posting_cleaning.py, test_language_check.py,
-│                              #   test_hard_skills.py, test_soft_skills.py,
-│                              #   test_report_consistency.py
-├── contract/                  # test_matcher2_messages.py (fixed messages),
-│                              #   test_taxonomy_contract.py (field names verbatim)
-├── fixtures/                  # regression postings + expected outputs (FR-022)
-└── integration/               # test_matcher_flow.py (full [Y]/[C] walk),
-                               #   test_matcher_reliability.py (5 runs identical)
+web/src/
+├── lib/
+│   ├── byok/prompts.ts            # + BYOK_MATCHER_SYSTEM_PROMPT,
+│   │                              #   buildMatcherUserPrompt,
+│   │                              #   buildMatcherTaxonomyTable
+│   ├── llm/tasks.ts               # + matcher_analysis: "GEN" (documented)
+│   └── schemas.ts                 # + MatcherAnalysisV2Response zod schema
+├── engine/matcher2/v2/            # web-only v2 module (v3: + few-shot, − trait)
+│   ├── types.ts                   # MatcherAnalysisV2, SkillItem (hard|soft,
+│   │                              #   in_taxonomy), SummaryV2, RedFlag, MatchFailure
+│   ├── taxonomy.ts                # imports web/data/soft-skills-taxonomy.json
+│   │                              #   (public data, 56 records) — alt_labels exposed
+│   │                              #   for the prompt table; R2 typing REMOVED (S9)
+│   ├── validate.ts                # V1–V8 validator → ok | failed-check | zero_skills
+│   ├── fewshotIndex.ts            # direct imports of specs/002-jd-matcher/
+│   │                              #   few-shot/EX-Jxxx.json (R17 — JSON source
+│   │                              #   of truth, bundler-embedded, no sync)
+│   └── rulesVersion.ts            # MATCHER_RULES_V2 = "matcher-rules-2.1.0"
+└── app/page.tsx                   # JD step: review gate unchanged →
+                                  #   analyzing (POST /api/llm/gen,
+                                  #   NDJSON accumulate → parse → validate →
+                                  #   retry-once → §15 UX on refusal) →
+                                  #   result screen (summary + buckets +
+                                  #   red flags, Back)
+web/tests/
+├── engine/matcher2-v2/            # NEW: validator fixtures (valid/invalid
+│                                  #   JSON per invariant), taxonomy typing
+│                                  #   (56 typed exactly once), rules version
+└── ...                            # existing suites untouched
 ```
 
-**Structure Decision**: a NEW `matcher2/` package rather than reworking
-`matcher/` — the 001 per-entry matcher is superseded but kept for storage
-compatibility (persisted `match_action` fields remain loadable), and the new
-pipeline is a different product behavior with its own rules version. The
-CLI's match-menu entry switches to the new flow.
+**Structure Decision**: a `v2/` submodule inside the existing
+`engine/matcher2/` — keeps the v1 engine (dormant on web, active in the
+terminal, parity-locked) visually and physically separate from the v2
+contract; the shared prompts stay in `lib/byok/prompts.ts` (single prompt
+surface, gateway + BYOK byte-identical); no new API route (P12) — the
+analysis rides `/api/llm/gen` with the task registry doing the
+category mapping.
+
+**Implementation record (post-implement, analyze D1 — owner-approved
+2026-11-15)**: four artifacts beyond the tree above, all tested:
+`web/src/lib/matcher-analysis.ts` (the injectable-fetch client pipeline —
+NDJSON accumulate, retry-once, cancel token; extracted so the pipeline is
+testable without a React harness), `web/src/engine/matcher2/v2/inputGates.ts`
+(the deterministic client-side input gates in the v1 error order),
+`web/src/engine/matcher2/v2/messages.ts` (v2 UI strings deliberately OUTSIDE
+the py+ts parity-locked `engine/messages.ts`), and the widened
+`web/package.json` `test:engine` glob (`tests/engine/**/*.test.ts`) that
+picks the new suite directory up. **v3 addition (owner ruling R20,
+2026-11-16)**: the matcher prompt text lives ONLY in
+`web/data/matcher-prompt.json` (`{version, lines}` — imported directly by
+prompts.ts); contract §2.1 points at it and pins the version; the
+three-way version equality is test-enforced.
 
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |---|---|---|
-| Curated inference table in `matcher2/soft_skills.py` (phrase → taxonomy skill + reason) | The spec requires Inferred soft skills with a one-sentence reason (e.g. "stakeholder management" → build networks) that deterministic code can produce and test | A free-form LLM inference would break the determinism/reliability gate (FR-021) and the no-fabrication rule (P1); leaving inference out would drop spec-required rows. The table is versioned with `matcher-rules-1.0.0` so any change is a rules change |
+| v1 web matcher code kept dormant (route + 3 engine modules + tests) | No-feature-removal rule: deletion is the owner's separate decision; keeping it keeps v1 parity sections meaningful | Deleting now would remove still-tested, owner-visible behavior without an explicit request; the cost is dead-code weight, recorded here |
+| Model-judged prioritization (not re-derived in code) | The pipeline's judgment steps (tone inference, weakening words, main-duty tie) are not deterministic; §14 precedent = model judges, code validates structure | Full deterministic re-derivation = re-implementing the pipeline, contradicting ruling 1 |
+| Taxonomy bundled into the client (import of `web/data/soft-skills-taxonomy.json`) | The prompt is built client-side (single prompt surface rule) and needs the typed table | Server-side injection into the gateway route would fork the prompt surface (BYOK parity breaks); the file is public data with no keys |
+| Few-shot examples as JSON files imported directly (no sync/loader) | Bundlers cannot glob a folder, so each new example needs one import line in `fewshotIndex.ts`; JSON has no comments so why/rule/do_not_copy are long single strings — owner-accepted costs (R17) | yaml + sync script + generated mirror — a conversion step and drift risk the owner explicitly removed; js-yaml dependency — rejected (P8); runtime fs read — rejected (Task 1 ENOENT lesson) |
+
+## Task notes (for /speckit-tasks)
+
+- v2 tasks T001–T046 are DONE (T026–T045 [X]; T046 owner walkthrough
+  still open — unaffected by this amendment). The v3 tasks continue the
+  numbering (T047+) and are generated by `/speckit-tasks`.
+- v3 implementation order: convert EX-J001 to json + fewshotIndex.ts →
+  taxonomy.ts (alt labels, remove R2 typing) → prompt §2.1 v3 rewrite →
+  schema/validator (in_taxonomy, V3/V5) → page.tsx UI (chip/tag) →
+  fixtures/tests (SC-008 reconstruction from EX-J001, zero-finals) →
+  all gates → owner walkthrough.
+- The contract §2.1 v3 text is the owner-review artifact: reproducing it
+  is character-for-character; changing it after approval is a
+  rules-version change.
+- Walkthrough (owner, live or mock) includes running `matcher_analysis`
+  over the active GEN chain; any model-combo or BYOK adjustment that
+  falls out is a SPEC-004 change, never a 002-local mechanism (R11).

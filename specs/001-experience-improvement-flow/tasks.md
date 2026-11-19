@@ -1885,3 +1885,23 @@ spec §14's delegated-decision notes).
   `npm run dev` from `web/` (port 3100); scenario 3 (model criteria)
   needs a reachable chain (NVIDIA geo-block — VPN if needed); scenario 4
   (no-model behavior) is VPN-independent.
+
+## Phase 20 Addendum — §13.1 parser conformance fix (2026-11-20)
+
+- [X] T164 §13.1 parser conformance fix (web-only; owner-delegated local
+  test finding, spec-002 T063 loop): `web/src/engine/flow/
+  parsePastedExperience` owned its §13.1 segmentation instead of
+  delegating to the Phase-13 `splitBullets` wrap-merge, which swallowed
+  the Title/Company/Dates header lines into one blob auto-placed into
+  Title — defeating the drag-to-Company/Dates design for whole-experience
+  pastes. New rule: marked line = new segment; unmarked directly after a
+  marked line = wrapped-bullet continuation; unmarked otherwise = its own
+  segment (every header line stays a drag-able segment; nothing dropped —
+  P1/D36 unchanged). `splitBullets` itself is UNTOUCHED (Phase-13 pinned;
+  its helpers exported additively). Verified live in the browser: Title
+  auto-places "Product Manager" only; Company and the date range drag
+  into Company/structured start+end (matchDatePattern). Tests:
+  web/tests/engine/entry_parse.test.ts rewritten + wrapped-bullet case.
+  The stale-message leak on flow switch (chooseType) fixed too. The spec
+  TEXT needed no change — the code now conforms to the already-approved
+  §13.1 Clarification.

@@ -20,20 +20,39 @@ import { AddEntryRequestSchema } from "../../src/lib/schemas";
 
 // --- parsePastedExperience: segmentation + first-line auto-Title ONLY ---
 
-test("segments are exactly the splitBullets output — nothing dropped", () => {
+test("§13.1 — every header line stays its OWN drag-able segment (T063 fix)", () => {
   const out = parsePastedExperience(
     "Product Manager\nAcme\n2022-04 to 2024-08\n- Led the redesign\n- Cut onboarding time"
   );
-  // splitBullets wrap-merges the marker-less header lines into one segment;
-  // the parser changes NOTHING about that output (D36).
+  // The Phase-13 wrap-merge must NOT swallow the header lines: only the
+  // FIRST non-marker line auto-places into Title; the rest start in
+  // Achievements where the user drags Company/Dates out of them.
   assert.deepEqual(
     out.segments.map((s) => s.text),
     [
-      "Product Manager Acme 2022-04 to 2024-08",
+      "Product Manager",
+      "Acme",
+      "2022-04 to 2024-08",
       "Led the redesign",
       "Cut onboarding time",
     ]
   );
+  assert.equal(out.autoTitleIndex, 0);
+});
+
+test("a wrapped bullet continues the previous MARKED line", () => {
+  const out = parsePastedExperience(
+    "- Led the redesign of the onboarding\nflow for new users\n- Cut onboarding time"
+  );
+  assert.deepEqual(
+    out.segments.map((s) => s.text),
+    ["Led the redesign of the onboarding flow for new users", "Cut onboarding time"]
+  );
+});
+
+test("an unmarked line after another unmarked line is NOT a continuation", () => {
+  const out = parsePastedExperience("Product Manager\nAcme");
+  assert.deepEqual(out.segments.map((s) => s.text), ["Product Manager", "Acme"]);
 });
 
 test("the first non-marker line auto-places into Title; a marker-first paste does not", () => {
